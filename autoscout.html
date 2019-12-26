@@ -1,98 +1,16 @@
 <!DOCTYPE html>
 <html lang="nl-be">
 <head>
-    <title>auto scout</title>
+    <title>Auto Scout</title>
     <meta charset='utf-8'>
 
-    <style type="text/css">
-        /*
-        tr.teamnaam > th+th {
-            text-align:center;
-            white-space:nowrap;
-            g-origin:50% 50%;
-            width: 2em;
-            height: 7em;
-        }
-        tr.teamnaam > th+th > p {
-            margin:0 -100% ;
-            display:inline-block;
-            transform: rotate(90deg);
-        }
-         */
-        /*
-        tr.teamnaam > th+th {
-            height: 140px;
-            white-space: nowrap;
-        }
+    <link rel="stylesheet" href="autoscout.css">
 
-        tr.teamnaam > th+th > div {
-            transform: rotate(270deg);
-            width: 10px;
-        }
-        tr.teamnaam > th+th > div > span {
-            border-bottom: 1px solid #ccc;
-        }
-        */
-
-        /*
-        tr.teamnaam > th > p:before{
-            content:'';
-            width:0;
-            padding-top:110%;
-            display:inline-block;
-            vertical-align:middle;
-        }
-        */
-
-        .teamnaam {
-            /*height: 150px;*/
-        }
-
-        .teamnaam > th + th div {
-            /*writing-mode: sideways-rl;*/
-            /*display:inline-block;*/
-            transform: rotate(180deg);
-            float: right;
-        }
-
-        .teamnaam > th + th div p {
-            margin: 0;
-            text-align: left;
-
-            writing-mode: sideways-rl;
-        }
-
-        .teamnaam > th > div > span {
-            padding: 5px 10px;
-        }
-
-        td.data {
-            text-align: right;
-            font-family: monospace;
-            padding-left: 1ch;
-        }
-
-        table {
-            border-collapse: collapse;
-        }
-
-        table .borderleft {
-            border-left: 1px black solid
-        }
-
-        table .borderbottom {
-            border-bottom: 1px solid black;
-        }
-
-        table .borderright {
-            border-right: 1px solid black;
-        }
-
-    </style>
     <script src="itertools.js"></script>
     <script src="gebeurtenis_data.js"></script>
     <script src="fetching.js"></script>
     <script src="vis.js"></script>
+    <script src="common.js"></script>
     <script type="text/javascript">
         const get_next_game_from_games = games => (
             games
@@ -175,7 +93,6 @@
 <!--
 TODO:
 - Vrijworpen %
-- .js bestand
 - +/- duo's, ...
 - team id from GET parameters
 - clickable teams
