@@ -92,9 +92,10 @@ function make_data_table(data, attribute_to_display) {
         // row: names of opponents
         '<tr class="teamnaam">',
         th(attribute_str),
-        ...games.map(game => get_opponent_from_game(game, team_id_plus).naam)
-            .map(shorten_teamname)
-            .map(teamname => `<th><div><p>${teamname}</p></div></th>`),
+        ...games.map(game => get_opponent_from_game(game, team_id_plus))
+            .map(team =>
+                `<th><div><p><a href="autoscout.html?team=${team.id_plus}">${shorten_teamname(team.naam)}</a></p></div></th>`
+            ),
         '<td></td>'.repeat(3),
         '</tr>',
 

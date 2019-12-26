@@ -18,19 +18,12 @@
                 .sort((a, b) => a['jsDTCode'] - b['jsDTCode'])
         )[0];
 
-        async function get_all_data_of_opponent(team_id_plus) {
-            const own_games = await load_games(team_id_plus);
-            const next_game = get_next_game_from_games(own_games);
-            const opponent = await get_opponent_from_game(next_game, team_id_plus);
-            return get_all_data_of_team(opponent.id_plus)
-        }
-
         async function get_all_data_of_team(team_id_plus) {
             let previous_games =
                 (await load_games(team_id_plus))
                     .filter(game => (game['uitslag'] !== ""))
                     .sort((a, b) => a['jsDTCode'] - b['jsDTCode']);
-            previous_games = previous_games;//.slice(previous_games.length - 2); // TODO: remove
+            // previous_games = previous_games.slice(previous_games.length - 2); // TODO: remove
 
             let player_list = get_player_list_for_games(previous_games, team_id_plus);
             let gebeurtenis_data = get_gebeurtenis_data_for_games(previous_games);
@@ -58,7 +51,6 @@
             const ts = ['points', /*'plus_minus',*/ 'fouls', 'minutes', 'free_throws', 'three_pt'];
 
             var tables = ts.map(t => make_data_table(data, t));
-            // const buttons = ts.map(t => `<input type="radio" name="t" value="${t}">${t}`);
             const div = document.createElement('div');
             div.style.display = "inline";
             div.style.lineHeight = "0.8";
@@ -73,10 +65,22 @@
             return div
         }
 
-        // Orly A: BVBL1049HSE++1
+
+        async function team_id_from_get_params() {
+            const params = new URLSearchParams(window.location.search.substr(1));
+            if (team_id = params.get('team')) {
+                return team_id
+            } else if (team_id = params.get('opponent')) {
+                const own_games = await load_games(team_id);
+                const next_game = await get_next_game_from_games(own_games);
+                return get_opponent_from_game(next_game, team_id);
+            }
+            return "BVBL1049HSE++1" // Orly A
+        }
+
         addEventListener('load', async () => {
-            // data = await get_all_data_of_team('BVBL1049HSE++1');
-            data = await get_all_data_of_opponent("BVBL1049HSE++1");
+            const team_id = await team_id_from_get_params();
+            data = await get_all_data_of_team(team_id);
 
             const div = document.querySelector('#to_fill');
             div.innerHTML = '';
@@ -85,7 +89,7 @@
     </script>
 </head>
 <body>
-<div id="to_fill">Laden...</div>
+    <div id="to_fill">Laden...</div>
 </body>
 </html>
 
@@ -94,6 +98,5 @@
 TODO:
 - Vrijworpen %
 - +/- duo's, ...
-- team id from GET parameters
 - clickable teams
 -->

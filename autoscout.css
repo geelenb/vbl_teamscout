@@ -80,3 +80,8 @@ table .borderbottom {
 table .borderright {
     border-right: 1px solid black;
 }
+
+th a {
+    color:black;
+    text-decoration: none;
+}
