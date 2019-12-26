@@ -1,4 +1,3 @@
-
 function permutator(inputArr, r) {
     const n = inputArr.length;
     if (n === 0) {

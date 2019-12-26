@@ -27,17 +27,17 @@
 <script type="text/javascript">
 
 	async function load_games(team_guid){ 
-		const url = 'https://vblcb.wisseq.eu/VBLCB_WebService/data/TeamMatchesByGuid?teamGuid=' + team_guid
+		const url = 'https://vblcb.wisseq.eu/VBLCB_WebService/data/TeamMatchesByGuid?teamGuid=' + team_guid;
 		// url = 'https://vblcb.wisseq.eu/VBLCB_WebService/data/TeamgamesByGuid?teamGuid=' + team_guid
 		var f = await fetch(url, {
 		  method: "GET",
 		  headers: [],
-		})
+		});
 		return f.json()
 	}
 
 	async function get_next_game_from_games(games) { 
-		games = await games
+		games = await games;
 		return (
 			games
 			.filter((v) => v.uitslag === "")
@@ -50,7 +50,7 @@
 	}
 
 	function get_opponent_from_game(game, own_team_id) {
-		game_is_at_home = is_home_game_for_team(game, own_team_id)
+		game_is_at_home = is_home_game_for_team(game, own_team_id);
 
 		if (game_is_at_home) {
 			return {
@@ -78,7 +78,7 @@
 				"body":"{\"AuthHeader\":\"na\",\"WQVer\":\"ddc1.0\",\"WedGUID\":\"" + game_uid + "\",\"CRUD\":\"R\"}",
 				"method":"PUT",
 			}
-		)
+		);
 		return await f.json()
 	}
 
@@ -107,7 +107,7 @@
 				"mode":"cors"
 			}
 		);
-		f = await f.json()
+		f = await f.json();
 		debugger
 		return f
 	}
@@ -116,13 +116,13 @@
 		games_were_at_home = (
 			previous_games_of_opponent
 			.map((game) => is_home_game_for_team(game, team_id))
-		)
+		);
 		
 		stats = await Promise.all(
 			previous_games_of_opponent
 			.map((game) => game.guid)
 			.map(get_game_stats)
-		)
+		);
 		
 		return (
 			stats
@@ -134,14 +134,14 @@
 	}
 
 	function get_most_common_number_per_player(relevant_stats_for_games) {
-		const name_to_counts = {}
+		const name_to_counts = {};
 
 		relevant_stats_for_games.forEach(players_in_a_game => {
 			players_in_a_game.forEach(player => {
 				if (player.Functie !== 'S') {
 					return
 				}
-				rugnr = String(player.RugNr)
+				rugnr = String(player.RugNr);
 				if (player.Naam in name_to_counts) {
 					if (rugnr in name_to_counts[player.Naam]) {
 						name_to_counts[player.Naam][rugnr] += 1
@@ -149,20 +149,20 @@
 						name_to_counts[player.Naam][rugnr] = 1
 					}
 				} else {
-					name_to_counts[player.Naam] = {}
+					name_to_counts[player.Naam] = {};
 					name_to_counts[player.Naam][rugnr] = 1
 				}
 			})
-		})
+		});
 
-		const name_to_most_common = {}
+		const name_to_most_common = {};
 		for (var naam in name_to_counts) {
 			if (naam === null) {
 				continue
 			}
 			var max_count = 0;
 			for (var nummer in name_to_counts[naam]) {
-				var count = name_to_counts[naam][nummer]
+				var count = name_to_counts[naam][nummer];
 				if (count > max_count){
 					max_count = name_to_counts[naam][nummer];
 					name_to_most_common[naam] = nummer
@@ -175,93 +175,93 @@
 
 
 	function make_points_table(teamid, games, relevant_stats, gebeurtenis_datas, name_to_most_common_number) {
-		var verschillen = games.map(game => eval(game.uitslag.substring(0, 7)))
-		verschillen = verschillen.map((v, i) => is_home_game_for_team(games[i], teamid) ? v : -v)
-		winst = verschillen.map(v => v > 0)
-		verschillen = verschillen.map(v => (v > 0 ? '+' + v : v))
+		var verschillen = games.map(game => eval(game.uitslag.substring(0, 7)));
+		verschillen = verschillen.map((v, i) => is_home_game_for_team(games[i], teamid) ? v : -v);
+		winst = verschillen.map(v => v > 0);
+		verschillen = verschillen.map(v => (v > 0 ? '+' + v : v));
 
-		const left_cells = 2
+		const left_cells = 2;
 		function th(content) {
 			return '<th colspan="' + left_cells +'" style="text-align: left;">' + content + '</th>'
 		}
 
-		const table = [] // list of strings
-		table.push('<table>')
+		const table = []; // list of strings
+		table.push('<table>');
 
 		// row: names of opponents
-		table.push('<tr class="teamnaam">')
-		table.push(th(''))
+		table.push('<tr class="teamnaam">');
+		table.push(th(''));
 		games.forEach(game => 
-			table.push('<th><div>' + get_opponent_from_game(game, teamid).naam) + '</div></th>')
-		table.push('</tr>')
+			table.push('<th><div>' + get_opponent_from_game(game, teamid).naam) + '</div></th>');
+		table.push('</tr>');
 
 		// row: jaar
-		table.push('<tr class="jaar">')
-		table.push(th('Jaar'))
+		table.push('<tr class="jaar">');
+		table.push(th('Jaar'));
 		
 		games.forEach(game => 
-			table.push('<td>', game.datumString.substring(8), '</td>'))
-		table.push('</tr>')
+			table.push('<td>', game.datumString.substring(8), '</td>'));
+		table.push('</tr>');
 
 		// row: maand
-		table.push('<tr class="maand">')
-		table.push(th('Maand'))
+		table.push('<tr class="maand">');
+		table.push(th('Maand'));
 		
 		games.forEach(game => 
-			table.push('<td>', game.datumString.substring(3, 5), '</td>'))
-		table.push('</tr>')
+			table.push('<td>', game.datumString.substring(3, 5), '</td>'));
+		table.push('</tr>');
 
 		// row: dag
-		table.push('<tr class="dag">')
-		table.push(th('Dag'))
+		table.push('<tr class="dag">');
+		table.push(th('Dag'));
 		
 		games.forEach(game => 
-			table.push('<td>', game.datumString.substring(0, 2), '</td>'))
-		table.push('</tr>')
+			table.push('<td>', game.datumString.substring(0, 2), '</td>'));
+		table.push('</tr>');
 
 		// row: winst
 
-		const win_emoji = String.fromCodePoint(0x2705)
-		const loss_emoji = String.fromCodePoint(0x274C)
+		const win_emoji = String.fromCodePoint(0x2705);
+		const loss_emoji = String.fromCodePoint(0x274C);
 
-		table.push('<tr class="winst">')
-		table.push(th('Winst'))
+		table.push('<tr class="winst">');
+		table.push(th('Winst'));
 		winst.forEach(w => 
 			table.push(
 				'<td>', 
 				w ? win_emoji : loss_emoji,
-				'</td>'))
-		table.push('</tr>')
+				'</td>'));
+		table.push('</tr>');
 
 		// row: verschil
-		table.push('<tr class="verschil">')
-		table.push(th('Verschil'))
-		verschillen.forEach(verschil => table.push('<td>', verschil, '</td>'))
-		table.push('</tr>')
+		table.push('<tr class="verschil">');
+		table.push(th('Verschil'));
+		verschillen.forEach(verschil => table.push('<td>', verschil, '</td>'));
+		table.push('</tr>');
 
 		// row: thuis
-		const home_emoji = String.fromCodePoint(0x1F3E0)
-		const away_emoji = String.fromCodePoint(0x1F697)
-		table.push('<tr class="thuis">')
-		table.push(th('Thuis'))
+		const home_emoji = String.fromCodePoint(0x1F3E0);
+		const away_emoji = String.fromCodePoint(0x1F697);
+		table.push('<tr class="thuis">');
+		table.push(th('Thuis'));
 		games.forEach(game => 
 			table.push(
 				'<th>',
 				is_home_game_for_team(game, teamid) ? home_emoji : away_emoji, 
-				'</th>'))
-		table.push('</tr>')
+				'</th>'));
+		table.push('</tr>');
 
 
 		// rows for every player
 		const sorted_names = (
 			Object.keys(name_to_most_common_number)
 			.sort((a, b) => Number(name_to_most_common_number[a]) - Number(name_to_most_common_number[b]))
-		)
+		);
 
 		
 		// for (naam of sorted_names) {
 		sorted_names.forEach(naam => {
-			number = name_to_most_common_number[naam]
+			number = name_to_most_common_number[naam];
 
 			table.push(
 				'<tr class="player">',
@@ -271,65 +271,65 @@
 				'<td>',
 				number,
 				'</td>',
-				)
+				);
 
 			relevant_stats.forEach(match_stats => {
-				player_stats = match_stats.filter(stats => stats.Naam === naam)
+				player_stats = match_stats.filter(stats => stats.Naam === naam);
 				// debugger;
 				if (player_stats.length == 0) {
 					table.push('<td></td>')
 				} else {
-					player_stats = player_stats[0]
+					player_stats = player_stats[0];
 					debugger
 					table.push('<td>x</td>')
 				}
-			})
+			});
 
 			// debugger;
 
 			table.push('</tr>')
-		})
+		});
 
 
-		table.push('</table>')
+		table.push('</table>');
 
 		return table.join('')
 	}
 
 	async function get_all_data(teamid) {
-		own_games = await load_games(teamid)
-		next_game = await get_next_game_from_games(own_games)
-		opponent = await get_opponent_from_game(next_game, teamid)
-		games_of_opponent = await load_games(opponent.id_plus)
+		own_games = await load_games(teamid);
+		next_game = await get_next_game_from_games(own_games);
+		opponent = await get_opponent_from_game(next_game, teamid);
+		games_of_opponent = await load_games(opponent.id_plus);
 		previous_games_of_opponent = (
 			games_of_opponent
 			.filter((game) => (game.uitslag !== ""))
 			.sort((a, b) => a.jsDTCode - b.jsDTCode)
-		)
-		previous_games_of_opponent_relevant_stats = await get_relevant_stats_for_games(previous_games_of_opponent, opponent.id)
+		);
+		previous_games_of_opponent_relevant_stats = await get_relevant_stats_for_games(previous_games_of_opponent, opponent.id);
 
-		name_to_most_common_number_for_opponent = get_most_common_number_per_player(previous_games_of_opponent_relevant_stats)
+		name_to_most_common_number_for_opponent = get_most_common_number_per_player(previous_games_of_opponent_relevant_stats);
 
 		table_str = make_points_table(
 			opponent.id,
 			previous_games_of_opponent,
 			previous_games_of_opponent_relevant_stats,
 			name_to_most_common_number_for_opponent
-		)
+		);
 
 		document.querySelector('body').innerHTML = table_str
 	}
 
 
 	function make_table_from_list_of_objs(objs){
-		var table = ['<table>']
-		var keys = []
+		var table = ['<table>'];
+		var keys = [];
 		// for (obj of objs) {
 		objs.forEach(obj => {
-			table.push('<tr>')
+			table.push('<tr>');
 
 			for (key of keys) {
-				table.push('<td>')
+				table.push('<td>');
 				if (obj[key] !== undefined) {
 					table.push(obj[key])
 				}
@@ -338,24 +338,24 @@
 
 			for (key in obj) {
 				if (keys.indexOf(key) === -1) {
-					table.push('<td>', obj[key], '</td>')
+					table.push('<td>', obj[key], '</td>');
 					keys.push(key)
 				}
 			}
 			table.push('</tr>')
-		})
+		});
 
-		table.push('</table>')
+		table.push('</table>');
 
-		table[0] += '<tr>' + keys.map(key => '<th>' + key + '</th>').join('') + '</tr>'
+		table[0] += '<tr>' + keys.map(key => '<th>' + key + '</th>').join('') + '</tr>';
 
 		return table.join('')
 	}
 
 	async function make_table_for_gebeurtenis_data(game_uid) {
-		gebeurtenis_data = await get_gebeurtenis_data(game_uid)
-		table_str = make_table_from_list_of_objs(gebeurtenis_data['GebNis'])
-		document.body.innerHTML = table_str
+		gebeurtenis_data = await get_gebeurtenis_data(game_uid);
+		table_str = make_table_from_list_of_objs(gebeurtenis_data['GebNis']);
+		document.body.innerHTML = table_str;
 		debugger;
 	}
 
