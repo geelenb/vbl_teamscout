@@ -1,49 +1,4 @@
-/*
-        tr.teamnaam > th+th {
-            text-align:center;
-            white-space:nowrap;
-            g-origin:50% 50%;
-            width: 2em;
-            height: 7em;
-        }
-        tr.teamnaam > th+th > p {
-            margin:0 -100% ;
-            display:inline-block;
-            transform: rotate(90deg);
-        }
-         */
-/*
-tr.teamnaam > th+th {
-    height: 140px;
-    white-space: nowrap;
-}
-
-tr.teamnaam > th+th > div {
-    transform: rotate(270deg);
-    width: 10px;
-}
-tr.teamnaam > th+th > div > span {
-    border-bottom: 1px solid #ccc;
-}
-*/
-
-/*
-tr.teamnaam > th > p:before{
-    content:'';
-    width:0;
-    padding-top:110%;
-    display:inline-block;
-    vertical-align:middle;
-}
-*/
-
-.teamnaam {
-    /*height: 150px;*/
-}
-
 .teamnaam > th + th div {
-    /*writing-mode: sideways-rl;*/
-    /*display:inline-block;*/
     transform: rotate(180deg);
     float: right;
 }
@@ -52,7 +7,7 @@ tr.teamnaam > th > p:before{
     margin: 0;
     text-align: left;
 
-    writing-mode: sideways-rl;
+    writing-mode: tb;
 }
 
 .teamnaam > th > div > span {
