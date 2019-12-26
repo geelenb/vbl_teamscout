@@ -73,7 +73,7 @@
             } else if (team_id = params.get('opponent')) {
                 const own_games = await load_games(team_id);
                 const next_game = await get_next_game_from_games(own_games);
-                return get_opponent_from_game(next_game, team_id);
+                return get_opponent_from_game(next_game, team_id).id_plus;
             }
             return "BVBL1049HSE++1" // Orly A
         }
@@ -98,5 +98,7 @@
 TODO:
 - Vrijworpen %
 - +/- duo's, ...
-- clickable teams
+- leeftijd
+- spelers die niet spelen weglaten
+- eigen score, tegenstand
 -->

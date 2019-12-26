@@ -42,9 +42,10 @@ function get_most_common_number_per_player(player_list_for_games) {
 function shorten_teamname(teamname) {
     return [
         " As ", "Achel", "Alken",
-        "Bilzerse", "Black Sheep", "Bree",
+        "Bilzerse", "Black Sheep", "Bree", "Beringen",
         "Cosmo",
         "Hades", "Hasselt BT", "Helchteren", "Hageland",
+        "Maasmechelen",
         "Leopoldsburg", "Lommel", "Lummen",
         "Optima", "Orly",
         "Sint-Truiden", "Stevoort",
