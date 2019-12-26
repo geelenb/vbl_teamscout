@@ -55,30 +55,59 @@ function shorten_teamname(teamname) {
     ).map(kw => `${kw.trim()} ${teamname[teamname.length - 1]}`)[0] || teamname;
 }
 
+const th = content => `<th></th><th colspan="2" style="text-align: left;">${content}</th>`;
+const td = content => `<td class="data">${content}</td>`;
+
+const emoji_for_winst = w => String.fromCodePoint(w ? 0x2705 : 0x274C);
+// const home_away_emoji = is_home => String.fromCodePoint(is_home ? 0x1F3E0 : 0x1F697);
+const home_away_emoji = is_home => String.fromCodePoint(is_home ? 0x1F3E0 : '');
+
+function make_row_for_player(disp_name, number, birth_date, player_data_cells) {
+    let row = [ // list of strings we will join at the end
+        '<tr class="player">',
+        `<td class="data">${number}</td>`,
+        `<td class="spelersnaam">${disp_name}</td>`,
+        `<td class="data borderright">${birth_date}</td>`,
+    ];
+
+    let sum = 0;
+    let count = 0;
+    player_data_cells.forEach(data_cell => {
+        if (data_cell === undefined) {
+            row.push(td(''))
+        } else {
+            sum += parseInt(data_cell);
+            count += 1;
+            row.push(td(data_cell))
+        }
+    });
+
+    row.push(
+        `<td class="data borderleft">${sum}</td>`,
+        td(count),
+        td((sum / count).toFixed(1)),
+        '</tr>'
+    );
+    return row.join('')
+}
+
 function make_data_table(data, attribute_to_display) {
     const team_id_plus = data.team_id_plus;
     const games = data.games;
     const player_list = data.player_list;
-    const name_to_most_common_number = data.name_to_most_common_number;
+    const name_to_number = data.name_to_most_common_number;
+    const name_to_relguid = player_list.flat().reduce((acc, player) => {acc[player['Naam']] = player['RelGUID']; return acc}, {});
+    const name_to_dob = player_list.flat().reduce((acc, player) => {acc[player['Naam']] = player['GebDat']; return acc}, {});
     const data_per_player_per_game = data[attribute_to_display];
 
+    const is_my_team = team_id_plus.includes('BVBL1049HSE');
     const is_home_game_for_this_team = game => is_home_game_for_team(game, team_id_plus);
     const game_is_at_home = games.map(is_home_game_for_this_team);
 
     let verschillen = games.map(game => eval(game['uitslag'].substring(0, 7)));
     verschillen = verschillen.map((v, i) => game_is_at_home[i] ? v : -v);
     const winst = verschillen.map(v => (v > 0));
-    // verschillen = verschillen.map(Math.abs)
     verschillen = verschillen.map(v => v > 0 ? '+' + v : v);
-
-    const left_cells = 2;
-
-    const th = content => `<th colspan="${left_cells}" style="text-align: left;">${content}</th>`;
-    const td = content => `<td class="data">${content}</td>`;
-
-    const emoji_for_winst = w => String.fromCodePoint(w ? 0x2705 : 0x274C);
-    // const home_away_emoji = is_home => String.fromCodePoint(is_home ? 0x1F3E0 : 0x1F697);
-    const home_away_emoji = is_home => String.fromCodePoint(is_home ? 0x1F3E0 : '');
 
     const attribute_str = {
         'points': 'Punten',
@@ -87,10 +116,17 @@ function make_data_table(data, attribute_to_display) {
         'minutes': 'Minuten<br>(ongeveer)',
         'free_throws': 'Gescoorde<br>vrijworpen',
         'three_pt': 'Driepunters',
-    }[attribute_to_display];
+    }[attribute_to_display] || '';
+
+    const row_for_player_name = name => make_row_for_player(
+        is_my_team ? name.split(' ')[0] : name,
+        name_to_number[name],
+        name_to_dob[name].substring(8, 10),
+        data_per_player_per_game.map(tu => ({...tu['T'], ...tu['U']})[name_to_relguid[name]])
+    );
+
 
     const innerhtml = [// list of strings we will join at the end
-        // row: names of opponents
         '<tr class="teamnaam">',
         th(attribute_str),
         ...games.map(game => get_opponent_from_game(game, team_id_plus))
@@ -100,41 +136,37 @@ function make_data_table(data, attribute_to_display) {
         '<td></td>'.repeat(3),
         '</tr>',
 
-        // row: jaar
-        // '<tr class="jaar">',
-        // th('Jaar'),
-        // ...games.map(game => td(game.datumString.substring(8))),
-        // '</tr>',
+        /*
+        '<tr class="jaar">',
+        th('Jaar'),
+        ...games.map(game => td(game['datumString'].substring(8))),
+        '</tr>',
+         */
 
-        // row: maand
         '<tr class="maand">',
         th('Maand'),
-        ...games.map(game => game.datumString.substring(3, 5)).map(Number).map(td),
+        ...games.map(game => game['datumString'].substring(3, 5)).map(Number).map(td),
         '<td></td>'.repeat(3),
         '</tr>',
 
-        // row: dag
         '<tr class="dag">',
         th('Dag'),
-        ...games.map(game => td(game.datumString.substring(0, 2))),
+        ...games.map(game => td(game['datumString'].substring(0, 2))),
         '<td></td>'.repeat(3),
         '</tr>',
 
-        // row: winst
         '<tr class="winst">',
         th('Winst'),
         ...winst.map(emoji_for_winst).map(td),
         '<td></td>'.repeat(3),
         '</tr>',
 
-        // row: verschil
         '<tr class="verschil">',
         th('Verschil'),
         ...verschillen.map(td),
         '<td></td>'.repeat(3),
         '</tr>',
 
-        // row: thuis
         '<tr class="thuis">',
         th('Thuis'),
         ...games.map(g => is_home_game_for_team(g, team_id_plus))
@@ -143,52 +175,13 @@ function make_data_table(data, attribute_to_display) {
         td('&sum;'),
         td('#'),
         td('/'),
-        '</tr>'
+        '</tr>',
+        ...Object.keys(name_to_number)
+            .sort((a, b) => Number(name_to_number[a]) - Number(name_to_number[b]))
+            .map(row_for_player_name)
     ];
 
-    // rows for every player
-    const sorted_names = (
-        Object.keys(name_to_most_common_number)
-            .sort((a, b) => Number(name_to_most_common_number[a]) - Number(name_to_most_common_number[b]))
-    );
 
-    // for (naam of sorted_names) {
-    sorted_names.forEach(name => {
-        const number = name_to_most_common_number[name];
-
-        const disp_name = data.team_id_plus.includes('BVBL1049HSE') ? name.split(' ')[0] : name;
-
-        innerhtml.push(
-            '<tr class="player">',
-            `<td class="spelersnaam">${disp_name}</td>`,
-            `<td class="data borderright">${number}</td>`,
-        );
-
-        let sum = 0;
-        let count = 0;
-        player_list.forEach((game_stats, i) => {
-            let player_stats = game_stats.filter(stats => stats['Naam'] === name);
-
-            if (player_stats.length === 0) {
-                innerhtml.push(td(''))
-            } else {
-                player_stats = player_stats[0];
-                let data_cell = data_per_player_per_game[i][game_is_at_home[i] ? 'T' : 'U'][player_stats.RelGUID] || "0";
-
-                sum += parseInt(data_cell);
-                count += 1;
-
-                innerhtml.push(td(data_cell))
-            }
-        });
-
-        innerhtml.push(
-            `<td class="data borderleft">${sum}</td>`,
-            td(count),
-            td((sum / count).toFixed(1)),
-            '</tr>'
-        );
-    });
 
     const table = document.createElement('table');
     table.innerHTML = innerhtml.join('');

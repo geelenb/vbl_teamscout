@@ -9,6 +9,7 @@ function gebeurtenis_data_to_points(gebeurtenis_data) {
     gebeurtenis_data['GebNis'].forEach(gebeurtenis => {
         if ((gebeurtenis['GebType'] === 50)) {
             // Set to zero when they played in the game
+            // TODO dit overal!
             points[gebeurtenis['TofU']][gebeurtenis['RelGUID']] |= 0;
         }
         if (gebeurtenis['GebType'] === 10) {
@@ -122,7 +123,7 @@ function gebeurtenis_data_to_minutes(gebeurtenis_data) {
                 // .filter(geb2 => geb['Index'] < geb2.Index) // happens after
                 // .filter(geb2 => geb2.Index <= geb['Index'] + 10) // only 10
                 // .filter(geb2 => geb2.Text === 'in')
-                // .forEach(geb2 => minutes[geb2.TofU][geb2.RelGUID] += .5)
+                // .forEach(geb2 => minutes[geb2['TofU']][geb2['RelGUID']] += .5)
 
                 // last 10 uit's get .5 for free as well
                 gebeurtenis_data
@@ -170,8 +171,8 @@ function gebeurtenis_data_to_free_throws(gebeurtenis_data) {
 
     const free_throws = gebeurtenis_data['GebNis'].filter(g => g['GebType'] === 10).filter(g => g.Text[0] === '1');
     for (let g of free_throws) {
-        result[g.TofU][g.RelGUID] |= 0;
-        result[g.TofU][g.RelGUID] += 1
+        result[g['TofU']][g['RelGUID']] |= 0;
+        result[g['TofU']][g['RelGUID']] += 1
     }
 
     return result
@@ -188,8 +189,8 @@ function gebeurtenis_data_to_three_pt(gebeurtenis_data) {
 
     const free_throws = gebeurtenis_data['GebNis'].filter(g => g['GebType'] === 10).filter(g => g.Text[0] === '3');
     for (let g of free_throws) {
-        result[g.TofU][g.RelGUID] |= 0;
-        result[g.TofU][g.RelGUID] += 1
+        result[g['TofU']][g['RelGUID']] |= 0;
+        result[g['TofU']][g['RelGUID']] += 1
     }
 
     return result
