@@ -58,9 +58,10 @@ function shorten_teamname(teamname) {
 const th = content => `<th></th><th colspan="2" style="text-align: left;">${content}</th>`;
 const td = content => `<td class="data">${content}</td>`;
 
-const emoji_for_winst = w => String.fromCodePoint(w ? 0x2705 : 0x274C);
-// const home_away_emoji = is_home => String.fromCodePoint(is_home ? 0x1F3E0 : 0x1F697);
-const home_away_emoji = is_home => String.fromCodePoint(is_home ? 0x1F3E0 : '');
+// const char_for_winst = w => String.fromCodePoint(w ? 0x2705 : 0x274C);
+const char_for_winst = w => w ? '✓' : '';
+// const home_away_char = is_home => String.fromCodePoint(is_home ? 0x1F3E0 : 0x1F697);
+const home_away_char = is_home => is_home ? '⌂' : '';
 
 function make_row_for_player(disp_name, number, birth_date, player_data_cells) {
     let row = [ // list of strings we will join at the end
@@ -156,7 +157,7 @@ function make_data_table(data, attribute_to_display) {
 
         '<tr class="winst">',
         th('Winst'),
-        ...winst.map(emoji_for_winst).map(td),
+        ...winst.map(char_for_winst).map(td),
         '<td></td>'.repeat(3),
         '</tr>',
 
@@ -182,7 +183,7 @@ function make_data_table(data, attribute_to_display) {
         '<tr class="thuis">',
         th('Thuis'),
         ...games.map(g => is_home_game_for_team(g, team_id_plus))
-            .map(home_away_emoji)
+            .map(home_away_char)
             .map(text => `<td class="borderbottom data">${text}</td>`),
         td('&sum;'),
         td('#'),
