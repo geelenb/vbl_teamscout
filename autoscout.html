@@ -23,7 +23,6 @@
                 (await load_games(team_id_plus))
                     .filter(game => (game['uitslag'] !== ""))
                     .sort((a, b) => a['jsDTCode'] - b['jsDTCode']);
-            // previous_games = previous_games.slice(previous_games.length - 2); // TODO: remove
 
             let player_list = get_player_list_for_games(previous_games, team_id_plus);
             let gebeurtenis_data = get_gebeurtenis_data_for_games(previous_games);
@@ -58,7 +57,6 @@
             tables.forEach((table, i) => {
                 table.style.position = 'relative';
                 table.dataset.t = ts[i];
-                table.style.overflow = 'hidden';
                 div.appendChild(table)
             });
 
@@ -98,7 +96,5 @@
 TODO:
 - Vrijworpen %
 - +/- duo's, ...
-- leeftijd
-- spelers die niet spelen weglaten
 - eigen score, tegenstand
 -->

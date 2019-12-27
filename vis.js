@@ -26,11 +26,11 @@ function get_most_common_number_per_player(player_list_for_games) {
             continue
         }
         let max_count = 0;
-        for (let nummer in name_to_counts[naam]) {
-            let count = name_to_counts[naam][nummer];
+        for (let number in name_to_counts[naam]) {
+            let count = name_to_counts[naam][number];
             if (count > max_count) {
-                max_count = name_to_counts[naam][nummer];
-                name_to_most_common[naam] = nummer
+                max_count = name_to_counts[naam][number];
+                name_to_most_common[naam] = number
             }
         }
     }
@@ -82,6 +82,10 @@ function make_row_for_player(disp_name, number, birth_date, player_data_cells) {
         }
     });
 
+    if (count === 0) {
+        return ''
+    }
+
     row.push(
         `<td class="data borderleft">${sum}</td>`,
         td(count),
@@ -122,7 +126,7 @@ function make_data_table(data, attribute_to_display) {
         is_my_team ? name.split(' ')[0] : name,
         name_to_number[name],
         name_to_dob[name].substring(8, 10),
-        data_per_player_per_game.map(tu => ({...tu['T'], ...tu['U']})[name_to_relguid[name]])
+        data_per_player_per_game.map(game => game[name_to_relguid[name]])
     );
 
 

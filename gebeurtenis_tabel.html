@@ -107,8 +107,7 @@
 				"mode":"cors"
 			}
 		);
-		f = await f.json();
-		debugger
+		var f = await f.json();
 		return f
 	}
 
@@ -275,17 +274,14 @@
 
 			relevant_stats.forEach(match_stats => {
 				player_stats = match_stats.filter(stats => stats.Naam === naam);
-				// debugger;
 				if (player_stats.length == 0) {
 					table.push('<td></td>')
 				} else {
 					player_stats = player_stats[0];
-					debugger
 					table.push('<td>x</td>')
 				}
 			});
 
-			// debugger;
 
 			table.push('</tr>')
 		});
@@ -356,7 +352,6 @@
 		gebeurtenis_data = await get_gebeurtenis_data(game_uid);
 		table_str = make_table_from_list_of_objs(gebeurtenis_data['GebNis']);
 		document.body.innerHTML = table_str;
-		debugger;
 	}
 
 	// Orly A: BVBL1049HSE++1
