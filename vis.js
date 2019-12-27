@@ -108,10 +108,12 @@ function make_data_table(data, attribute_to_display) {
     const is_home_game_for_this_team = game => is_home_game_for_team(game, team_id_plus);
     const game_is_at_home = games.map(is_home_game_for_this_team);
 
-    let verschillen = games.map(game => eval(game['uitslag'].substring(0, 7)));
-    verschillen = verschillen.map((v, i) => game_is_at_home[i] ? v : -v);
+
+    const uitslagen = games.map(game => game["uitslag"].substring(0, 7));
+    const own_points = uitslagen.map((uitslag, i) => game_is_at_home[i] ? uitslag.substring(0, 3) : uitslag.substring(4, 7)).map(Number);
+    const opp_points = uitslagen.map((uitslag, i) => game_is_at_home[i] ? uitslag.substring(4, 7) : uitslag.substring(0, 3)).map(Number);
+    const verschillen = uitslagen.map(eval).map((v, i) => game_is_at_home[i] ? v : -v).map(v => v > 0 ? '+' + v : v);
     const winst = verschillen.map(v => (v > 0));
-    verschillen = verschillen.map(v => v > 0 ? '+' + v : v);
 
     const attribute_str = {
         'points': 'Punten',
@@ -140,13 +142,6 @@ function make_data_table(data, attribute_to_display) {
         '<td></td>'.repeat(3),
         '</tr>',
 
-        /*
-        '<tr class="jaar">',
-        th('Jaar'),
-        ...games.map(game => td(game['datumString'].substring(8))),
-        '</tr>',
-         */
-
         '<tr class="maand">',
         th('Maand'),
         ...games.map(game => game['datumString'].substring(3, 5)).map(Number).map(td),
@@ -155,7 +150,7 @@ function make_data_table(data, attribute_to_display) {
 
         '<tr class="dag">',
         th('Dag'),
-        ...games.map(game => td(game['datumString'].substring(0, 2))),
+        ...games.map(game => game['datumString'].substring(0, 2)).map(Number).map(td),
         '<td></td>'.repeat(3),
         '</tr>',
 
@@ -164,6 +159,19 @@ function make_data_table(data, attribute_to_display) {
         ...winst.map(emoji_for_winst).map(td),
         '<td></td>'.repeat(3),
         '</tr>',
+
+        '<tr>',
+        th('Voor'),
+        ...own_points.map(td),
+        '<td></td>'.repeat(3),
+        '</tr>',
+
+        '<tr>',
+        th('Tegen'),
+        ...opp_points.map(td),
+        '<td></td>'.repeat(3),
+        '</tr>',
+
 
         '<tr class="verschil">',
         th('Verschil'),
