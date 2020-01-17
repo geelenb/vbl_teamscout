@@ -101,8 +101,14 @@ function make_data_table(data, attribute_to_display) {
     const games = data.games;
     const player_list = data.player_list;
     const name_to_number = data.name_to_most_common_number;
-    const name_to_relguid = player_list.flat().reduce((acc, player) => {acc[player['Naam']] = player['RelGUID']; return acc}, {});
-    const name_to_dob = player_list.flat().reduce((acc, player) => {acc[player['Naam']] = player['GebDat']; return acc}, {});
+    const name_to_relguid = player_list.flat().reduce((acc, player) => {
+        acc[player['Naam']] = player['RelGUID'];
+        return acc
+    }, {});
+    const name_to_dob = player_list.flat().reduce((acc, player) => {
+        acc[player['Naam']] = player['GebDat'];
+        return acc
+    }, {});
     const data_per_player_per_game = data[attribute_to_display];
 
     const is_my_team = team_id_plus.includes('BVBL1049HSE');
@@ -132,13 +138,24 @@ function make_data_table(data, attribute_to_display) {
         data_per_player_per_game.map(game => game[name_to_relguid[name]])
     );
 
+    // relguids of current team
+    const relguids = Object.values(name_to_relguid);
+    const totals = (
+        data_per_player_per_game.map(game =>
+                relguids
+                    .map(relguid => game[relguid] || 0)
+                    .map(x => `${x}`)
+                    .map(Number.parseFloat)
+                    .reduce((a, b) => a + b, 0)
+        )
+    );
 
     const innerhtml = [// list of strings we will join at the end
         '<tr class="teamnaam">',
         th(attribute_str),
         ...games.map(game => get_opponent_from_game(game, team_id_plus))
             .map(team =>
-                `<th><div><p><a href="autoscout.html?team=${team.id_plus}">${shorten_teamname(team.naam)}</a></p></div></th>`
+                `<th><div><p><a href="index.html?team=${team.id_plus}">${shorten_teamname(team.naam)}</a></p></div></th>`
             ),
         '<td></td>'.repeat(3),
         '</tr>',
@@ -173,7 +190,6 @@ function make_data_table(data, attribute_to_display) {
         '<td></td>'.repeat(3),
         '</tr>',
 
-
         '<tr class="verschil">',
         th('Verschil'),
         ...verschillen.map(td),
@@ -191,9 +207,10 @@ function make_data_table(data, attribute_to_display) {
         '</tr>',
         ...Object.keys(name_to_number)
             .sort((a, b) => Number(name_to_number[a]) - Number(name_to_number[b]))
-            .map(row_for_player_name)
-    ];
+            .map(row_for_player_name),
 
+        make_row_for_player('', '', '  ', totals)
+    ];
 
 
     const table = document.createElement('table');

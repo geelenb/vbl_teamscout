@@ -4,7 +4,7 @@
     <title>Auto Scout</title>
     <meta charset='utf-8'>
 
-    <link rel="stylesheet" href="autoscout.css">
+    <link rel="stylesheet" href="index.css">
 
     <script src="itertools.js"></script>
     <script src="gebeurtenis_data.js"></script>
@@ -47,7 +47,7 @@
 
 
         function make_div_with_tables(data) {
-            const ts = ['points', /*'plus_minus',*/ 'fouls', 'minutes', 'free_throws', 'three_pt'];
+            const ts = ['points', /*'plus_minus',*/ 'fouls', /*'minutes',*/ 'free_throws', 'three_pt'];
 
             var tables = ts.map(t => make_data_table(data, t));
             const div = document.createElement('div');
@@ -94,7 +94,7 @@
 
 <!--
 TODO:
-- Vrijworpen %
 - +/- duo's, ...
-- eigen score, tegenstand
+- Titel, volgende tegenstander
+- Vrijworpen %
 -->

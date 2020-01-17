@@ -1,3 +1,7 @@
+body {
+    margin: 0;
+}
+
 .teamnaam > th + th div {
     transform: rotate(180deg);
     float: right;
@@ -39,4 +43,10 @@ table .borderright {
 th a {
     color:black;
     text-decoration: none;
+}
+
+table tr:last-child td {
+    border-right: none;
+    border-left: none;
+    border-top: 1px solid black;
 }
