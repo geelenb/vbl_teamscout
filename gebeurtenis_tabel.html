@@ -40,29 +40,29 @@
 		games = await games;
 		return (
 			games
-			.filter((v) => v.uitslag === "")
-			.sort((a, b) => a.jsDTCode - b.jsDTCode)
+			.filter((v) => v['uitslag'] === "")
+			.sort((a, b) => a['jsDTCode'] - b['jsDTCode'])
 		)[0]
 	}
 
 	function is_home_game_for_team(game, team_id) {
-		return game.tTGUID.replace(/\+/g, ' ') === team_id.replace(/\+/g, ' ')
+		return game['tTGUID'].replace(/\+/g, ' ') === team_id.replace(/\+/g, ' ')
 	}
 
 	function get_opponent_from_game(game, own_team_id) {
-		game_is_at_home = is_home_game_for_team(game, own_team_id);
+		const game_is_at_home = is_home_game_for_team(game, own_team_id);
 
 		if (game_is_at_home) {
 			return {
-				id: game.tUGUID,
-				id_plus: game.tUGUID.replace(/ /g, '+'),
-				naam: game.tUNaam
+				id: game['tUGUID'],
+				id_plus: game['tUGUID'].replace(/ /g, '+'),
+				naam: game['tUNaam']
 			}
 		}
 		return {
-			id: game.tTGUID,
-			id_plus: game.tTGUID.replace(/ /g, '+'),
-			naam: game.tTNaam
+			id: game['tTGUID'],
+			id_plus: game['tTGUID'].replace(/ /g, '+'),
+			naam: game['tTNaam']
 		}
 	}
 
@@ -84,13 +84,13 @@
 
 	function get_relevant_deel_from_game_data(game_data, home) {
 		if (home) {
-			return game_data.TtDeel
+			return game_data['TtDeel']
 		}
-		return game_data.TuDeel
+		return game_data['TuDeel']
 	}
 
 	async function get_gebeurtenis_data(game_uid) {
-		f = await fetch("https://vblcb.wisseq.eu/VBLCB_WebService/data/DwfVgngByWedGuid", 
+		const f = await fetch("https://vblcb.wisseq.eu/VBLCB_WebService/data/DwfVgngByWedGuid",
 			{
 				"headers": {
 					"accept":"*/*",
@@ -107,17 +107,12 @@
 				"mode":"cors"
 			}
 		);
-		var f = await f.json();
-		return f
+		return await f.json();
 	}
 
 	async function get_relevant_stats_for_games(game_datas, team_id) {
-		games_were_at_home = (
-			previous_games_of_opponent
-			.map((game) => is_home_game_for_team(game, team_id))
-		);
 		
-		stats = await Promise.all(
+		const stats = await Promise.all(
 			previous_games_of_opponent
 			.map((game) => game.guid)
 			.map(get_game_stats)
@@ -125,9 +120,8 @@
 		
 		return (
 			stats
-			.map((game, i) => get_relevant_deel_from_game_data(
-				game, 
-				games_were_at_home[i]
+			.map(game => get_relevant_deel_from_game_data(
+				game, is_home_game_for_team(game, team_id)
 			))
 		)
 	}
@@ -140,16 +134,16 @@
 				if (player.Functie !== 'S') {
 					return
 				}
-				rugnr = String(player.RugNr);
-				if (player.Naam in name_to_counts) {
-					if (rugnr in name_to_counts[player.Naam]) {
-						name_to_counts[player.Naam][rugnr] += 1
+				const rugnr = String(player.RugNr);
+				if (player['Naam'] in name_to_counts) {
+					if (rugnr in name_to_counts[player['Naam']]) {
+						name_to_counts[player['Naam']][rugnr] += 1
 					} else {
-						name_to_counts[player.Naam][rugnr] = 1
+						name_to_counts[player['Naam']][rugnr] = 1
 					}
 				} else {
-					name_to_counts[player.Naam] = {};
-					name_to_counts[player.Naam][rugnr] = 1
+					name_to_counts[player['Naam']] = {};
+					name_to_counts[player['Naam']][rugnr] = 1
 				}
 			})
 		});
@@ -173,10 +167,10 @@
 	}
 
 
-	function make_points_table(teamid, games, relevant_stats, gebeurtenis_datas, name_to_most_common_number) {
-		var verschillen = games.map(game => eval(game.uitslag.substring(0, 7)));
+	function make_table(teamid, games, relevant_stats, gebeurtenis_datas, name_to_most_common_number) {
+		let verschillen = games.map(game => eval(game['uitslag'].substring(0, 7)));
 		verschillen = verschillen.map((v, i) => is_home_game_for_team(games[i], teamid) ? v : -v);
-		winst = verschillen.map(v => v > 0);
+		const winst = verschillen.map(v => v > 0);
 		verschillen = verschillen.map(v => (v > 0 ? '+' + v : v));
 
 		const left_cells = 2;
@@ -199,7 +193,7 @@
 		table.push(th('Jaar'));
 		
 		games.forEach(game => 
-			table.push('<td>', game.datumString.substring(8), '</td>'));
+			table.push('<td>', game['datumString'].substring(8), '</td>'));
 		table.push('</tr>');
 
 		// row: maand
@@ -207,7 +201,7 @@
 		table.push(th('Maand'));
 		
 		games.forEach(game => 
-			table.push('<td>', game.datumString.substring(3, 5), '</td>'));
+			table.push('<td>', game['datumString'].substring(3, 5), '</td>'));
 		table.push('</tr>');
 
 		// row: dag
@@ -215,7 +209,7 @@
 		table.push(th('Dag'));
 		
 		games.forEach(game => 
-			table.push('<td>', game.datumString.substring(0, 2), '</td>'));
+			table.push('<td>', game['datumString'].substring(0, 2), '</td>'));
 		table.push('</tr>');
 
 		// row: winst
@@ -273,7 +267,7 @@
 				);
 
 			relevant_stats.forEach(match_stats => {
-				player_stats = match_stats.filter(stats => stats.Naam === naam);
+				player_stats = match_stats.filter(stats => stats['Naam'] === naam);
 				if (player_stats.length == 0) {
 					table.push('<td></td>')
 				} else {
@@ -293,38 +287,36 @@
 	}
 
 	async function get_all_data(teamid) {
-		own_games = await load_games(teamid);
-		next_game = await get_next_game_from_games(own_games);
-		opponent = await get_opponent_from_game(next_game, teamid);
-		games_of_opponent = await load_games(opponent.id_plus);
-		previous_games_of_opponent = (
+		const own_games = await load_games(teamid);
+		const next_game = await get_next_game_from_games(own_games);
+		const opponent = await get_opponent_from_game(next_game, teamid);
+
+		const games_of_opponent = await load_games(opponent.id_plus);
+		const previous_games_of_opponent = (
 			games_of_opponent
-			.filter((game) => (game.uitslag !== ""))
-			.sort((a, b) => a.jsDTCode - b.jsDTCode)
-		);
-		previous_games_of_opponent_relevant_stats = await get_relevant_stats_for_games(previous_games_of_opponent, opponent.id);
-
-		name_to_most_common_number_for_opponent = get_most_common_number_per_player(previous_games_of_opponent_relevant_stats);
-
-		table_str = make_points_table(
-			opponent.id,
-			previous_games_of_opponent,
-			previous_games_of_opponent_relevant_stats,
-			name_to_most_common_number_for_opponent
+			.filter((game) => (game['uitslag'] !== ""))
+			.sort((a, b) => a['jsDTCode'] - b['jsDTCode'])
 		);
 
-		document.querySelector('body').innerHTML = table_str
+		const previous_games_of_opponent_relevant_stats = await get_relevant_stats_for_games(previous_games_of_opponent, opponent.id);
+
+		document.querySelector('body').innerHTML = make_table(
+				opponent.id,
+				previous_games_of_opponent,
+				previous_games_of_opponent_relevant_stats,
+				get_most_common_number_per_player(previous_games_of_opponent_relevant_stats)
+		);
 	}
 
 
 	function make_table_from_list_of_objs(objs){
-		var table = ['<table>'];
-		var keys = [];
+		let table = ['<table>'];
+		let keys = [];
 		// for (obj of objs) {
 		objs.forEach(obj => {
 			table.push('<tr>');
 
-			for (key of keys) {
+			for (let key of keys) {
 				table.push('<td>');
 				if (obj[key] !== undefined) {
 					table.push(obj[key])
@@ -332,7 +324,7 @@
 				table.push('</td>')
 			}
 
-			for (key in obj) {
+			for (let key in obj) {
 				if (keys.indexOf(key) === -1) {
 					table.push('<td>', obj[key], '</td>');
 					keys.push(key)
@@ -358,9 +350,9 @@
 	// Zolder: BVBL1081HSE++4
 
 	// addEventListener('load', () => get_all_data('BVBL1081HSE++4'))
-	// addEventListener('load', () => get_game_stats("BVBL19209120LIHSE31B"))
+	// addEventListener('load', () => fetch_game_stats("BVBL19209120LIHSE31B"))
 	// https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=BVBL19209120LIHSE31BBA
-	// addEventListener('load', () => get_gebeurtenis_data("BVBL19209120LIHSE31BBA"))
+	// addEventListener('load', () => fetch_gebeurtenis_data("BVBL19209120LIHSE31BBA"))
 	addEventListener('load', () => make_table_for_gebeurtenis_data("BVBL19209120LIHSE31BBA"))
 
 		

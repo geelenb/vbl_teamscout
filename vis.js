@@ -7,37 +7,36 @@ function get_most_common_number_per_player(player_list_for_games) {
                 return
             }
             const rugnr = String(player['RugNr']);
-            if (player['Naam'] in name_to_counts) {
-                if (rugnr in name_to_counts[player['Naam']]) {
-                    name_to_counts[player['Naam']][rugnr] += 1
+            if (player['RelGUID'] in name_to_counts) {
+                if (rugnr in name_to_counts[player['RelGUID']]) {
+                    name_to_counts[player['RelGUID']][rugnr] += 1
                 } else {
-                    name_to_counts[player['Naam']][rugnr] = 1
+                    name_to_counts[player['RelGUID']][rugnr] = 1
                 }
             } else {
-                name_to_counts[player['Naam']] = {};
-                name_to_counts[player['Naam']][rugnr] = 1
+                name_to_counts[player['RelGUID']] = {};
+                name_to_counts[player['RelGUID']][rugnr] = 1
             }
         })
     });
 
-    const name_to_most_common = {};
-    for (let naam in name_to_counts) {
-        if (!naam) {
+    const guid_to_most_common = {};
+    for (let guid in name_to_counts) {
+        if (!guid) {
             continue
         }
         let max_count = 0;
-        for (let number in name_to_counts[naam]) {
-            let count = name_to_counts[naam][number];
+        for (let number in name_to_counts[guid]) {
+            let count = name_to_counts[guid][number];
             if (count > max_count) {
-                max_count = name_to_counts[naam][number];
-                name_to_most_common[naam] = number
+                max_count = name_to_counts[guid][number];
+                guid_to_most_common[guid] = number
             }
         }
     }
 
-    return name_to_most_common
+    return guid_to_most_common
 }
-
 
 function shorten_teamname(teamname) {
     return [
@@ -46,9 +45,12 @@ function shorten_teamname(teamname) {
         "Cosmo",
         "Hades", "Hasselt BT", "Helchteren", "Hageland",
         "Maasmechelen",
-        "Leopoldsburg", "Lommel", "Lummen",
+        "Landen", "Leopoldsburg", "Lommel", "Lummen",
         "Optima", "Orly",
+        "Pelt",
         "Sint-Truiden", "Stevoort",
+        "Tienen", "Tongeren",
+        "Waremme", "Woluwe",
         "Zolder", "Zonhoven",
     ].filter(kw =>
         teamname.toLowerCase().includes(kw.toLowerCase())
@@ -63,9 +65,9 @@ const char_for_winst = w => w ? '✓' : '';
 // const home_away_char = is_home => String.fromCodePoint(is_home ? 0x1F3E0 : 0x1F697);
 const home_away_char = is_home => is_home ? '⌂' : '';
 
-function make_row_for_player(disp_name, number, birth_date, player_data_cells) {
+function make_row_for_player(disp_name, number, birth_date, player_data_cells, tr_class="player") {
     let row = [ // list of strings we will join at the end
-        '<tr class="player">',
+        `<tr class="${tr_class}">`,
         `<td class="data">${number}</td>`,
         `<td class="spelersnaam">${disp_name}</td>`,
         `<td class="data borderright">${birth_date}</td>`,
@@ -74,7 +76,7 @@ function make_row_for_player(disp_name, number, birth_date, player_data_cells) {
     let sum = 0;
     let count = 0;
     player_data_cells.forEach(data_cell => {
-        if (data_cell === undefined) {
+        if (data_cell === undefined || data_cell == 'NaN') { // don't use isnan here, strings might be passed in!
             row.push(td(''))
         } else {
             sum += parseInt(data_cell);
@@ -97,26 +99,30 @@ function make_row_for_player(disp_name, number, birth_date, player_data_cells) {
 }
 
 function make_data_table(data, attribute_to_display) {
-    const team_id_plus = data.team_id_plus;
-    const games = data.games;
-    const player_list = data.player_list;
-    const name_to_number = data.name_to_most_common_number;
-    const name_to_relguid = player_list.flat().reduce((acc, player) => {
-        acc[player['Naam']] = player['RelGUID'];
+    const relguid_to_number = data.relguid_to_most_common_number;
+    let relguid_to_name = data.player_list.flat().reduce((acc, player) => {
+        if (player['Naam']) {
+            acc[player['RelGUID']] = player['Naam'];
+        }
         return acc
     }, {});
-    const name_to_dob = player_list.flat().reduce((acc, player) => {
-        acc[player['Naam']] = player['GebDat'];
+
+    // Shorten known names to first name only
+    if (data.team_id_plus.includes('BVBL1049HSE')) {
+        Object.keys(relguid_to_name).forEach(relguid => {
+            relguid_to_name[relguid] = relguid_to_name[relguid].split(' ')[0]
+        })
+    }
+
+    const relguid_to_dob = data.player_list.flat().reduce((acc, player) => {
+        acc[player['RelGUID']] = player['GebDat'];
         return acc
     }, {});
     const data_per_player_per_game = data[attribute_to_display];
 
-    const is_my_team = team_id_plus.includes('BVBL1049HSE');
-    const is_home_game_for_this_team = game => is_home_game_for_team(game, team_id_plus);
-    const game_is_at_home = games.map(is_home_game_for_this_team);
+    const game_is_at_home = data.games.map(game => is_home_game_for_team(game, data.team_id_plus));
 
-
-    const uitslagen = games.map(game => game["uitslag"].substring(0, 7));
+    const uitslagen = data.games.map(game => game["uitslag"].substring(0, 7));
     const own_points = uitslagen.map((uitslag, i) => game_is_at_home[i] ? uitslag.substring(0, 3) : uitslag.substring(4, 7)).map(Number);
     const opp_points = uitslagen.map((uitslag, i) => game_is_at_home[i] ? uitslag.substring(4, 7) : uitslag.substring(0, 3)).map(Number);
     const verschillen = uitslagen.map(eval).map((v, i) => game_is_at_home[i] ? v : -v).map(v => v > 0 ? '+' + v : v);
@@ -131,29 +137,35 @@ function make_data_table(data, attribute_to_display) {
         'three_pt': 'Driepunters',
     }[attribute_to_display] || '';
 
-    const row_for_player_name = name => make_row_for_player(
-        is_my_team ? name.split(' ')[0] : name,
-        name_to_number[name],
-        name_to_dob[name].substring(8, 10),
-        data_per_player_per_game.map(game => game[name_to_relguid[name]])
+    console.log(attribute_to_display);
+    console.log(data_per_player_per_game[3]);
+
+    const row_for_player = relguid => make_row_for_player(
+        relguid_to_name[relguid],
+        relguid_to_number[relguid],
+        relguid_to_dob[relguid].substring(8, 10),
+        data_per_player_per_game.map(game => game[relguid])
     );
 
     // relguids of current team
-    const relguids = Object.values(name_to_relguid);
     const totals = (
         data_per_player_per_game.map(game =>
-                relguids
-                    .map(relguid => game[relguid] || 0)
-                    .map(x => `${x}`)
-                    .map(Number.parseFloat)
-                    .reduce((a, b) => a + b, 0)
+            Object.keys(relguid_to_number)
+                .map(relguid => game[relguid] || 0)
+                .map(x => `${x}`)
+                .map(Number.parseFloat)
+                .reduce((a, b) => a + b, 0)
         )
     );
 
-    const innerhtml = [// list of strings we will join at the end
+    if (attribute_to_display === 'fouls') {
+        // debugger;
+    }
+
+    let innerhtml = [// list of strings we will join at the end
         '<tr class="teamnaam">',
         th(attribute_str),
-        ...games.map(game => get_opponent_from_game(game, team_id_plus))
+        ...data.games.map(game => get_opponent_from_game(game, data.team_id_plus))
             .map(team =>
                 `<th><div><p><a href="index.html?team=${team.id_plus}">${shorten_teamname(team.naam)}</a></p></div></th>`
             ),
@@ -162,13 +174,13 @@ function make_data_table(data, attribute_to_display) {
 
         '<tr class="maand">',
         th('Maand'),
-        ...games.map(game => game['datumString'].substring(3, 5)).map(Number).map(td),
+        ...data.games.map(game => game['datumString'].substring(3, 5)).map(Number).map(td),
         '<td></td>'.repeat(3),
         '</tr>',
 
         '<tr class="dag">',
         th('Dag'),
-        ...games.map(game => game['datumString'].substring(0, 2)).map(Number).map(td),
+        ...data.games.map(game => game['datumString'].substring(0, 2)).map(Number).map(td),
         '<td></td>'.repeat(3),
         '</tr>',
 
@@ -198,19 +210,26 @@ function make_data_table(data, attribute_to_display) {
 
         '<tr class="thuis">',
         th('Thuis'),
-        ...games.map(g => is_home_game_for_team(g, team_id_plus))
+        ...data.games.map(g => is_home_game_for_team(g, data.team_id_plus))
             .map(home_away_char)
             .map(text => `<td class="borderbottom data">${text}</td>`),
         td('&sum;'),
         td('#'),
         td('/'),
         '</tr>',
-        ...Object.keys(name_to_number)
-            .sort((a, b) => Number(name_to_number[a]) - Number(name_to_number[b]))
-            .map(row_for_player_name),
+        ...Object.keys(relguid_to_number)
+            .sort((a, b) => Number(relguid_to_number[a]) - Number(relguid_to_number[b]))
+            .map(row_for_player),
 
-        make_row_for_player('', '', '  ', totals)
+        make_row_for_player('', '', '  ', totals, "totals")
     ];
+
+    if (attribute_to_display === 'free_throws') {
+        const attempted = data.free_throws_attempted.map((g, i) => g[game_is_at_home[i] ? 'T' : 'U']);
+        const pct = totals.map((total, i) => total / attempted[i]).map(x => (x * 100).toFixed(0));
+        innerhtml.push(make_row_for_player('FTA', '', '  ', attempted, "fta"));
+        innerhtml.push(make_row_for_player('PCT', '', '  ', pct, "pct"));
+    }
 
 
     const table = document.createElement('table');

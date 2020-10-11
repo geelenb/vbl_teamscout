@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="nl-be">
+<head>
+    <meta charset="UTF-8">
+    <title>Game details</title>
+
+    <link href="game_details.css" rel="stylesheet">
+
+    <script src="itertools.js"></script>
+    <script src="gebeurtenis_data.js"></script>
+    <script src="fetching.js"></script>
+    <script src="vis.js"></script>
+    <script src="common.js"></script>
+    <script type="text/javascript">
+
+        function redirect_if_game_unspecified() {
+            if (new URLSearchParams(window.location.search.substr(1)).get('game')) {
+                return;
+            }
+            window.location.replace(window.location + '?game=BVBL19209120LIHSE31BFB')
+        }
+
+        function game_id_from_get_params() {
+            return new URLSearchParams(window.location.search.substr(1)).get('game');
+        }
+
+        function make_summary(game_stats, gebeurtenis_data) {
+
+        }
+
+        function make_box_score() {
+
+        }
+
+        addEventListener('load', async () => {
+            redirect_if_game_unspecified();
+            const game_id = game_id_from_get_params();
+            game_stats = fetch_game_stats(game_id);
+            home_games =
+            gebeurtenis_data = fetch_gebeurtenis_data(game_id);
+
+            game_stats = await game_stats;
+            gebeurtenis_data = await gebeurtenis_data;
+
+            gebeurtenis_array = gebeurtenis_data['GebNis'];
+
+
+            debugger;
+        })
+
+
+    </script>
+</head>
+<body>
+
+</body>
+</html>

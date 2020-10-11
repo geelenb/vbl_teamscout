@@ -1,9 +1,7 @@
-function initialize_per_player(gebeurtenis_data, value) {
-    if (value === undefined) {
-        value = 0
-    }
+function initialize_per_player(gebeurtenis_data, value = 0) {
+    gebeurtenis_data = gebeurtenis_data['GebNis'] || gebeurtenis_data;
     return (
-        gebeurtenis_data['GebNis']
+        gebeurtenis_data
             .filter(geb => (geb['GebStatus'] === 10))
             .reduce((acc, geb) => ({...acc, [geb['RelGUID']]: value}), {})
     )
@@ -13,8 +11,9 @@ function gebeurtenis_data_to_points(gebeurtenis_data) {
     if (gebeurtenis_data === null) {
         return {}
     }
+    gebeurtenis_data = gebeurtenis_data['GebNis'] || gebeurtenis_data;
     let points = initialize_per_player(gebeurtenis_data, 0);
-    gebeurtenis_data['GebNis'].forEach(geb => {
+    gebeurtenis_data.forEach(geb => {
         if (geb['GebType'] === 10) {
             points[geb['RelGUID']] |= 0; // some games don't record in/uit
             points[geb['RelGUID']] += parseInt(geb['Text'].split(' ')[0]);
@@ -27,11 +26,12 @@ function gebeurtenis_data_to_plus_minus(gebeurtenis_data) {
     if (gebeurtenis_data === null) {
         return {}
     }
+    gebeurtenis_data = gebeurtenis_data['GebNis'] || gebeurtenis_data;
     let plus_minus = initialize_per_player(gebeurtenis_data, 0);
 
     let players_on_field = [];
 
-    gebeurtenis_data['GebNis'].forEach(geb => {
+    gebeurtenis_data.forEach(geb => {
         if (geb['GebType'] === 50) {
             // wissel
             if (geb['Text'] === 'in') {
@@ -62,9 +62,10 @@ function gebeurtenis_data_to_fouls(gebeurtenis_data) {
     if (gebeurtenis_data === null) {
         return {}
     }
+    gebeurtenis_data = gebeurtenis_data['GebNis'] || gebeurtenis_data;
     let fouls = initialize_per_player(gebeurtenis_data, '');
 
-    for (let geb of gebeurtenis_data['GebNis']) {
+    for (let geb of gebeurtenis_data) {
         if (geb['GebType'] === 30 && geb['GebStatus'] === 10) {
             fouls[geb['RelGUID']] += geb['Text'][0]
         }
@@ -83,14 +84,15 @@ function gebeurtenis_data_to_minutes(gebeurtenis_data) {
     if (gebeurtenis_data === null) {
         return {}
     }
+    gebeurtenis_data = gebeurtenis_data['GebNis'] || gebeurtenis_data;
     let minutes = initialize_per_player(gebeurtenis_data, 0);
     let players_on_field = [];
 
-    for (let geb of gebeurtenis_data['GebNis']) {
+    for (let geb of gebeurtenis_data) {
         if (geb['GebStatus'] === 10) {
             if (geb['GebType'] === 40) {
                 // last 10 uit's get 1 for free to ajust for counting the minutes 1-10
-                gebeurtenis_data['GebNis']
+                gebeurtenis_data
                     .filter(geb2 => geb['Index'] < geb2['Index']) // happens after
                     .filter(geb2 => geb2['Index'] <= geb['Index'] + 10) // only 10
                     .filter(geb2 => geb2['Text'] === 'in')
@@ -125,9 +127,10 @@ function gebeurtenis_data_to_free_throws(gebeurtenis_data) {
     if (gebeurtenis_data === null) {
         return {}
     }
+    gebeurtenis_data = gebeurtenis_data['GebNis'] || gebeurtenis_data;
     let result = initialize_per_player(gebeurtenis_data, 0);
 
-    const free_throws = gebeurtenis_data['GebNis'].filter(g => g['GebType'] === 10).filter(g => g.Text[0] === '1');
+    const free_throws = gebeurtenis_data.filter(g => g['GebType'] === 10).filter(g => g['Text'][0] === '1');
     for (let g of free_throws) {
         result[g['RelGUID']] += 1
     }
@@ -135,13 +138,29 @@ function gebeurtenis_data_to_free_throws(gebeurtenis_data) {
     return result
 }
 
+function gebeurtenis_data_to_free_throws_attempted(gebeurtenis_data) {
+    if (gebeurtenis_data === null) {
+        return {}
+    }
+
+    gebeurtenis_data = gebeurtenis_data['GebNis'] || gebeurtenis_data;
+    const n_free_throws_from_geb = x => (Number(x['Text'][1]) || 0);
+    const fouls = gebeurtenis_data.filter(x => x['GebType'] === 30);
+
+    return {
+        T: fouls.filter(x => x['TofU'] === 'U').map(n_free_throws_from_geb).reduce(sum, 0),
+        U: fouls.filter(x => x['TofU'] === 'T').map(n_free_throws_from_geb).reduce(sum, 0)
+    };
+}
+
 function gebeurtenis_data_to_three_pt(gebeurtenis_data) {
     if (gebeurtenis_data === null) {
         return {}
     }
+    gebeurtenis_data = gebeurtenis_data['GebNis'] || gebeurtenis_data;
     let result = initialize_per_player(gebeurtenis_data, 0);
 
-    const three_pt = gebeurtenis_data['GebNis'].filter(g => g['GebType'] === 10).filter(g => g['Text'][0] === '3');
+    const three_pt = gebeurtenis_data.filter(g => g['GebType'] === 10).filter(g => g['Text'][0] === '3');
     for (let g of three_pt) {
         result[g['RelGUID']] |= 0;
         result[g['RelGUID']] += 1

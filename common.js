@@ -17,3 +17,5 @@ const get_opponent_from_game = (game, own_team_id) =>
 
 const get_relevant_part_from_game_data = (game_data, home) => home ? game_data['TtDeel'] : game_data['TuDeel'];
 
+
+const sum = (a, b) => a + b;
