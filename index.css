@@ -1,25 +1,7 @@
 body {
     margin: 0;
-}
-
-#header {
-    min-height: 128px;
-    display: grid;
-    grid-template-areas: "img title" "img desc";
-    grid-template-columns: 150px auto;
-}
-
-#header img {
-    height: 100px;
-    margin: 14px;
-    grid-area: img;
-}
-
-#header h1 {
-    grid-area: title;
-}
-#header p {
-    grid-area: desc;
+    font-family: Geneva, Arial, sans-serif;
+    text-align: center;
 }
 
 
@@ -31,7 +13,6 @@ body {
 .teamnaam > th + th div p {
     margin: 0;
     text-align: left;
-
     writing-mode: tb;
 }
 
@@ -46,7 +27,9 @@ td.data {
 }
 
 table {
+    text-align: initial;
     border-collapse: collapse;
+    margin: 12px auto;
 }
 
 table .borderleft {
@@ -62,7 +45,7 @@ table .borderright {
 }
 
 th a {
-    color:black;
+    /*color:black;*/
     text-decoration: none;
 }
 
@@ -83,4 +66,11 @@ input#extended_data ~ * .extended_only {
 
 input#extended_data:checked ~ * .extended_only {
     visibility: inherit;
+}
+
+body input {
+    margin: 12px;
+}
+
+body {
 }

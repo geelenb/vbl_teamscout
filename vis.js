@@ -165,47 +165,49 @@ function make_data_table(data, attribute_to_display_and_extended_details) {
     let innerhtml = [// list of strings we will join at the end
         `<tr class="teamnaam">`,
         th(attribute_str),
-        ...data.games.map(game => get_opponent_from_game(game, data.team_id_plus))
-            .map(team =>
-                `<th><div><p><a href="index.html?team=${team.id_plus}">${shorten_teamname(team.naam)}</a></p></div></th>`
+        ...data.games//.map(game => )
+            .map(game =>
+                `<th><div><p><a href="match_grafiek.html?game_id=${game.guid}">`+
+                shorten_teamname(get_opponent_from_game(game, data.team_id_plus).naam) +
+                '</a></p></div></th>'
             ),
-        '<td_data></td_data>'.repeat(3),
+        '<td></td>'.repeat(3),
         '</tr>',
 
         `<tr class="maand ${tr_class_only_on_extended_data}">`,
         th('Maand'),
         ...data.games.map(game => game['datumString'].substring(3, 5)).map(Number).map(td_data),
-        '<td_data></td_data>'.repeat(3),
+        '<td></td>'.repeat(3),
         '</tr>',
 
         `<tr class="dag ${tr_class_only_on_extended_data}">`,
         th('Dag'),
         ...data.games.map(game => game['datumString'].substring(0, 2)).map(Number).map(td_data),
-        '<td_data></td_data>'.repeat(3),
+        '<td></td>'.repeat(3),
         '</tr>',
 
         `<tr class="winst ${tr_class_only_on_extended_data}">`,
         th('Winst'),
         ...winst.map(char_for_winst).map(td_data),
-        '<td_data></td_data>'.repeat(3),
+        '<td></td>'.repeat(3),
         '</tr>',
 
         `<tr class="${tr_class_only_on_extended_data}">`,
         th('Voor'),
         ...own_points.map(td_data),
-        '<td_data></td_data>'.repeat(3),
+        '<td></td>'.repeat(3),
         '</tr>',
 
         `<tr class="${tr_class_only_on_extended_data}">`,
         th('Tegen'),
         ...opp_points.map(td_data),
-        '<td_data></td_data>'.repeat(3),
+        '<td></td>'.repeat(3),
         '</tr>',
 
         `<tr class="verschil ${tr_class_only_on_extended_data}">`,
         th('Verschil'),
         ...verschillen.map(td_data),
-        '<td_data></td_data>'.repeat(3),
+        '<td></td>'.repeat(3),
         '</tr>',
 
         '<tr class="thuis">',
@@ -249,12 +251,12 @@ function table_from_list_of_objs(objs) {
         table.push('<tr>');
 
         for (let key of keys) {
-            table.push('<td_data>' + (obj[key] || '') + '</td_data>')
+            table.push('<td>' + (obj[key] || '') + '</td>')
         }
 
         for (let key in obj) {
             if (keys.indexOf(key) === -1) {
-                table.push('<td_data>', obj[key], '</td_data>');
+                table.push('<td>', obj[key], '</td>');
                 keys.push(key)
             }
         }

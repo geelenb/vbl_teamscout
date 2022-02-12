@@ -76,9 +76,11 @@
 
             document.title = data.team_name;
 
-            div.innerHTML = `${img}${h}${p}`;
+            // div.innerHTML = `${img}${h}${p}`;
 
-            return div;
+            div.innerHTML = `${h}${p}`;
+
+            return `${h}${p}`;
         }
 
         function make_div_with_tables(data) {
@@ -93,8 +95,8 @@
 
             const tables = table_keys_and_extended_only.map(t => make_data_table(data, t));
             const div = document.createElement('div');
-            div.style.display = "inline";
-            div.style.lineHeight = "0.8";
+            // div.style.display = "inline";
+            // div.style.lineHeight = "0.8";
 
             const extended_data_checkbox = document.createElement('input');
             extended_data_checkbox.type = 'checkbox';
@@ -110,7 +112,7 @@
                 div.appendChild(table)
             });
 
-            return div
+            return div.innerHTML;
         }
 
         function redirect_if_team_unspecified() {
@@ -135,21 +137,20 @@
         }
 
         addEventListener('load', async () => {
-            const div = document.querySelector('#to_fill');
-            div.innerHTML = 'Laden...';
+            const to_fill = document.body;
+            to_fill.innerHTML = 'Laden...';
             redirect_if_team_unspecified();
             const team_id = await team_id_from_get_params();
             data = await get_all_data_of_team(team_id);
 
-            div.innerHTML = '';
-            div.appendChild(make_title(data));
-            div.appendChild(make_div_with_tables(data));
+            to_fill.innerHTML = make_title(data) + make_div_with_tables(data);
+
         })
     </script>
 
 </head>
 <body>
-    <div id="to_fill">Javascript staat uit!</div>
+    Javascript staat uit!
 </body>
 </html>
 
