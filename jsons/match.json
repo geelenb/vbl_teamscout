@@ -1,0 +1,57 @@
+[
+  {
+    "doc": {
+      "wedID": "LIHSE31BFB22",
+      "teamThuisGUID": "BVBL1087HSE  4",
+      "teamThuisNaam": "Hasselt BT HSE D",
+      "teamUitGUID": "BVBL1049HSE  1",
+      "teamUitNaam": "Orly Hasselt HSE A",
+      "datumString": "01-03-2020",
+      "jsDTCode": 1583067600000,
+      "accommGUID": "BVBL100617",
+      "accommodatieDoc": {
+        "naam": "Stedelijke sportschuur Kuringen",
+        "adres": {
+          "straat": "Grote Baan",
+          "huisNr": "171",
+          "huisNrToev": null,
+          "postcode": "3511",
+          "plaats": "Kuringen",
+          "land": "Belgie"
+        },
+        "telefoon": null,
+        "website": null,
+        "key": "5BVBL100617",
+        "type": 5,
+        "guid": "BVBL100617"
+      },
+      "accommOmschr": null,
+      "pouleGUID": "BVBL19209120LIHSE31B",
+      "pouleNaam": "3e Provinciale Heren Limburg B",
+      "uitslag": " 86- 69",
+      "beginTijd": "13.00",
+      "wedOff": [
+        "Joeri Ceulemans",
+        "Herman Meynendonckx"
+      ],
+      "dwfStatus": "N",
+      "dwfI4Match": {
+        "aantPeriodes": 4,
+        "duurPeriode": 600,
+        "duurTO": 60,
+        "aantSpelerOpVeld": 5
+      },
+      "dwfI4Speler": {
+        "stijgenDalen": "Y",
+        "maxSpelersAndereCat": 2,
+        "minLeeftijd": 15,
+        "sMinGebDat": "19960701",
+        "sMaxGebDat": "20050101",
+        "speelNivo": 1300
+      },
+      "key": "4BVBL19209120LIHSE31BFB",
+      "type": 4,
+      "guid": "BVBL19209120LIHSE31BFB"
+    }
+  }
+]

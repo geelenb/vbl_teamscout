@@ -98,7 +98,10 @@ function make_row_for_player(disp_name, number, birth_date, player_data_cells, t
     return row.join('')
 }
 
-function make_data_table(data, attribute_to_display) {
+function make_data_table(data, attribute_to_display_and_extended_details) {
+    const attribute_to_display = attribute_to_display_and_extended_details[0];
+    const extended_details_mode = attribute_to_display_and_extended_details[1];
+
     const relguid_to_number = data.relguid_to_most_common_number;
     let relguid_to_name = data.player_list.flat().reduce((acc, player) => {
         if (player['Naam']) {
@@ -137,13 +140,10 @@ function make_data_table(data, attribute_to_display) {
         'three_pt': 'Driepunters',
     }[attribute_to_display] || '';
 
-    console.log(attribute_to_display);
-    console.log(data_per_player_per_game[3]);
-
     const row_for_player = relguid => make_row_for_player(
         relguid_to_name[relguid],
         relguid_to_number[relguid],
-        relguid_to_dob[relguid].substring(8, 10),
+        relguid_to_dob[relguid] ? relguid_to_dob[relguid].substring(8, 10) : '',
         data_per_player_per_game.map(game => game[relguid])
     );
 
@@ -158,12 +158,10 @@ function make_data_table(data, attribute_to_display) {
         )
     );
 
-    if (attribute_to_display === 'fouls') {
-        // debugger;
-    }
+    const tr_class_only_on_extended_data = 'extended_only'; // ALWAYS_FULL / extended_only
 
     let innerhtml = [// list of strings we will join at the end
-        '<tr class="teamnaam">',
+        `<tr class="teamnaam">`,
         th(attribute_str),
         ...data.games.map(game => get_opponent_from_game(game, data.team_id_plus))
             .map(team =>
@@ -172,37 +170,37 @@ function make_data_table(data, attribute_to_display) {
         '<td></td>'.repeat(3),
         '</tr>',
 
-        '<tr class="maand">',
+        `<tr class="maand ${tr_class_only_on_extended_data}">`,
         th('Maand'),
         ...data.games.map(game => game['datumString'].substring(3, 5)).map(Number).map(td),
         '<td></td>'.repeat(3),
         '</tr>',
 
-        '<tr class="dag">',
+        `<tr class="dag ${tr_class_only_on_extended_data}">`,
         th('Dag'),
         ...data.games.map(game => game['datumString'].substring(0, 2)).map(Number).map(td),
         '<td></td>'.repeat(3),
         '</tr>',
 
-        '<tr class="winst">',
+        `<tr class="winst ${tr_class_only_on_extended_data}">`,
         th('Winst'),
         ...winst.map(char_for_winst).map(td),
         '<td></td>'.repeat(3),
         '</tr>',
 
-        '<tr>',
+        `<tr class="${tr_class_only_on_extended_data}">`,
         th('Voor'),
         ...own_points.map(td),
         '<td></td>'.repeat(3),
         '</tr>',
 
-        '<tr>',
+        `<tr class="${tr_class_only_on_extended_data}">`,
         th('Tegen'),
         ...opp_points.map(td),
         '<td></td>'.repeat(3),
         '</tr>',
 
-        '<tr class="verschil">',
+        `<tr class="verschil ${tr_class_only_on_extended_data}">`,
         th('Verschil'),
         ...verschillen.map(td),
         '<td></td>'.repeat(3),
@@ -231,9 +229,12 @@ function make_data_table(data, attribute_to_display) {
         innerhtml.push(make_row_for_player('PCT', '', '  ', pct, "pct"));
     }
 
-
     const table = document.createElement('table');
     table.innerHTML = innerhtml.join('');
+    table.classList.add(extended_details_mode);
+    if (extended_details_mode == 'ONLY_WHEN_EXTENDED') {
+        table.classList.add('ONLY_WHEN_EXTENDED')
+    }
 
     return table
 }

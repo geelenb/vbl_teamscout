@@ -12,6 +12,8 @@
     <script src="vis.js"></script>
     <script src="common.js"></script>
     <script type="text/javascript">
+        my_fav_team = "BVBL1049HSE++1"; // Orly A
+
         const get_next_game_from_games = games => (
             games
                 .filter(v => v['jsDTCode'] > new Date().getTime())
@@ -78,23 +80,31 @@
         }
 
         function make_div_with_tables(data) {
-            const ts = [
-                'points',
-                'three_pt',
-                'free_throws',
-                'fouls',
-                // 'plus_minus',
-                // 'minutes',
+            const table_keys_and_extended_only = [
+                ['points', 'ALWAYS_FULL'],
+                ['three_pt', 'DATA_ROWS'],
+                ['free_throws', 'ONLY_WHEN_EXTENDED'],
+                ['fouls', 'DATA_ROWS'],
+                ['plus_minus', 'ONLY_WHEN_EXTENDED'],
+                ['minutes', 'ONLY_WHEN_EXTENDED'],
             ];
 
-            const tables = ts.map(t => make_data_table(data, t));
+            const tables = table_keys_and_extended_only.map(t => make_data_table(data, t));
             const div = document.createElement('div');
             div.style.display = "inline";
             div.style.lineHeight = "0.8";
 
+            const extended_data_checkbox = document.createElement('input');
+            extended_data_checkbox.type = 'checkbox';
+            extended_data_checkbox.id = 'extended_data';
+
+            div.appendChild(extended_data_checkbox);
+            div.append('Alle info');
+            div.appendChild(document.createElement('br'));
+
             tables.forEach((table, i) => {
                 table.style.position = 'relative';
-                table.dataset.t = ts[i];
+                table.dataset.t = table_keys_and_extended_only[i][0];
                 div.appendChild(table)
             });
 
@@ -119,7 +129,7 @@
                 const next_game = await get_next_game_from_games(own_games);
                 return get_opponent_from_game(next_game, team_id).id_plus;
             }
-            return "BVBL1049HSE++1" // Orly A
+            return my_fav_team;
         }
 
         addEventListener('load', async () => {

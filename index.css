@@ -76,3 +76,11 @@ table tr.fta td {
     border-right: none;
     border-left: none;
 }
+
+input#extended_data ~ * .extended_only {
+    visibility: collapse;
+}
+
+input#extended_data:checked ~ * .extended_only {
+    visibility: inherit;
+}
