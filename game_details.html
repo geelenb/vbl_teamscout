@@ -35,8 +35,8 @@
         addEventListener('load', async () => {
             redirect_if_game_unspecified();
             const game_id = game_id_from_get_params();
-            game_stats = fetch_game_stats(game_id);
-            home_games =
+            game_stats = fetch_rosters(game_id);
+            // home_games =
             gebeurtenis_data = fetch_gebeurtenis_data(game_id);
 
             game_stats = await game_stats;

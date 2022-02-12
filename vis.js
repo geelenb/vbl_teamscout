@@ -1,7 +1,7 @@
-function get_most_common_number_per_player(player_list_for_games) {
+function get_most_common_number_per_player(roster_for_games) {
     const name_to_counts = {};
 
-    player_list_for_games.forEach(players_in_a_game => {
+    roster_for_games.forEach(players_in_a_game => {
         players_in_a_game.forEach(player => {
             if (player['Functie'] !== 'S') {
                 return
@@ -60,7 +60,7 @@ function shorten_teamname(teamname) {
 }
 
 const th = content => `<th></th><th colspan="2" style="text-align: left;">${content}</th>`;
-const td = content => `<td class="data">${content}</td>`;
+const td_data = content => `<td class="data">${content}</td>`;
 
 // const char_for_winst = w => String.fromCodePoint(w ? 0x2705 : 0x274C);
 const char_for_winst = w => w ? '✓' : '';
@@ -79,11 +79,11 @@ function make_row_for_player(disp_name, number, birth_date, player_data_cells, t
     let count = 0;
     player_data_cells.forEach(data_cell => {
         if (data_cell === undefined || data_cell == 'NaN') { // don't use isnan here, strings might be passed in!
-            row.push(td(''))
+            row.push(td_data(''))
         } else {
             sum += parseInt(data_cell);
             count += 1;
-            row.push(td(data_cell))
+            row.push(td_data(data_cell))
         }
     });
 
@@ -93,8 +93,8 @@ function make_row_for_player(disp_name, number, birth_date, player_data_cells, t
 
     row.push(
         `<td class="data borderleft">${sum}</td>`,
-        td(count),
-        td((sum / count).toFixed(1)),
+        td_data(count),
+        td_data((sum / count).toFixed(1)),
         '</tr>'
     );
     return row.join('')
@@ -105,7 +105,7 @@ function make_data_table(data, attribute_to_display_and_extended_details) {
     const extended_details_mode = attribute_to_display_and_extended_details[1];
 
     const relguid_to_number = data.relguid_to_most_common_number;
-    let relguid_to_name = data.player_list.flat().reduce((acc, player) => {
+    let relguid_to_name = data.rosters.flat().reduce((acc, player) => {
         if (player['Naam']) {
             acc[player['RelGUID']] = player['Naam'];
         }
@@ -119,7 +119,7 @@ function make_data_table(data, attribute_to_display_and_extended_details) {
         })
     }
 
-    const relguid_to_dob = data.player_list.flat().reduce((acc, player) => {
+    const relguid_to_dob = data.rosters.flat().reduce((acc, player) => {
         acc[player['RelGUID']] = player['GebDat'];
         return acc
     }, {});
@@ -169,43 +169,43 @@ function make_data_table(data, attribute_to_display_and_extended_details) {
             .map(team =>
                 `<th><div><p><a href="index.html?team=${team.id_plus}">${shorten_teamname(team.naam)}</a></p></div></th>`
             ),
-        '<td></td>'.repeat(3),
+        '<td_data></td_data>'.repeat(3),
         '</tr>',
 
         `<tr class="maand ${tr_class_only_on_extended_data}">`,
         th('Maand'),
-        ...data.games.map(game => game['datumString'].substring(3, 5)).map(Number).map(td),
-        '<td></td>'.repeat(3),
+        ...data.games.map(game => game['datumString'].substring(3, 5)).map(Number).map(td_data),
+        '<td_data></td_data>'.repeat(3),
         '</tr>',
 
         `<tr class="dag ${tr_class_only_on_extended_data}">`,
         th('Dag'),
-        ...data.games.map(game => game['datumString'].substring(0, 2)).map(Number).map(td),
-        '<td></td>'.repeat(3),
+        ...data.games.map(game => game['datumString'].substring(0, 2)).map(Number).map(td_data),
+        '<td_data></td_data>'.repeat(3),
         '</tr>',
 
         `<tr class="winst ${tr_class_only_on_extended_data}">`,
         th('Winst'),
-        ...winst.map(char_for_winst).map(td),
-        '<td></td>'.repeat(3),
+        ...winst.map(char_for_winst).map(td_data),
+        '<td_data></td_data>'.repeat(3),
         '</tr>',
 
         `<tr class="${tr_class_only_on_extended_data}">`,
         th('Voor'),
-        ...own_points.map(td),
-        '<td></td>'.repeat(3),
+        ...own_points.map(td_data),
+        '<td_data></td_data>'.repeat(3),
         '</tr>',
 
         `<tr class="${tr_class_only_on_extended_data}">`,
         th('Tegen'),
-        ...opp_points.map(td),
-        '<td></td>'.repeat(3),
+        ...opp_points.map(td_data),
+        '<td_data></td_data>'.repeat(3),
         '</tr>',
 
         `<tr class="verschil ${tr_class_only_on_extended_data}">`,
         th('Verschil'),
-        ...verschillen.map(td),
-        '<td></td>'.repeat(3),
+        ...verschillen.map(td_data),
+        '<td_data></td_data>'.repeat(3),
         '</tr>',
 
         '<tr class="thuis">',
@@ -213,9 +213,9 @@ function make_data_table(data, attribute_to_display_and_extended_details) {
         ...data.games.map(g => is_home_game_for_team(g, data.team_id_plus))
             .map(home_away_char)
             .map(text => `<td class="borderbottom data">${text}</td>`),
-        td('&sum;'),
-        td('#'),
-        td('/'),
+        td_data('&sum;'),
+        td_data('#'),
+        td_data('/'),
         '</tr>',
         ...Object.keys(relguid_to_number)
             .sort((a, b) => Number(relguid_to_number[a]) - Number(relguid_to_number[b]))
@@ -249,12 +249,12 @@ function table_from_list_of_objs(objs) {
         table.push('<tr>');
 
         for (let key of keys) {
-            table.push('<td>' + (obj[key] || '') + '</td>')
+            table.push('<td_data>' + (obj[key] || '') + '</td_data>')
         }
 
         for (let key in obj) {
             if (keys.indexOf(key) === -1) {
-                table.push('<td>', obj[key], '</td>');
+                table.push('<td_data>', obj[key], '</td_data>');
                 keys.push(key)
             }
         }

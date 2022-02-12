@@ -37,17 +37,17 @@
                     .filter(game => (game['uitslag'] !== ""))
                     .sort((a, b) => a['jsDTCode'] - b['jsDTCode']);
 
-            let player_list = fetch_player_list_for_games(previous_games, team_id);
+            let rosters = fetch_rosters_for_games(previous_games, team_id);
             let gebeurtenis_data = fetch_gebeurtenis_data_for_games(previous_games);
 
-            player_list = await player_list;
+            rosters = await rosters;
             gebeurtenis_data = await gebeurtenis_data;
 
             return {
                 team_id_plus: team_id,
                 team_name: team_name,
                 games: previous_games,
-                relguid_to_most_common_number: get_most_common_number_per_player(player_list),
+                relguid_to_most_common_number: get_most_common_number_per_player(rosters),
                 points: gebeurtenis_data.map(gebeurtenis_data_to_points),
                 plus_minus: gebeurtenis_data.map(gebeurtenis_data_to_plus_minus),
                 fouls: gebeurtenis_data.map(gebeurtenis_data_to_fouls),
@@ -56,7 +56,7 @@
                 free_throws_attempted: gebeurtenis_data.map(gebeurtenis_data_to_free_throws_attempted),
                 three_pt: gebeurtenis_data.map(gebeurtenis_data_to_three_pt),
 
-                player_list: player_list,
+                rosters: rosters,
                 gebeurtenis_data: gebeurtenis_data,
                 next_opponent_id_plus: next_opponent_id_plus,
                 next_opponent_name: next_opponent_name
