@@ -10,8 +10,10 @@
     <script src="fetching.js"></script>
     <script src="vis.js"></script>
     <script src="common.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="match_grafek.css">
 </head>
-<body style="background: #333; color: white">
+<body>
 	<h1>Laden...</h1>
 	<table id='quarters'></table>
 	<div id='myDiv'></div>
@@ -35,13 +37,37 @@
 	}
 
 	async function make_graph() {
-		let data = [{
-			x: 0,
-			y: 0,
-			text: 'Start',
-		}];
+		let points_trace = {
+			x: [0],
+			y: [0],
+			text: ['Start'],
+			type: 'scatter',
+			hoverinfo: 'text',
+			showlegend: false,
+		};
+		let to_trace = {
+			x: [],
+			y: [],
+			text : [],
+			type: 'scatter',
+  			mode: 'markers',
+			hoverinfo: 'text',
+			marker: {color: 'black'},
+			showlegend: false,
+		}
+		let fouls_trace = {
+			x: [],
+			y: [],
+			text : [],
+			type: 'scatter',
+  			mode: 'markers',
+			hoverinfo: 'text',
+			marker: {color: 'red'},
+			showlegend: false,
+		}
 
 		let geb_index_x = [];
+		let last_y;
 
 		for (i = 0; i < gebeurtenis_data.GebNis.length; i++) {
 			const geb = gebeurtenis_data.GebNis[i];
@@ -50,7 +76,6 @@
 				continue;
 			}
 
-			const last_data = data[data.length - 1];
 			const geb_this_minute = (
 				gebeurtenis_data.GebNis
 				.filter(lgeb => (lgeb.GebStatus === 10))
@@ -60,43 +85,45 @@
 			);
 			const index_in_this_minute = geb_this_minute.findIndex(lgeb => lgeb.Index === geb.Index);
 			const x = (geb.Periode - 1) * 10 + (geb.Minuut - 1) / 11 * 10 + (0.5 + index_in_this_minute) / geb_this_minute.length;
+			last_y = points_trace.y[points_trace.y.length - 1]
 
 			const player = roster.TuDeel.concat(roster.TtDeel).find(player => player.RelGUID == geb.RelGUID)
-			
+
 			if (geb.GebType === 10) {
 				const split = geb.Text.split(/\b/);
 				const newdiff = split[2] - split[4];
+				const text = `Score ${geb.Text}<br>${geb.RugNr} ${player.Naam}`;
 
-
-				const text = `${geb.Text}<br>${geb.RugNr} ${player.Naam}`
-				data.push({
-					x: x,
-					y: last_data.y,
-					text: text
-				});
-				data.push({
-					x: x,
-					y: newdiff,
-					text: text
-				});
-
-				geb_index_x.push({
-					geb_index: geb.Index,
-					x: x
-				});
+				points_trace.x.push(x, x);
+				points_trace.y.push(last_y, newdiff);
+				points_trace.text.push(text, text);
 			}
+
+			if (geb.GebType === 20) {
+				to_trace.x.push(x);
+				to_trace.y.push(geb.TofU === 'T' ? .2 : -.2);
+				to_trace.text.push(`Time out<br>${geb.TofU === 'T' ? 'Home' : 'Away'} team`);
+			}
+
+			if (geb.GebType === 30) {
+				fouls_trace.x.push(x);
+
+				fouls_trace.y.push(last_y + (geb.TofU === 'T' ? .2 : -.2));
+				fouls_trace.text.push(`Foul "${geb.Text}"<br>${geb.RugNr} ${player.Naam}`);
+			}
+
+			geb_index_x.push({
+				geb_index: geb.Index,
+				x: x
+			});
 		}
 
-		const x = data.map(v => v.x);
-		const y = data.map(v => v.y);
-		const text = data.map(v => v.text)
-		let trace = {
-			x: x,
-			y: y,
-			text: text,
-			type: 'scatter',
-			hoverinfo: 'text',
-		};
+		if (points_trace.x[points_trace.x.length - 1] < 40) {
+			points_trace.x.push(40);
+			points_trace.y.push(last_y);
+			points_trace.text.push('');
+		}
+
 
 		let layout = {
 			xaxis: {
@@ -111,7 +138,7 @@
 			}
 		};
 
-		window.plot = await Plotly.newPlot('myDiv', [trace], layout);
+		window.plot = await Plotly.newPlot('myDiv', [points_trace, to_trace, fouls_trace], layout);
 
 		plot.on('plotly_hover', function(data){
 			console.log(data)
@@ -128,6 +155,8 @@
 			' - ' + 
 			`<a href='index.html?team=${game.tUGUID}'>${game.tUNaam}</a>`
 		);
+
+		document.title = `${game.tTNaam} - ${game.tUNaam}`
 
 		let quarters = document.querySelector('table#quarters');
 		let periodenames = (
