@@ -17,8 +17,8 @@ async function fetch_games(team_guid_plus) {
             console.warn(`Using older result of load_games('${team_guid_plus}')`);
             return JSON.parse(localStorage.getItem(localStorage_key))
         }
+        
         console.error(`Failed to fetch in load_games('${team_guid_plus}')`);
-
     }
 }
 

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="nl-be">
 <head>
-    <title>Auto Scout</title>
+    <title>Laden...</title>
     <meta charset='utf-8'>
 
     <link rel="stylesheet" href="index.css">
@@ -73,6 +73,8 @@
 
             const next_opponent_id_plus = data.next_opponent_id_plus.replace(/\+/g, ' ');
             const p = `<p>Volgende tegenstander: <a href="?team=${next_opponent_id_plus}">${data.next_opponent_name}</a></p>`;
+
+            document.title = data.team_name;
 
             div.innerHTML = `${img}${h}${p}`;
 
