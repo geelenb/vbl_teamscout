@@ -1,24 +1,25 @@
 async function fetch_games(team_guid_plus) {
-    const localStorage_key = `games_for_team_${team_guid_plus}`;
+    const url = `https://vblcb.wisseq.eu/VBLCB_WebService/data/TeamMatchesByGuid?teamGuid=${team_guid_plus}`;
+    const localStorage_key = url.split('/').pop();
 
     try {
+        // Always try to load these fresh
         const json = await (await fetch(
-                `https://vblcb.wisseq.eu/VBLCB_WebService/data/TeamMatchesByGuid?teamGuid=${team_guid_plus}`, {
+                url, {
                     method: "GET",
                     headers: []
                 })
         ).json();
 
-        localStorage.setItem(localStorage_key, JSON.stringify(json));
+        try {
+            localStorage.setItem(localStorage_key, LZString.compress(JSON.stringify(json)));
+        } catch {}
 
         return json
     } catch (te) {
-        if (localStorage.getItem(localStorage_key)) {
-            console.warn(`Using older result of load_games('${team_guid_plus}')`);
-            return JSON.parse(localStorage.getItem(localStorage_key))
-        }
-        
-        console.error(`Failed to fetch in load_games('${team_guid_plus}')`);
+        try {
+            return JSON.parse(LZString.decompress(localStorage.getItem(localStorage_key)));
+        } catch {}
     }
 }
 
@@ -34,13 +35,15 @@ async function fetch_poule_games(issguid) {
                 })
         ).json();
 
-        localStorage.setItem(url, JSON.stringify(json));
+        try {
+            localStorage.setItem(localStorage_key, LZString.compress(JSON.stringify(json)));
+        } catch {}
 
         return json
     } catch (te) {
-        if (localStorage.getItem(url)) {
+        if (localStorage.getItem(localStorage_key)) {
             console.warn(`Using older result of fetch_poule_games('${issguid}')`);
-            return JSON.parse(localStorage.getItem(url))
+            return JSON.parse(LZString.decompress(localStorage.getItem(url)));
         }
         
         console.error(`Failed to fetch in fetch_poule_games('${issguid}')`);
@@ -50,11 +53,12 @@ async function fetch_poule_games(issguid) {
 // BVBL21229120LIHSE31A
 
 async function fetch_rosters(game_uid) {
-    const localStorage_key = `game_stats_${game_uid}`;
+    const referrer = `https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=${game_uid}`;
+    const localStorage_key =  referrer.split('/').pop();
 
-    if (localStorage.getItem(localStorage_key)) {
-        return JSON.parse(localStorage.getItem(localStorage_key));
-    }
+    try {
+        return JSON.parse(LZString.decompress(localStorage.getItem(localStorage_key)));
+    } catch {}
 
     if (game_uid === 'BVBL19209120LIHSE31BFB') {
         console.log('loading game stats json from local server');
@@ -71,23 +75,26 @@ async function fetch_rosters(game_uid) {
             "headers": {
                 "content-type": "application/json; charset=UTF-8",
             },
-            "referrer": `https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=${game_uid}`,
+            "referrer": referrer,
             "body": `{"AuthHeader":"na","WQVer":"ddc1.0","WedGUID":"${game_uid}","CRUD":"R"}`,
             "method": "PUT",
         }
     )).json();
 
-    localStorage.setItem(localStorage_key, JSON.stringify(json));
-
+    try {
+        localStorage.setItem(localStorage_key, LZString.compress(JSON.stringify(json)));
+    } catch {}
     return json
 }
 
 async function fetch_gebeurtenis_data(game_uid) {
-    const localStorage_key = `gebeurtenis_data_${game_uid}`;
+    const referrer = `https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=${game_uid}&ID=Uitslag`
+    const localStorage_key = referrer.split('/').pop();
 
-    if (localStorage.getItem(localStorage_key)) {
-        return JSON.parse(localStorage.getItem(localStorage_key));
-    }
+
+    try {
+        return JSON.parse(LZString.decompress(localStorage.getItem(localStorage_key)));
+    } catch {}
 
     if (game_uid === 'BVBL19209120LIHSE31BFB') {
         console.log('loading gebeurtenis_data json from local server');
@@ -96,7 +103,7 @@ async function fetch_gebeurtenis_data(game_uid) {
         )).json())
     }
 
-    console.log(`fetching gebeurtenis data ${game_uid}`);
+    console.log(`fetching gebeurtenis data ${game_uid} ...`);
 
     const json = await (await fetch(
         "https://vblcb.wisseq.eu/VBLCB_WebService/data/DwfVgngByWedGuid",
@@ -110,14 +117,17 @@ async function fetch_gebeurtenis_data(game_uid) {
                 // "sec-fetch-mode": "cors",
                 // "sec-fetch-site": "same-site"
             },
-            "referrer": `https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=${game_uid}&ID=Uitslag`,
+            "referrer": referrer,
             // "referrerPolicy": "no-referrer-when-downgrade",
             "body": `{"AuthHeader":"na","WQVer":"ddc1.0","WedGUID":"${game_uid}","CRUD":"R"}`,
             "method": "PUT",
             // "mode": "cors"
         })).json();
 
-    localStorage.setItem(localStorage_key, JSON.stringify(json));
+
+    try {
+        localStorage.setItem(localStorage_key, LZString.compress(JSON.stringify(json)));
+    } catch {}
     return json
 }
 

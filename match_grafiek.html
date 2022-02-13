@@ -10,14 +10,18 @@
     <script src="fetching.js"></script>
     <script src="vis.js"></script>
     <script src="common.js"></script>
+    <script language="javascript" src="libs/lz-string.min.js"></script>
 
-    <link rel="stylesheet" type="text/css" href="match_grafek.css">
+    <link rel="stylesheet" type="text/css" href="match_grafiek.css">
 </head>
 <body>
 	<h1>Laden...</h1>
 	<table id='quarters'></table>
 	<div id='myDiv'></div>
-	<table id='stats'></table>
+	<div id='statsholder'>
+		<table class='stats home'></table>
+		<table class='stats away'></table>
+	</div>
 	<table id='gebeurtenissen'></table>
 </body>
 
@@ -36,6 +40,7 @@
 		window.game = poule_games.find(game => game.guid === game_id);
 	}
 
+
 	async function make_graph() {
 		let points_trace = {
 			x: [0],
@@ -43,7 +48,8 @@
 			text: ['Start'],
 			type: 'scatter',
 			hoverinfo: 'text',
-			showlegend: false,
+			showlegend: true,
+			name: 'Home advantage'
 		};
 		let to_trace = {
 			x: [],
@@ -53,7 +59,8 @@
   			mode: 'markers',
 			hoverinfo: 'text',
 			marker: {color: 'black'},
-			showlegend: false,
+			showlegend: true,
+			name: 'Time-outs'
 		}
 		let fouls_trace = {
 			x: [],
@@ -63,7 +70,8 @@
   			mode: 'markers',
 			hoverinfo: 'text',
 			marker: {color: 'red'},
-			showlegend: false,
+			showlegend: true,
+			name: 'Fouls'
 		}
 
 		let geb_index_x = [];
@@ -71,6 +79,7 @@
 
 		for (i = 0; i < gebeurtenis_data.GebNis.length; i++) {
 			const geb = gebeurtenis_data.GebNis[i];
+			let team = geb.TofU === 'T' ? 'Home' : 'Away'
 
 			if (geb.GebStatus !== 10) {
 				continue;
@@ -84,7 +93,7 @@
 				.filter(lgeb => !([50, 40].includes(lgeb.GebType))) // filter out periode start, substitutions
 			);
 			const index_in_this_minute = geb_this_minute.findIndex(lgeb => lgeb.Index === geb.Index);
-			const x = (geb.Periode - 1) * 10 + (geb.Minuut - 1) / 11 * 10 + (0.5 + index_in_this_minute) / geb_this_minute.length;
+			const x = (geb.Periode - 1) * 10 + (geb.Minuut - 1) + (0.5 + index_in_this_minute) / geb_this_minute.length;
 			last_y = points_trace.y[points_trace.y.length - 1]
 
 			const player = roster.TuDeel.concat(roster.TtDeel).find(player => player.RelGUID == geb.RelGUID)
@@ -92,7 +101,7 @@
 			if (geb.GebType === 10) {
 				const split = geb.Text.split(/\b/);
 				const newdiff = split[2] - split[4];
-				const text = `Score ${geb.Text}<br>${geb.RugNr} ${player.Naam}`;
+				const text = `${team} score ${geb.Text}<br>${geb.RugNr} ${player.Naam}`;
 
 				points_trace.x.push(x, x);
 				points_trace.y.push(last_y, newdiff);
@@ -102,14 +111,14 @@
 			if (geb.GebType === 20) {
 				to_trace.x.push(x);
 				to_trace.y.push(geb.TofU === 'T' ? .2 : -.2);
-				to_trace.text.push(`Time out<br>${geb.TofU === 'T' ? 'Home' : 'Away'} team`);
+				to_trace.text.push(`Time out<br>${team} team`);
 			}
 
 			if (geb.GebType === 30) {
 				fouls_trace.x.push(x);
 
 				fouls_trace.y.push(last_y + (geb.TofU === 'T' ? .2 : -.2));
-				fouls_trace.text.push(`Foul "${geb.Text}"<br>${geb.RugNr} ${player.Naam}`);
+				fouls_trace.text.push(`${team} foul "${geb.Text}"<br>${geb.RugNr} ${player.Naam}`);
 			}
 
 			geb_index_x.push({
@@ -127,7 +136,8 @@
 
 		let layout = {
 			xaxis: {
-				title: 'Minuut'
+				title: 'Minuut',
+				// dtick: 1,
 			},
 			yaxis: {
 				title: `Voorsprong ${shorten_teamname(game.tTNaam)}`
@@ -135,10 +145,19 @@
 			margin: {
 				r: 10,
 				t: 10,
+			},
+			legend: {
+				x: 0.03,
+				xanchor: 'left',
+				y: 1
 			}
 		};
+		const config = {
+			responsive: true,
+			displayModeBar: false,
+		}
 
-		window.plot = await Plotly.newPlot('myDiv', [points_trace, to_trace, fouls_trace], layout);
+		window.plot = await Plotly.newPlot('myDiv', [points_trace, to_trace, fouls_trace], layout, config);
 
 		plot.on('plotly_hover', function(data){
 			console.log(data)
@@ -183,12 +202,125 @@
 			`<tr>${td(game.tUNaam)} ${td(game.uitslag.split('-')[1])} ${ periodenames.map(p => td_points_in_periode(p, 'U')).join('') }</tr>`
 		);
 	}
-	function make_sheets() {
-		let table = document.querySelector('table#sheets');
+	async function make_sheets() {
+		function geb_minute(geb) {
+			const geb_this_minute = (
+				gebeurtenis_data.GebNis
+				.filter(lgeb => (lgeb.GebStatus === 10))
+				.filter(lgeb => geb.Periode === lgeb.Periode)
+				.filter(lgeb => geb.Minuut === lgeb.Minuut)	 // don't filter out periode start, substitutions here
+			);
+			const index_in_this_minute = geb_this_minute.findIndex(lgeb => lgeb.Index === geb.Index);
+			return (geb.Periode - 1) * 10 + (geb.Minuut - 1) + (0.5 + index_in_this_minute) / geb_this_minute.length;
+		}
+
+		[["home", roster.TtDeel], ["away", roster.TuDeel]].forEach(([c, teamroster]) => {
+			// debugger
+			const table = document.querySelector('table.stats.' + c);
+
+			const row = document.createElement('tr');
+			row.innerHTML = [
+				'', '', 'P', 'ft', '3', 'F', '+/-', 'min'
+			].map(td).join('');
+			table.appendChild(row)
+
+			teamroster.forEach(player => {
+				if (!player.Naam) {
+					return
+				}
+
+				const this_player_gebs = (
+					gebeurtenis_data.GebNis
+					.filter(g => g.GebStatus === 10)
+					.filter(g => g.RelGUID === player.RelGUID)
+				);
+
+				const scores = this_player_gebs.filter(g => g.GebType == 10);
+				const score_1 = scores.filter(g => g.Text.startsWith('1 ')).length
+				const score_2 = scores.filter(g => g.Text.startsWith('2 ')).length
+				const score_3 = scores.filter(g => g.Text.startsWith('3 ')).length
+				const points_total = score_1 + 2 * score_2 + score_3;
+
+
+				let plusminus = 0;
+				let on = false;
+				let minutes = 0;
+				for (let i = 0; i < gebeurtenis_data.GebNis.length; i++) {
+					const geb = gebeurtenis_data.GebNis[i];
+					if (geb.GebStatus !== 10) {
+						continue;
+					}
+					if (geb.GebType === 10) {
+						if (on) {
+							plusminus += Number(geb.Text.split(/\b/)[0]) * ((geb.TofU === 'T') === (c === 'home')) ? 1 : -1;
+						}
+					}
+
+					if (geb.Text === 'in' && geb.RelGUID === player.RelGUID) {
+						on = true;
+						minutes -= geb_minute(geb);
+					}
+
+					if (geb.Text === 'uit' && geb.RelGUID === player.RelGUID) {
+						on = false;
+						minutes += geb_minute(geb);
+					}
+				}
+				if (on) {
+					minutes += geb_minute(gebeurtenis_data.GebNis.findLast(geb => geb.Periode < 99));
+				}
+				minutes = Math.round(minutes)
+
+				
+
+				// debugger;
+				// const minutes = Math.round(
+				// 	(
+				// 		gebeurtenis_data.GebNis
+				// 		.filter(geb => (geb.GebStatus === 10))
+				// 		.filter(geb => geb.RelGUID === player.RelGUID)
+				// 		.filter(geb => geb.Text === 'uit')
+				// 		.map(geb_minute)
+				// 		.reduce((x, acc) => acc + x, 0)
+				// 	) - (
+				// 		gebeurtenis_data.GebNis
+				// 		.filter(geb => (geb.GebStatus === 10))
+				// 		.filter(geb => geb.RelGUID === player.RelGUID)
+				// 		.filter(geb => geb.Text === 'in')
+				// 		.map(geb_minute)
+				// 		.reduce((x, acc) => acc + x, 0)
+				// 	)
+				// );
+
+				const fouls = this_player_gebs.filter(g => g.GebType == 30);
+				let fouls_str = `${fouls.length}`
+				const otherfouls = fouls.map(g => g.Text[0] === 'P' ? '' : g.Text[0]).join('');
+				if (otherfouls) {
+					fouls_str += `<sup>${otherfouls}</sup>`;
+				}
+			    
+				const row = document.createElement('tr');
+				row.innerHTML = [
+					player.RugNr,
+					player.Naam,
+					// '\'' + player.GebDat.substring(8, 10),
+					points_total,
+					score_1,
+					score_3,
+					fouls_str,
+					plusminus,
+					minutes
+				].map(td).join('');
+
+				table.appendChild(row);
+			});
+
+			table.style.display = 'inline';
+		})
 	}
 
 	function make_gebeurtenissen() {
-		let table = document.querySelector('table#gebeurtenissen')
+		const table = document.querySelector('table#gebeurtenissen')
 
 	}
 
@@ -206,13 +338,24 @@
 		await load_data(window.game_id);
 
 		make_graph_promise = make_graph();
+		make_sheets_promise = make_sheets();
 
 		make_statics();
 
 		await make_graph_promise;
 	})();
 
-
+	function downloadMyElement() {
+	   var MyElement=document.body.outerHTML;
+        var filename = "MyElement.html";
+        var element = document.createElement('a');
+        element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(MyElement));
+        element.setAttribute('download', filename);
+        element.style.display = 'none';
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+    }
 
 </script>
 </html>

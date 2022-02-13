@@ -1,0 +1,42 @@
+body {
+    margin: 0;
+    font-family: Geneva, Arial, sans-serif;
+}
+
+body h1 {
+    text-align: center;
+}
+
+body table {
+    margin:  12px;
+}
+
+table#quarters {
+    margin:  12px auto;
+}
+
+
+table td {
+    padding: 5px ;
+    text-align: right;
+}
+
+table#quarters tr td:nth-child(1) {
+    text-align: left;
+}
+
+div#statsholder {
+    text-align: center;
+}
+
+table.stats {
+}
+
+table.stats tr td {
+    /*text-align: right;*/
+    /*margin: 5px;*/
+}
+
+table.stats tr td:nth-child(2) {
+    text-align: left;
+}
