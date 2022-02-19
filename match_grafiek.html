@@ -138,11 +138,14 @@
 			xaxis: {
 				title: 'Minuut',
 				// dtick: 1,
+				fixedrange: true,
 			},
 			yaxis: {
-				title: `Voorsprong ${shorten_teamname(game.tTNaam)}`
+				title: `Voorsprong ${shorten_teamname(game.tTNaam)}`,
+				fixedrange: true,
 			},
 			margin: {
+				l: window.innerWidth * .05,
 				r: 10,
 				t: 10,
 			},
@@ -154,7 +157,8 @@
 		};
 		const config = {
 			responsive: true,
-			displayModeBar: false,
+			// displayModeBar: false,
+			displaylogo: false,
 		}
 
 		window.plot = await Plotly.newPlot('myDiv', [points_trace, to_trace, fouls_trace], layout, config);
@@ -236,11 +240,10 @@
 				);
 
 				const scores = this_player_gebs.filter(g => g.GebType == 10);
-				const score_1 = scores.filter(g => g.Text.startsWith('1 ')).length
-				const score_2 = scores.filter(g => g.Text.startsWith('2 ')).length
-				const score_3 = scores.filter(g => g.Text.startsWith('3 ')).length
-				const points_total = score_1 + 2 * score_2 + score_3;
-
+				const score_1 = scores.filter(g => g.Text.startsWith('1 ')).length;
+				const score_2 = scores.filter(g => g.Text.startsWith('2 ')).length;
+				const score_3 = scores.filter(g => g.Text.startsWith('3 ')).length;
+				const points_total = score_1 + 2 * score_2 + 3 * score_3;
 
 				let plusminus = 0;
 				let on = false;
@@ -267,30 +270,14 @@
 					}
 				}
 				if (on) {
-					minutes += geb_minute(gebeurtenis_data.GebNis.findLast(geb => geb.Periode < 99));
+					const copy = [].concat(gebeurtenis_data.GebNis)
+					copy.reverse();
+					const last_geb = copy.find(geb => geb.Periode < 99);
+					// console.log(geb_minute(last_geb))
+					// debugger;
+					minutes += geb_minute(last_geb);
 				}
-				minutes = Math.round(minutes)
-
-				
-
-				// debugger;
-				// const minutes = Math.round(
-				// 	(
-				// 		gebeurtenis_data.GebNis
-				// 		.filter(geb => (geb.GebStatus === 10))
-				// 		.filter(geb => geb.RelGUID === player.RelGUID)
-				// 		.filter(geb => geb.Text === 'uit')
-				// 		.map(geb_minute)
-				// 		.reduce((x, acc) => acc + x, 0)
-				// 	) - (
-				// 		gebeurtenis_data.GebNis
-				// 		.filter(geb => (geb.GebStatus === 10))
-				// 		.filter(geb => geb.RelGUID === player.RelGUID)
-				// 		.filter(geb => geb.Text === 'in')
-				// 		.map(geb_minute)
-				// 		.reduce((x, acc) => acc + x, 0)
-				// 	)
-				// );
+				minutes = Math.round(minutes);
 
 				const fouls = this_player_gebs.filter(g => g.GebType == 30);
 				let fouls_str = `${fouls.length}`
