@@ -204,21 +204,23 @@ function make_data_table(data, attribute_to_display_and_extended_details) {
         '<td></td>'.repeat(3),
         '</tr>',
 
-        `<tr class="verschil ${tr_class_only_on_extended_data}">`,
-        th('Verschil'),
-        ...verschillen.map(td_data),
-        '<td></td>'.repeat(3),
-        '</tr>',
-
-        '<tr class="thuis">',
+        `<tr class="thuis ${tr_class_only_on_extended_data}">`,
         th('Thuis'),
         ...data.games.map(g => is_home_game_for_team(g, data.team_id_plus))
             .map(home_away_char)
-            .map(text => `<td class="borderbottom data">${text}</td>`),
+            .map(td_data),
+        '<td></td>'.repeat(3),
+        '</tr>',
+
+        `<tr class="verschil">`,
+        th('Verschil'),
+        ...verschillen.map(text => `<td class="borderbottom data">${text}</td>`),
+
         td_data('&sum;'),
         td_data('#'),
         td_data('/'),
         '</tr>',
+
         ...Object.keys(relguid_to_number)
             .sort((a, b) => Number(relguid_to_number[a]) - Number(relguid_to_number[b]))
             .map(row_for_player),
