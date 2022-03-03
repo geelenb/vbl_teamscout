@@ -29,28 +29,31 @@ function gebeurtenis_data_to_plus_minus(gebeurtenis_data) {
     gebeurtenis_data = gebeurtenis_data['GebNis'] || gebeurtenis_data;
     let plus_minus = initialize_per_player(gebeurtenis_data, 0);
 
-    let players_on_field = [];
+    let players_on_field = {T: [], U: []};
 
     gebeurtenis_data.forEach(geb => {
+        if (geb.GebStatus !== 10) {
+            return;
+        }
+
         if (geb['GebType'] === 50) {
             // wissel
             if (geb['Text'] === 'in') {
-                players_on_field.push(geb['RelGUID'])
+                players_on_field[geb.TofU].push(geb['RelGUID']);
             } else if (geb['Text'] === 'uit') {
-                players_on_field = (
-                    players_on_field.filter(v => v !== geb['RelGUID'])
-                )
+                players_on_field.T = players_on_field.T.filter(v => v !== geb['RelGUID']);
+                players_on_field.U = players_on_field.U.filter(v => v !== geb['RelGUID']);
             }
         } else if (geb['GebType'] === 10) {
             // score
             let punten = Number(geb['Text'].split(' ')[0]);
             if (geb['TofU'] === 'U') {
-                punten = -punten
+                punten = -punten;
             }
-            for (let player of players_on_field) {
+            for (let player of players_on_field.T) {
                 plus_minus[player] += punten
             }
-            for (let player of players_on_field) {
+            for (let player of players_on_field.U) {
                 plus_minus[player] -= punten
             }
         }

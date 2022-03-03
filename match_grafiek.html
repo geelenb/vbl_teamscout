@@ -206,6 +206,7 @@
 			`<tr>${td(game.tUNaam)} ${td(game.uitslag.split('-')[1])} ${ periodenames.map(p => td_points_in_periode(p, 'U')).join('') }</tr>`
 		);
 	}
+	
 	async function make_sheets() {
 		function geb_minute(geb) {
 			const geb_this_minute = (
@@ -255,7 +256,9 @@
 					}
 					if (geb.GebType === 10) {
 						if (on) {
-							plusminus += Number(geb.Text.split(/\b/)[0]) * ((geb.TofU === 'T') === (c === 'home')) ? 1 : -1;
+							plusminus += Number(geb.Text.split(/\b/)[0]) * (
+								((geb.TofU === 'T') === (c === 'home')) ? 1 : -1
+							);
 						}
 					}
 
