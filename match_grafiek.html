@@ -10,12 +10,13 @@
     <script src="fetching.js"></script>
     <script src="vis.js"></script>
     <script src="common.js"></script>
-    <script language="javascript" src="libs/lz-string.min.js"></script>
+    <script src="libs/lz-string.min.js"></script>
 
     <link href="match_grafiek.css" rel="stylesheet" type="text/css">
 </head>
 <body>
 <h1>Laden...</h1>
+<h2 id="reeks"></h2>
 <table id='quarters'></table>
 <div id='myDiv'></div>
 <div id='statsholder'>
@@ -171,6 +172,8 @@
 			' - ' +
 			`<a href='index.html?team=${game.tUGUID}'>${game.tUNaam}</a>`
 		);
+
+		document.querySelector('h2#reeks').innerText = game.pouleNaam;
 
 		document.title = `${game.tTNaam} - ${game.tUNaam}`
 	}
