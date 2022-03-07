@@ -79,8 +79,6 @@
 
             document.title = data.team_name;
 
-            // div.innerHTML = `${img}${h}${p}`;
-
             div.innerHTML = `${h}${p}`;
 
             return `${h}${p}`;
@@ -98,8 +96,6 @@
 
             const tables = table_keys_and_extended_only.map(t => make_data_table(data, t));
             const div = document.createElement('div');
-            // div.style.display = "inline";
-            // div.style.lineHeight = "0.8";
 
             const extended_data_checkbox = document.createElement('input');
             extended_data_checkbox.type = 'checkbox';
@@ -119,7 +115,7 @@
         }
 
         function redirect_if_team_unspecified() {
-            const params = new URLSearchParams(window.location.search.substr(1));
+            const params = new URLSearchParams(window.location.search.substring(1));
             if (params.get('team') || params.get('opponent')) {
                 return;
             }
@@ -127,7 +123,7 @@
         }
 
         async function team_id_from_get_params() {
-            const params = new URLSearchParams(window.location.search.substr(1));
+            const params = new URLSearchParams(window.location.search.substring(1));
             let team_id;
             if (team_id = params.get('team')) {
                 return team_id

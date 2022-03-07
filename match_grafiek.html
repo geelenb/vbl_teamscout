@@ -4,41 +4,65 @@
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1" name="viewport">
     <title>Laden...</title>
-    <script src='https://cdn.plot.ly/plotly-2.9.0.min.js'></script>
+
     <script src="itertools.js"></script>
     <script src="gebeurtenis_data.js"></script>
     <script src="fetching.js"></script>
     <script src="vis.js"></script>
     <script src="common.js"></script>
     <script src="libs/lz-string.min.js"></script>
+    <script src="libs/plotly-2.9.0.min.js"></script>
 
     <link href="match_grafiek.css" rel="stylesheet" type="text/css">
 </head>
 <body>
 <h1>Laden...</h1>
 <h2 id="reeks"></h2>
-<table id='quarters'></table>
-<div id='myDiv'></div>
-<div id='statsholder'>
-    <table class='stats home'></table>
-    <table class='stats away'></table>
+<p id="date"></p>
+
+<div id='general_stats'>
+    <table id='quarters'></table>
+
 </div>
-<table id='gebeurtenissen'></table>
+<div id='plot'></div>
+
+<div id='box_scores'>
+    <table class='stats home booktabs w_totals'></table>
+    <table class='stats away booktabs w_totals'></table>
+</div>
+
+<div>
+    <div id="other_stats">
+        <img class="h" src="">
+        <img class="a" src="">
+        <div class="largest_lead h"></div>
+        <div class="largest_lead name">Grootste voorsprong</div>
+        <div class="largest_lead a"></div>
+        <div class="largest_run h"></div>
+        <div class="largest_run name">Grootste streak</div></td>
+        <div class="largest_run a"></div>
+        <div class="time_led h"></div>
+        <div class="time_led name" style="visibility: hidden">Tijd aan de leiding</div>
+        <div class="time_led a"></div>
+<!--        <div class="both">Gelijkstanden</div>-->
+        <!--    <tr id="leader_changes">-->
+        <!--    <div colspan="3">Lead changes</div>-->
+    </div>
+</div>
 </body>
 
 <script type="text/javascript">
 	async function load_data(game_id) {
 		let roster = fetch_rosters(game_id);
 		let gebeurtenis_data = fetch_gebeurtenis_data(game_id);
+        let poule_games = fetch_poule_games(game_id.substring(0, game_id.length - 2));
 
 		window.game_id = game_id;
 		window.gebeurtenis_data = await gebeurtenis_data;
 		window.roster = await roster;
+		window.poule_games = await poule_games;
 
-		let poule = game_id.substring(0, game_id.length - 2);
-		window.poule_games = await fetch_poule_games(poule);
-
-		window.game = poule_games.find(game => game.guid === game_id);
+		window.game = window.poule_games.find(game => game.guid === game_id);
 	}
 
 
@@ -144,9 +168,12 @@
 				t: 10,
 			},
 			legend: {
-				x: 0.03,
-				xanchor: 'left',
-				y: 1
+				x: 0.99,
+				xanchor: 'right',
+				y: last_y < 0 ? 1 : 0
+			},
+			font: {
+				family: 'Georgia, Palatino, serif',
 			}
 		};
 		const config = {
@@ -155,7 +182,7 @@
 			displaylogo: false,
 		}
 
-		window.plot = await Plotly.newPlot('myDiv', [points_trace, to_trace, fouls_trace], layout, config);
+		window.plot = await Plotly.newPlot('plot', [points_trace, to_trace, fouls_trace], layout, config);
 
 		plot.on('plotly_hover', function (data) {
 			console.log(data)
@@ -166,16 +193,45 @@
 	const td = content => `<td>${content}</td>`;
 
 	function make_title() {
+		const record_for_team = (guid) => {
+			const n_home_wins_in_filtered_poule_games = (filtered_poule_games) => {
+				return filtered_poule_games.filter(pg =>pg.uitslag.substring(0, 3) - pg.uitslag.substring(4, 7) > 0).length
+			}
+
+			const home_games = poule_games.filter(pg => pg.tTGUID == guid && pg.uitslag);
+			const away_games = poule_games.filter(pg => pg.tUGUID == guid && pg.uitslag);
+
+			const home_wins = n_home_wins_in_filtered_poule_games(home_games);
+            const away_losses = n_home_wins_in_filtered_poule_games(away_games);
+			const home_losses = home_games.length - home_wins;
+			const away_wins = away_games.length - away_losses
+			return [
+				home_wins + away_wins,
+                home_losses + away_losses
+            ]
+        }
+
+		const home_record = record_for_team(game.tTGUID);
+		const away_record = record_for_team(game.tUGUID);
+
 		let h1 = document.querySelector('body > h1');
 		h1.innerHTML = (
-			`<a href='index.html?team=${game.tTGUID}'>${game.tTNaam}</a>` +
+			`${game.tTNaam} (${home_record.join('-')})` +
 			' - ' +
-			`<a href='index.html?team=${game.tUGUID}'>${game.tUNaam}</a>`
+			`${game.tUNaam} (${away_record.join('-')})`
 		);
+
+		document.title = `${game.tTNaam} - ${game.tUNaam}`
 
 		document.querySelector('h2#reeks').innerText = game.pouleNaam;
 
-		document.title = `${game.tTNaam} - ${game.tUNaam}`
+		document.querySelector('p#date').innerHTML = [
+			Number.parseInt(game.datumString.substring(0, 2)),
+			['', 'januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'][Number.parseInt(game.datumString.substring(3, 5))],
+			' ' + Number.parseInt(game.datumString.substring(6, 10)),
+            '<br>',
+			game.accNaam
+        ].join(' ')
 	}
 
 	function make_quarters_table() {
@@ -199,15 +255,14 @@
 		)
 
 		quarters.innerHTML = (
-			`<tr><td></td><td>FT</td>${periodenames.map(td).join('')}</tr>` +
-			`<tr>${td(game.tTNaam)} ${td(game.uitslag.split('-')[0])} ${periodenames.map(p => td_points_in_periode(p, 'T')).join('')}</tr>` +
-			`<tr>${td(game.tUNaam)} ${td(game.uitslag.split('-')[1])} ${periodenames.map(p => td_points_in_periode(p, 'U')).join('')}</tr>`
+			`<tr><td></td>${periodenames.map(td).join('')}<td>FT</td></tr>` +
+			`<tr><td><a href='index.html?team=${game.tTGUID}'>${game.tTNaam}</a></td>` + periodenames.map(p => td_points_in_periode(p, 'T')).join('') + td(game.uitslag.split('-')[0]) + `</tr>` +
+			`<tr><td><a href='index.html?team=${game.tUGUID}'>${game.tUNaam}</a></td>` + periodenames.map(p => td_points_in_periode(p, 'U')).join('') + td(game.uitslag.split('-')[1]) + `</tr>`
 		);
 	}
 
 	async function make_team_tables() {
 		const pm = gebeurtenis_data_to_plus_minus(gebeurtenis_data);
-		const gebnis = add_detailed_minute_to_gebnis(gebeurtenis_data.GebNis);
 
 		[["home", roster.TtDeel], ["away", roster.TuDeel]].forEach(([c, teamroster]) => {
 			const table = document.querySelector('table.stats.' + c);
@@ -325,13 +380,18 @@
 				.map((geb) => geb.Text.split(/\b/))
 				.map((split) => split[2] - split[4])
 		);
-		const biggest_leads = {
-			T: Math.max(...score_diffs),
-			U: -Math.min(...score_diffs)
-		}
 		const ties = 1 + score_diffs.filter(l => l === 0).length
 
-		console.log("biggest runs", biggest_runs);
+		document.querySelector('div#other_stats div.largest_lead.h').innerHTML = Math.max(...score_diffs);
+		document.querySelector('div#other_stats div.largest_lead.a').innerHTML = -Math.min(...score_diffs);
+		document.querySelector('div#other_stats div.largest_run.h').innerHTML = biggest_runs.T;
+		document.querySelector('div#other_stats div.largest_run.a').innerHTML = biggest_runs.U;
+
+		const home_id = game.tTGUID.substring(0, 8);
+		const away_id = game.tUGUID.substring(0, 8);
+
+		document.querySelector('div#other_stats img.h').src = `https://vblcb.wisseq.eu/vbldata/organisatie/${home_id}_Small.jpg`;
+		document.querySelector('div#other_stats img.a').src = `https://vblcb.wisseq.eu/vbldata/organisatie/${away_id}_Small.jpg`;
 	}
 
 	function redirect_if_team_unspecified() {
@@ -356,20 +416,9 @@
 
 		await make_graph_promise;
 
-		console.table(add_detailed_minute_to_gebnis(gebeurtenis_data.GebNis));
-	})();
+		// console.table(add_detailed_minute_to_gebnis(gebeurtenis_data.GebNis));
 
-	function downloadMyElement() {
-		var MyElement = document.body.outerHTML;
-		var filename = "MyElement.html";
-		var element = document.createElement('a');
-		element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(MyElement));
-		element.setAttribute('download', filename);
-		element.style.display = 'none';
-		document.body.appendChild(element);
-		element.click();
-		document.body.removeChild(element);
-	}
+	})();
 
 </script>
 </html>

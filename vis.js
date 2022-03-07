@@ -216,9 +216,9 @@ function make_data_table(data, attribute_to_display_and_extended_details) {
         th('Verschil'),
         ...verschillen.map(text => `<td class="borderbottom data">${text}</td>`),
 
-        td_data('&sum;'),
+        td_data('+'), // &sum;
         td_data('#'),
-        td_data('/'),
+        td_data('avg'),
         '</tr>',
 
         ...Object.keys(relguid_to_number)

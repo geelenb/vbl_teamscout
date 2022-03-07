@@ -1,22 +1,23 @@
 body {
     margin: 0;
-    font-family: Geneva, Arial, sans-serif;
+    /*font-family: Geneva, Arial, sans-serif;*/
+    font-family: Georgia, Palatino, serif;
 }
 
-body h1, body h2 {
+body > * {
     text-align: center;
 }
 
 body table {
-    margin:  12px;
+    margin: 12px;
+    border-collapse: collapse;
 }
 
 table#quarters {
     margin:  12px auto;
 }
 
-
-table#quarters tr:not(:first-child) td:nth-child(2) {
+table#quarters tr:not(:first-child) td:last-child {
     font-weight: bold;
 }
 
@@ -25,22 +26,60 @@ table td {
     text-align: right;
 }
 
-table#quarters tr td:nth-child(1) {
-    text-align: left;
-}
-
-div#statsholder {
+div#box_scores, div#general_stats {
     text-align: center;
 }
 
-table.stats {
-}
-
-table.stats tr td {
-    /*text-align: right;*/
-    /*margin: 5px;*/
-}
-
-table.stats tr td:nth-child(2) {
+table.stats td:nth-child(2) {
     text-align: left;
+}
+
+table#quarters tr td:first-child {
+    text-align: left;
+}
+
+#other_stats {
+    display: inline-grid;
+    margin: 0 auto;
+    grid-template-columns: [L] 1fr [CL] auto [M] auto [CR] 1fr [R];
+    grid-gap: 1vw;
+}
+
+#other_stats div.h {
+    grid-column: L/CL;
+    text-align: left;
+}
+
+#other_stats div.name {
+    grid-column: CL/CR;
+    text-align: center;
+}
+#other_stats div.a {
+    grid-column: CR/R;
+    text-align: right;
+}
+
+#other_stats img {
+    padding: 12px;
+    place-self: center;
+    max-height: 100px;
+    max-width: 100px;
+}
+#other_stats img.h {
+    grid-column: L/M;
+}
+#other_stats img.a {
+    grid-column: M/R;
+}
+
+
+table.booktabs tr:first-child td {
+    border-top: black 3px solid;
+    border-bottom: black 1px solid;
+}
+table.booktabs tr:last-child td {
+    border-bottom: black 3px solid;
+}
+table.booktabs.w_totals tr:last-child td {
+    border-top: black 1px solid;
 }
