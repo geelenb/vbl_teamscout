@@ -27,14 +27,19 @@
             const games = await fetch_games(team_id);
             const next_game = get_next_game_from_games(games);
 
-            let team_name = next_game['tUNaam'];
-            let next_opponent_id_plus = next_game['tTGUID'];
-            let next_opponent_name = next_game['tTNaam'];
-            if (is_home_game_for_team(next_game, team_id)) {
-                team_name = next_game['tTNaam'];
-                next_opponent_id_plus = next_game['tUGUID'];
-                next_opponent_name = next_game['tUNaam'];
-            }
+            let team_name = is_home_game_for_team(games[0], team_id) ? games[0]['tTNaam'] : games[0]['tUNaam'];
+
+            let next_opponent_id_plus = undefined;
+            let next_opponent_name = undefined;
+			if (next_game) {
+				if (is_home_game_for_team(next_game, team_id)) {
+					next_opponent_id_plus = next_game['tUGUID'];
+					next_opponent_name = next_game['tUNaam'];
+				} else {
+					next_opponent_id_plus = next_game['tTGUID'];
+					next_opponent_name = next_game['tTNaam'];
+				}
+			}
 
             const previous_games = games
                     .filter(game => (game['uitslag'] !== ""))
@@ -74,8 +79,12 @@
 
             const h = `<h1>${data.team_name}</h1>`;
 
-            const next_opponent_id_plus = data.next_opponent_id_plus.replace(/\+/g, ' ');
-            const p = `<p>Volgende tegenstander: <a href="?team=${next_opponent_id_plus}">${data.next_opponent_name}</a></p>`;
+
+			let p = '';
+			if (data.next_opponent_name) {
+                const next_opponent_id_plus = data.next_opponent_id_plus.replace(/\+/g, ' ');
+                p = `<p>Volgende tegenstander: <a href="?team=${next_opponent_id_plus}">${data.next_opponent_name}</a></p>`;
+            }
 
             document.title = data.team_name;
 
@@ -143,7 +152,6 @@
             data = await get_all_data_of_team(team_id);
 
             to_fill.innerHTML = make_title(data) + make_div_with_tables(data);
-
         })
     </script>
 
