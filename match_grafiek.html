@@ -262,8 +262,8 @@
 
 		quarters.innerHTML = (
 			`<tr><td></td>${periodenames.map(td).join('')}<td>FT</td></tr>` +
-			`<tr><td><a href='index.html?team=${game.tTGUID}'>${game.tTNaam}</a></td>` + periodenames.map(p => td_points_in_periode(p, 'T')).join('') + td(game.uitslag.split('-')[0]) + `</tr>` +
-			`<tr><td><a href='index.html?team=${game.tUGUID}'>${game.tUNaam}</a></td>` + periodenames.map(p => td_points_in_periode(p, 'U')).join('') + td(game.uitslag.split('-')[1]) + `</tr>`
+			`<tr><td><a href='team.html?team=${game.tTGUID}'>${game.tTNaam}</a></td>` + periodenames.map(p => td_points_in_periode(p, 'T')).join('') + td(game.uitslag.split('-')[0]) + `</tr>` +
+			`<tr><td><a href='team.html?team=${game.tUGUID}'>${game.tUNaam}</a></td>` + periodenames.map(p => td_points_in_periode(p, 'U')).join('') + td(game.uitslag.split('-')[1]) + `</tr>`
 		);
 	}
 

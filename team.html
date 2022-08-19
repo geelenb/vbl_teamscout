@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="nl-be">
+<head>
+    <title>Laden...</title>
+    <meta charset='utf-8'>
+
+    <link rel="stylesheet" href="team.css">
+
+    <script src="itertools.js"></script>
+    <script src="gebeurtenis_data.js"></script>
+    <script src="fetching.js"></script>
+    <script src="vis.js"></script>
+    <script src="common.js"></script>
+
+    <script language="javascript" src="libs/lz-string.min.js"></script>
+
+    <script type="text/javascript">
+        my_fav_team = "BVBL1049HSE++1"; // Orly A
+
+        const get_next_game_from_games = games => (
+            games
+                .filter(v => v['jsDTCode'] > new Date().getTime())
+                .sort((a, b) => a['jsDTCode'] - b['jsDTCode'])
+        )[0];
+
+        async function get_all_data_of_team(team_id) {
+            const games = await fetch_games(team_id);
+            const next_game = get_next_game_from_games(games);
+
+            let team_name = is_home_game_for_team(games[0], team_id) ? games[0]['tTNaam'] : games[0]['tUNaam'];
+
+            let next_opponent_id_plus = undefined;
+            let next_opponent_name = undefined;
+			if (next_game) {
+				if (is_home_game_for_team(next_game, team_id)) {
+					next_opponent_id_plus = next_game['tUGUID'];
+					next_opponent_name = next_game['tUNaam'];
+				} else {
+					next_opponent_id_plus = next_game['tTGUID'];
+					next_opponent_name = next_game['tTNaam'];
+				}
+			}
+
+            const previous_games = games
+                    .filter(game => (game['uitslag'] !== ""))
+                    .sort((a, b) => a['jsDTCode'] - b['jsDTCode']);
+
+            let rosters = fetch_rosters_for_games(previous_games, team_id);
+            let gebeurtenis_data = fetch_gebeurtenis_data_for_games(previous_games);
+
+            rosters = await rosters;
+            gebeurtenis_data = await gebeurtenis_data;
+
+            return {
+                team_id_plus: team_id,
+                team_name: team_name,
+                games: previous_games,
+                relguid_to_most_common_number: get_most_common_number_per_player(rosters),
+                points: gebeurtenis_data.map(gebeurtenis_data_to_points),
+                plus_minus: gebeurtenis_data.map(gebeurtenis_data_to_plus_minus),
+                fouls: gebeurtenis_data.map(gebeurtenis_data_to_fouls),
+                minutes: gebeurtenis_data.map(gebeurtenis_data_to_minutes),
+                free_throws: gebeurtenis_data.map(gebeurtenis_data_to_free_throws),
+                free_throws_attempted: gebeurtenis_data.map(gebeurtenis_data_to_free_throws_attempted),
+                three_pt: gebeurtenis_data.map(gebeurtenis_data_to_three_pt),
+
+                rosters: rosters,
+                gebeurtenis_data: gebeurtenis_data,
+                next_opponent_id_plus: next_opponent_id_plus,
+                next_opponent_name: next_opponent_name
+            };
+        }
+
+        function make_title(data) {
+            const div = document.createElement('div');
+            div.id = 'header';
+
+            const img = `<img src="https://vblcb.wisseq.eu/vbldata/organisatie/BVBL1049_Small.jpg">`
+
+            const h = `<h1>${data.team_name}</h1>`;
+
+
+			let p = '';
+			if (data.next_opponent_name) {
+                const next_opponent_id_plus = data.next_opponent_id_plus.replace(/\+/g, ' ');
+                p = `<p>Volgende tegenstander: <a href="team.html?team=${next_opponent_id_plus}">${data.next_opponent_name}</a></p>`;
+            }
+
+            document.title = data.team_name;
+
+            div.innerHTML = `${h}${p}`;
+
+            return `${h}${p}`;
+        }
+
+        function make_div_with_tables(data) {
+            const table_keys_and_extended_only = [
+                ['points', 'ALWAYS_FULL'],
+                ['three_pt', 'DATA_ROWS'],
+                ['free_throws', 'ONLY_WHEN_EXTENDED'],
+                ['fouls', 'DATA_ROWS'],
+                ['plus_minus', 'ONLY_WHEN_EXTENDED'],
+                ['minutes', 'ONLY_WHEN_EXTENDED'],
+            ];
+
+            const tables = table_keys_and_extended_only.map(t => make_data_table(data, t));
+            const div = document.createElement('div');
+
+            const extended_data_checkbox = document.createElement('input');
+            extended_data_checkbox.type = 'checkbox';
+            extended_data_checkbox.id = 'extended_data';
+
+            div.appendChild(extended_data_checkbox);
+            div.append('Alle info');
+            div.appendChild(document.createElement('br'));
+
+            tables.forEach((table, i) => {
+                table.style.position = 'relative';
+                table.dataset.t = table_keys_and_extended_only[i][0];
+                div.appendChild(table)
+            });
+
+            return div.innerHTML;
+        }
+
+        function redirect_if_team_unspecified() {
+            const params = new URLSearchParams(window.location.search.substring(1));
+            if (params.get('team') || params.get('opponent')) {
+                return;
+            }
+            window.location.replace(window.location + '?team=BVBL1049HSE++1')
+        }
+
+        async function team_id_from_get_params() {
+            const params = new URLSearchParams(window.location.search.substring(1));
+            let team_id;
+            if (team_id = params.get('team')) {
+                return team_id
+            } else if (team_id = params.get('opponent')) {
+                const own_games = await fetch_games(team_id);
+                const next_game = await get_next_game_from_games(own_games);
+                return get_opponent_from_game(next_game, team_id).id_plus;
+            }
+            return my_fav_team;
+        }
+
+        addEventListener('load', async () => {
+            const to_fill = document.body;
+            to_fill.innerHTML = 'Laden...';
+            redirect_if_team_unspecified();
+            const team_id = await team_id_from_get_params();
+            data = await get_all_data_of_team(team_id);
+
+            to_fill.innerHTML = make_title(data) + make_div_with_tables(data);
+        })
+    </script>
+
+</head>
+<body>
+    Javascript staat uit!
+</body>
+</html>
+
+
+<!--
+TODO:
+- +/- duo's, ...
+- Vrijworpen som, %
+- Wedstrijd / box score
+- laat rijen tussen tegenstander en tabel weg
+- pagina per match
+- link naar basketbal.vlaanderen
+-->
