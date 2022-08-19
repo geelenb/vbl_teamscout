@@ -41,6 +41,12 @@
         <div class="largest_run h"></div>
         <div class="largest_run name">Grootste streak</div></td>
         <div class="largest_run a"></div>
+        <div class="n_fouls h"></div>
+        <div class="n_fouls name">Fouten</div></td>
+        <div class="n_fouls a"></div>
+        <div class="free_throws h"></div>
+        <div class="free_throws name">Vrijworpen</div></td>
+        <div class="free_throws a"></div>
         <div class="time_led h"></div>
         <div class="time_led name" style="visibility: hidden">Tijd aan de leiding</div>
         <div class="time_led a"></div>
@@ -350,6 +356,24 @@
 	}
 
 	function make_other_stats() {
+
+		// const ties = 1 + score_diffs.filter(l => l === 0).length
+
+		const home_id = game.tTGUID.substring(0, 8);
+		const away_id = game.tUGUID.substring(0, 8);
+
+		document.querySelector('div#other_stats img.h').src = `https://vblcb.wisseq.eu/vbldata/organisatie/${home_id}_Small.jpg`;
+		document.querySelector('div#other_stats img.a').src = `https://vblcb.wisseq.eu/vbldata/organisatie/${away_id}_Small.jpg`;
+
+		const score_diffs = (
+			gebeurtenis_data.GebNis
+				.filter((geb) => (geb.GebStatus === 10) && (geb.GebType === 10))
+				.map((geb) => geb.Text.split(/\b/))
+				.map((split) => split[2] - split[4])
+		);
+		document.querySelector('div#other_stats div.largest_lead.h').innerHTML = Math.max(...score_diffs);
+		document.querySelector('div#other_stats div.largest_lead.a').innerHTML = -Math.min(...score_diffs);
+
 		const biggest_runs = (() => {
 			const biggest_runs = {T: 0, U: 0};
 			let current_running_team = '';
@@ -374,24 +398,51 @@
 			return biggest_runs;
 		})();
 
-		const score_diffs = (
-			gebeurtenis_data.GebNis
-				.filter((geb) => (geb.GebStatus === 10) && (geb.GebType === 10))
-				.map((geb) => geb.Text.split(/\b/))
-				.map((split) => split[2] - split[4])
-		);
-		const ties = 1 + score_diffs.filter(l => l === 0).length
-
-		document.querySelector('div#other_stats div.largest_lead.h').innerHTML = Math.max(...score_diffs);
-		document.querySelector('div#other_stats div.largest_lead.a').innerHTML = -Math.min(...score_diffs);
 		document.querySelector('div#other_stats div.largest_run.h').innerHTML = biggest_runs.T;
 		document.querySelector('div#other_stats div.largest_run.a').innerHTML = biggest_runs.U;
 
-		const home_id = game.tTGUID.substring(0, 8);
-		const away_id = game.tUGUID.substring(0, 8);
+		document.querySelector('div#other_stats div.n_fouls.h').innerHTML = gebeurtenis_data.GebNis
+			.filter((geb) => (geb.GebStatus === 10) && (geb.GebType === 30) && (geb.TofU === 'T')).length;
+		document.querySelector('div#other_stats div.n_fouls.a').innerHTML = gebeurtenis_data.GebNis
+			.filter((geb) => (geb.GebStatus === 10) && (geb.GebType === 30) && (geb.TofU === 'U')).length;
 
-		document.querySelector('div#other_stats img.h').src = `https://vblcb.wisseq.eu/vbldata/organisatie/${home_id}_Small.jpg`;
-		document.querySelector('div#other_stats img.a').src = `https://vblcb.wisseq.eu/vbldata/organisatie/${away_id}_Small.jpg`;
+		document.querySelector('div#other_stats div.free_throws.h').innerHTML = (
+			gebeurtenis_data.GebNis
+				.filter((geb) =>
+                    (geb.GebStatus === 10) &&
+                    (geb.GebType === 10) &&
+                    (geb.TofU === 'T') &&
+                    (geb.Text[0] === "1")
+                ).length
+			+ ' / ' +
+			gebeurtenis_data.GebNis
+				.filter((geb) =>
+					(geb.GebStatus === 10) &&
+					(geb.GebType === 30) &&
+					(geb.TofU === 'U')
+				)
+                .map((geb) => Number.parseInt(geb.Text[1] || 0))
+                .reduce(sum, 0)
+        );
+		document.querySelector('div#other_stats div.free_throws.a').innerHTML = (
+			gebeurtenis_data.GebNis
+				.filter((geb) =>
+					(geb.GebStatus === 10) &&
+					(geb.GebType === 10) &&
+					(geb.TofU === 'U') &&
+					(geb.Text[0] === "1")
+				).length
+			+ ' / ' +
+			gebeurtenis_data.GebNis
+				.filter((geb) =>
+					(geb.GebStatus === 10) &&
+					(geb.GebType === 30) &&
+					(geb.TofU === 'T')
+				)
+				.map((geb) => Number.parseInt(geb.Text[1] || 0))
+				.reduce(sum, 0)
+		);
+
 	}
 
 	function redirect_if_team_unspecified() {

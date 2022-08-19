@@ -77,3 +77,10 @@ body input {
 
 body {
 }
+
+@media print
+{
+    table{
+        page-break-inside: avoid;
+    }
+}
