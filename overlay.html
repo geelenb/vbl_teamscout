@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Statictest</title>
+
+  <style type="text/css">
+    body {
+      margin: 0;
+      height: 100%;
+      width: 100%;
+      position: absolute;
+      overflow: hidden;
+
+      background: #00000088;
+    }
+    * {
+      font-family: "Helvetica", sans-serif;
+    }
+
+    .outlinetext {
+      color: white;
+      font-weight: bold;
+      font-size: 32px;
+      -webkit-text-stroke: 1px black;
+    }
+
+    #help_text {
+      background: black;
+      opacity: .8;
+      position: absolute;
+      text-align: center;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+    #game_overlay {
+      display: grid;
+      width: 100%;
+      height: 100%;
+
+      grid-template-columns: [left] 5% [paddedleft] 15% [middleleft] auto [middleright] 15% [paddedright] 5% [right];
+
+      grid-template-rows: [top] 5% [paddedtop cornertop] 15% [cornerbottom centertop] 1fr [centerbottom boxtop] auto [boxbottom paddedbottom] 5% [onfieldtop] auto [onfieldbottom bottom];
+    }
+
+    #wiztv {
+      grid-area: cornertop / middleright / cornerbottom / paddedright;
+      place-self: center;
+
+      border-bottom: 5px solid white;
+      border-top: 5px solid white;
+    }
+
+    #gebeurtenis_box {
+      background: white;
+      grid-area: ;
+    }
+
+
+    #bottom_box {
+      grid-area: boxtop / paddedleft / boxbottom / paddedright;
+      place-self: center;
+
+      background: white;
+      border-radius: 12px;
+
+      box-shadow: 0 0px 20px 6px;
+      /*padding: 0 12px 0;*/
+      overflow: hidden;
+      display: flex;
+
+
+      transform: translateY(100%);
+      transition-property: transform opacity;
+      transition-duration: .5s;
+      opacity: 0;
+    }
+
+    #bottom_box.visible {
+      transform: translateY(0%);
+      opacity: 1;
+    }
+
+
+    #bottom_box img {
+      height:  60px;
+      width: 100px;
+      object-fit: cover;
+      object-position: 50% 50%;
+    }
+
+
+    #score {
+      margin: auto;
+    }
+    .scorefont {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 32px;
+      text-align: middle;
+    }
+    .scoretext {
+      min-width: 4ch;
+      display: inline-block;
+    }
+    #home_score {
+      text-align: right;
+    }
+
+    #onfield_bar {
+      grid-area: onfieldtop / 1 / onfieldbottom / -1;
+      
+      display: grid;
+      grid-template-rows: auto;
+      grid-template-columns: auto 1fr auto 1fr auto 1fr auto 1fr auto 1fr auto;
+      column-gap: 1fr;
+
+      background: black;
+      color: white;
+
+      font-size: 24px;
+
+      will-change: contents transform;
+      transform: translateY(100%);
+      transition-property: transform;
+      transition-duration: .5s;
+    }
+
+    #onfield_bar.visible {
+      transform: translateY(0);
+    }
+    #onfield_bar p {
+      place-self:  center;
+      margin: 1px;
+      padding: 0;
+    }
+
+    .hidden, .everythinghidden {
+      display: none !important;
+    }
+  </style>
+
+  <script type="text/javascript">
+    async function fetch_poule_games(issguid) {
+      const url = `https://vblcb.wisseq.eu/VBLCB_WebService/data/PouleMatchesByGuid?issguid=${issguid}`;
+
+      const json = await (await fetch(
+          url, {
+            method: "GET",
+            headers: []
+          })
+      ).json();
+
+      return json
+    }
+
+    async function fetch_rosters(game_uid) {
+      const referrer = `https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=${game_uid}`;
+
+      const json = await (await fetch(
+        "https://vblcb.wisseq.eu/VBLCB_WebService/data/DwfDeelByWedGuid",
+        {
+          "headers": {
+            "content-type": "application/json; charset=UTF-8",
+          },
+          "referrer": referrer,
+          "body": `{"AuthHeader":"na","WQVer":"ddc1.0","WedGUID":"${game_uid}","CRUD":"R"}`,
+          "method": "PUT",
+        }
+      )).json();
+
+      return json
+    }
+
+    async function fetch_gebeurtenis_data(game_uid) {
+      const referrer = `https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=${game_uid}&ID=Uitslag`
+
+      const json = await (await fetch(
+        "https://vblcb.wisseq.eu/VBLCB_WebService/data/DwfVgngByWedGuid",
+        {
+          "headers": {
+            "authorization": "na",
+            "content-type": "application/json; charset=UTF-8",
+          },
+          "referrer": referrer,
+          "body": `{"AuthHeader":"na","WQVer":"ddc1.0","WedGUID":"${game_uid}","CRUD":"R"}`,
+          "method": "PUT",
+        })).json();
+
+      return json
+    }
+
+
+    function get_players_on_field(gebdata_array) {
+      const on_field = {
+        T: new Set(),
+        U: new Set()
+      }
+      
+      gebdata_array.filter(g => g.GebStatus === 10)
+      .filter(g => g.GebType === 50)
+      .forEach(g => {
+        if (g.Text === 'in') {
+          on_field[g.TofU].add(g.RelGUID);
+        } else {
+          on_field[g.TofU].delete(g.RelGUID);
+        }
+      });
+      return on_field  
+    }
+
+    const show_bar = () => document.getElementById('onfield_bar').classList.add('visible');
+    const hide_bar = () => document.getElementById('onfield_bar').classList.remove('visible');
+
+    function strings_for_bar(set, roster) {
+      const players = new Array(...set).map(id => roster.find(player => player.RelGUID === id));
+      players.sort((a, b) => a.RugNr - b.RugNr);
+      return players.map(p => [p.RugNr, p.Naam.split(' ')[0][0] + '.', ...p.Naam.split(' ').slice(1)].join(' ').toUpperCase());
+    }
+
+
+    function set_bar(teamname, names) {
+      document.querySelector('#onfield_bar .teamname').innerText = teamname;
+      const ps = document.querySelectorAll('#onfield_bar .playername');
+      for (var i = 0; i < 5; i++) {
+        ps[i].innerText = names[i];
+      }
+    }
+
+    function handle_new_gebdata(gebdata_array) {
+      const last_event = gebdata_array[gebdata_array.length - 1];
+      console.log(last_event);
+
+      if (last_event.GebStatus !== 10) {
+        return
+      }
+
+      if (last_event.GebType === 10) {
+        // score
+        const split = last_event.Text.split(/\b/);
+        document.getElementById('home_score').innerText = split[2];
+        document.getElementById('away_score').innerText = split[4];
+        // debugger;
+
+      }
+
+      if (last_event.GebType === 30) {
+        // fout
+      }
+
+
+      if (last_event.GebType === 50) {
+        // wissel
+
+        on_field = get_players_on_field(gebdata_array)
+              
+        if (on_field.T.size === 5 && on_field.U.size === 5) {
+          const home_names = strings_for_bar(on_field.T, rosters.TtDeel);
+          const away_names = strings_for_bar(on_field.U, rosters.TuDeel); 
+
+          const t_shown_ms = 5000;
+          const t_anim_ms = 1000;
+          let t = 0
+
+          console.log('showing...')
+          if (document.getElementById('onfield_bar').classList.contains('visible')){
+            hide_bar();
+            t += t_anim_ms; 
+          }
+          setTimeout(() => set_bar(game.tTNaam, home_names), t);
+          t += t_shown_ms; 
+          setTimeout(show_bar, t);
+          t += t_shown_ms; 
+          setTimeout(hide_bar, t);
+          t += t_anim_ms; 
+          setTimeout(() => set_bar(game.tUNaam, away_names), t);
+          t += t_anim_ms;
+          setTimeout(show_bar, t);
+          t += t_shown_ms; 
+          setTimeout(hide_bar, t);
+        }
+      }
+    }
+
+    function fake_poll_gebdata(wedguid) {
+      window.last_length = 0;
+
+      fetch_gebeurtenis_data(wedguid).then(result=> {
+        // console.table(result['GebNis'])
+
+        const f = () => { 
+          window.last_length += 1;
+          if (window.last_length <= result['GebNis'].length){
+            subarray = result['GebNis'].slice(0, window.last_length);
+            handle_new_gebdata(subarray); 
+            if (result['GebNis'][window.last_length].GebType === 10) {
+              window.setTimeout(f, 5000);
+            } else {
+              window.setTimeout(f, 100);
+            }
+          }
+        }
+
+        f();
+
+        // window.setInterval(f, 1000);
+      });
+
+    }
+
+    function poll_gebdata(wedguid) {
+      window.last_length = 0;
+
+      async function f() {
+        const result = await fetch_gebeurtenis_data(wedguid)
+        // awaited =  result;
+        // console.table(result['GebNis'])
+        const gebniss = result['GebNis'];
+        if (gebniss.length !== window.last_length) {
+          window.last_length = gebniss.length;
+          handle_new_gebdata(gebniss);
+        }
+      }
+
+      window.setInterval(f, 1000)
+    }
+
+
+    window.addEventListener("load", () => {
+      const wedguid = (new URL(document.URL)).searchParams.get('wedguid');
+      if (wedguid) {
+        start(wedguid);
+      }
+    })
+
+    window.addEventListener('keyup', e => {
+      if (e.key === '?') {
+        // console.log('toggle wat help tekst')
+        document.getElementById('help_text').classList.toggle('hidden');
+      } else if (e.key === 'r' && e.ctrlKey) {
+        window.location.reload();
+        start(window.wedguid);
+      } else if (e.key === 's') {
+        document.getElementById('bottom_box').classList.toggle('visible');
+      } else {
+        console.log(e);
+        return false
+      }
+
+      return true;
+    })
+
+    async function start(wedguid) {
+      console.log(wedguid);
+      window.wedguid == wedguid;
+
+      rosters_promise = fetch_rosters(wedguid);
+      poule_promise = fetch_poule_games(wedguid.substring(0, wedguid.length - 2))
+
+      rosters = await rosters_promise;
+      poule_promise = await poule_promise;
+
+      window.rosters = rosters;
+      window.game = poule_promise.find(g => g.guid === wedguid)
+
+      // debugger;
+      document.getElementById('home_logo').src = `https://vblapi1.wisseq.eu/vbldataOrgLogo/${game.tTGUID.substring(0, 8)}.jpg`;
+      document.getElementById('away_logo').src = `https://vblapi1.wisseq.eu/vbldataOrgLogo/${game.tUGUID.substring(0, 8)}.jpg`;
+
+
+      document.getElementById('open_interact').classList.add('hidden');
+      document.getElementById('game_overlay').classList.remove('hidden');
+
+      fake_poll_gebdata(wedguid);
+      // window.rosters = await rowst
+      // poll_gebdata(wedguid);
+    }
+
+    function game_submit(button) {
+      const url = document.getElementById('wedguid').value;
+      const wedguid = (new URL(url)).searchParams.get('wedguid');
+      start(wedguid);
+    }
+  </script>
+</head>
+<body>
+  <div id='open_interact' class='outlinetext'>
+    Klik (in de <i>sources</i> lijst) op de 🌎 source
+    <br>
+    En dan op "👆 interact"
+    <br>
+    Geef dan de link van de wedstrijd hier in:
+    <br>
+    <input 
+      id="wedguid" 
+      value="https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=BVBL22239180BNAHSEPACB" 
+      style="width: 50%;">
+    <br>
+    <button onclick="game_submit(this)">En klik dan hier</button>
+  </div>
+  <div id='test' class='outlinetext hidden'>WIZ Leuven Basket 34</div>
+
+  <div id='help_text' class="outlinetext hidden">
+    <p>
+      ? = help
+      <br>
+
+    </p>
+  </div>
+
+  <div id="game_overlay" class="hidden">
+    <div id="wiztv" class="outlinetext">WIZTV</div>
+    <div id="gebeurtenis_box">
+      <div id="punten_gebeurtenis">
+        15 Bram Geelen 19 punten
+      </div>
+      <div id="fouten_gebeurtenis">
+        
+      </div>
+      <div id="streak_gebeurtenis"></div>
+    </div>
+    <div id="bottom_box" class="visible">
+        <span id="home_name"></span>
+        <img id="home_logo" class='score_box_logo'>
+        <div id="score" >
+          <span id="home_score" class='scorefont scoretext'>0</span>
+          <span class='scorefont'>-</span>
+          <span id="away_score" class='scorefont scoretext'>0</span>
+        </div>
+        <img id="away_logo" class='score_box_logo'>
+        <span id="away_name"></span>
+    </div>
+    <div id="onfield_bar">
+      <p class='teamname'>BBC WIZ BASKET LEUVEN HSE A</p>
+      <div></div>
+      <p class='playername'>15 B. GEELEN MAAR DAN EEN GIGA LANGE NAAM</p>
+      <div></div>
+      <p class='playername'>15 B. GEELEN</p>
+      <div></div>
+      <p class='playername'>15 B. GEELEN</p>
+      <div></div>
+      <p class='playername'>15 B. GEELEN</p>
+      <div></div>
+      <p class='playername'>15 B. GEELEN</p>
+    </div>
+  </div>
+</body>
+</html>
