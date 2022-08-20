@@ -55,6 +55,10 @@
         <!--    <div colspan="3">Lead changes</div>-->
     </div>
 </div>
+<div class="other_links">
+	<a id="vblweblink" href="" >VBL web</a>
+	<a id="overlaylink" href="" style="display: none;">Overlay</a>
+</div>
 </body>
 
 <script type="text/javascript">
@@ -192,7 +196,6 @@
 
 		plot.on('plotly_hover', function (data) {
 			console.log(data)
-			// debugger;
 		});
 	}
 
@@ -356,14 +359,13 @@
 	}
 
 	function make_other_stats() {
-
 		// const ties = 1 + score_diffs.filter(l => l === 0).length
 
 		const home_id = game.tTGUID.substring(0, 8);
 		const away_id = game.tUGUID.substring(0, 8);
 
-		document.querySelector('div#other_stats img.h').src = `https://vblcb.wisseq.eu/vbldata/organisatie/${home_id}_Small.jpg`;
-		document.querySelector('div#other_stats img.a').src = `https://vblcb.wisseq.eu/vbldata/organisatie/${away_id}_Small.jpg`;
+		document.querySelector('div#other_stats img.h').src = `https://vblapi1.wisseq.eu/vbldataOrgLogo/${home_id}.jpg`;
+		document.querySelector('div#other_stats img.a').src = `https://vblapi1.wisseq.eu/vbldataOrgLogo/${away_id}.jpg`;
 
 		const score_diffs = (
 			gebeurtenis_data.GebNis
@@ -371,8 +373,8 @@
 				.map((geb) => geb.Text.split(/\b/))
 				.map((split) => split[2] - split[4])
 		);
-		document.querySelector('div#other_stats div.largest_lead.h').innerHTML = Math.max(...score_diffs);
-		document.querySelector('div#other_stats div.largest_lead.a').innerHTML = -Math.min(...score_diffs);
+		document.querySelector('div#other_stats div.largest_lead.h').innerHTML = Math.max(...score_diffs, 0);
+		document.querySelector('div#other_stats div.largest_lead.a').innerHTML = -Math.min(...score_diffs, 0);
 
 		const biggest_runs = (() => {
 			const biggest_runs = {T: 0, U: 0};
@@ -445,12 +447,17 @@
 
 	}
 
+	function make_other_links() {
+		document.getElementById("vblweblink").href = "https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=" + window.game_id
+		document.getElementById("overlaylink").href = "http://localhost:8000/overlay.html?game_id=" + window.game_id
+	}
+
 	function redirect_if_team_unspecified() {
 		const params = new URLSearchParams(window.location.search.substr(1));
 		if (params.get('game_id')) {
 			return params.get('game_id');
 		}
-		window.location.replace(window.location + '?game_id=BVBL21229120LIHSE31ADG')
+		window.location.replace(window.location + '?game_id=BVBL22239180BNAHSEPBEA')
 	}
 
 
@@ -464,6 +471,7 @@
 		make_title();
 		make_quarters_table();
 		make_other_stats();
+		make_other_links();
 
 		await make_graph_promise;
 

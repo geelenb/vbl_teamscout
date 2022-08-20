@@ -327,7 +327,7 @@
 
 
     window.addEventListener("load", () => {
-      const wedguid = (new URL(document.URL)).searchParams.get('wedguid');
+      const wedguid = (new URL(document.URL)).searchParams.get('game_id');
       if (wedguid) {
         start(wedguid);
       }

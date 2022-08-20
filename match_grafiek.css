@@ -60,16 +60,18 @@ table#quarters tr td:first-child {
 }
 
 #other_stats img {
-    padding: 12px;
+    padding-top: 12px;
     place-self: center;
     max-height: 100px;
     max-width: 100px;
 }
 #other_stats img.h {
     grid-column: L/M;
+    justify-self: left;
 }
 #other_stats img.a {
     grid-column: M/R;
+    justify-self: right;
 }
 
 
