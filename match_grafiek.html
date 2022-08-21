@@ -58,6 +58,7 @@
 <div class="other_links">
 	<a id="vblweblink" href="" >VBL web</a>
 	<a id="overlaylink" href="" style="display: none;">Overlay</a>
+	<a id="tabellink" href="" style="">Gebeurtenissen</a>
 </div>
 </body>
 
@@ -67,7 +68,6 @@
 		let gebeurtenis_data = fetch_gebeurtenis_data(game_id);
         let poule_games = fetch_poule_games(game_id.substring(0, game_id.length - 2));
 
-		window.game_id = game_id;
 		window.gebeurtenis_data = await gebeurtenis_data;
 		window.roster = await roster;
 		window.poule_games = await poule_games;
@@ -240,28 +240,34 @@
 			' ' + Number.parseInt(game.datumString.substring(6, 10)),
             '<br>',
 			game.accNaam
-        ].join(' ')
+        ].join(' ');
 	}
 
 	function make_quarters_table() {
 		let quarters = document.querySelector('table#quarters');
-		let periodenames = (
-			gebeurtenis_data.GebNis
-				.filter(geb => geb.GebStatus === 10)
-				.filter(geb => geb.GebType === 40)
-				.filter(geb => !geb.Text.includes('Balbezit'))
-				.map(geb => geb.Text.split(' ').pop())
-		);
 
-		const td_points_in_periode = (periode, T_OR_U) => td(
-			gebeurtenis_data.GebNis
-				.filter(geb => geb.GebStatus === 10)
-				.filter(geb => geb.Periode == periode)
-				.filter(geb => geb.TofU === T_OR_U)
-				.filter(geb => geb.GebType === 10)
-				.map(geb => Number(geb.Text.split(' ')[0]))
-				.reduce(((x, acc) => acc + Number(x)), 0)
-		)
+		let periodenames = [];
+		let td_points_in_periode = {}
+
+		if (gebeurtenis_data) {
+			periodenames = (
+				gebeurtenis_data.GebNis
+					.filter(geb => geb.GebStatus === 10)
+					.filter(geb => geb.GebType === 40)
+					.filter(geb => !geb.Text.includes('Balbezit'))
+					.map(geb => geb.Text.split(' ').pop())
+			);
+
+			td_points_in_periode = (periode, T_OR_U) => td(
+				gebeurtenis_data.GebNis
+					.filter(geb => geb.GebStatus === 10)
+					.filter(geb => geb.Periode == periode)
+					.filter(geb => geb.TofU === T_OR_U)
+					.filter(geb => geb.GebType === 10)
+					.map(geb => Number(geb.Text.split(' ')[0]))
+					.reduce(((x, acc) => acc + Number(x)), 0)
+			)
+		}
 
 		quarters.innerHTML = (
 			`<tr><td></td>${periodenames.map(td).join('')}<td>FT</td></tr>` +
@@ -447,10 +453,6 @@
 
 	}
 
-	function make_other_links() {
-		document.getElementById("vblweblink").href = "https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=" + window.game_id
-		document.getElementById("overlaylink").href = "http://localhost:8000/overlay.html?game_id=" + window.game_id
-	}
 
 	function redirect_if_team_unspecified() {
 		const params = new URLSearchParams(window.location.search.substr(1));
@@ -463,17 +465,30 @@
 
 	(async () => {
 		window.game_id = redirect_if_team_unspecified();
+
 		await load_data(window.game_id);
 
-		make_graph_promise = make_graph();
-		make_sheets_promise = make_team_tables();
+		document.getElementById("vblweblink").href = "https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=" + window.game_id;
 
 		make_title();
 		make_quarters_table();
-		make_other_stats();
-		make_other_links();
 
-		await make_graph_promise;
+		if (window.gebeurtenis_data) {
+			make_graph_promise = make_graph();
+			make_sheets_promise = make_team_tables();
+
+			document.getElementById("overlaylink").href = "overlay.html?game_id=" + window.game_id;
+			document.getElementById("tabellink").href = "gebeurtenis_tabel.html?game_id=" + window.game_id;
+
+			make_other_stats();
+
+			await make_graph_promise;
+		} else {
+			document.querySelectorAll('#plot, #box_scores, #other_stats').forEach(e => e.remove());
+			document.getElementById("tabellink").style.display = 'none'
+		}
+
+
 
 		// console.table(add_detailed_minute_to_gebnis(gebeurtenis_data.GebNis));
 
