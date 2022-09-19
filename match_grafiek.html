@@ -24,7 +24,7 @@
     <table id='quarters'></table>
 
 </div>
-<div id='plot'></div>
+
 
 <div id='box_scores'>
     <table class='stats home booktabs w_totals'></table>
@@ -55,6 +55,13 @@
         <!--    <div colspan="3">Lead changes</div>-->
     </div>
 </div>
+
+
+<div id='plot'></div>
+<div id='stints' style="height: 80vh"></div>
+
+
+
 <div class="other_links">
 	<a id="vblweblink" href="" >VBL web</a>
 	<a id="overlaylink" href="" style="display: none;">Overlay</a>
@@ -71,6 +78,8 @@
 		window.gebeurtenis_data = await gebeurtenis_data;
 		window.roster = await roster;
 		window.poule_games = await poule_games;
+
+		window.gebnis = add_fake_minute_to_gebnis(window.gebeurtenis_data.GebNis);
 
 		window.game = window.poule_games.find(game => game.guid === game_id);
 	}
@@ -112,9 +121,8 @@
 		let geb_index_x = [];
 		let last_y;
 
-		const gebnis = add_detailed_minute_to_gebnis(gebeurtenis_data.GebNis);
 
-		gebnis.forEach((geb, i) => {
+		window.gebnis.forEach((geb, i) => {
 			let team_str = geb.TofU === 'T' ? 'Home' : 'Away'
 
 			if (geb.GebStatus !== 10) {
@@ -195,8 +203,138 @@
 		window.plot = await Plotly.newPlot('plot', [points_trace, to_trace, fouls_trace], layout, config);
 
 		plot.on('plotly_hover', function (data) {
-			console.log(data)
+			// console.log(data)
 		});
+	}
+
+	async function make_stints() {
+		// debugger;
+
+		let relguid_to_y = Object.fromEntries([
+			...window.roster.TtDeel.sort(p=> p.SortCode).filter(p=> p.Naam).map((p, i) => [p.RelGUID, i + 2]),
+			...window.roster.TuDeel.sort(p=> p.SortCode).filter(p=> p.Naam).map((p, i) => [p.RelGUID, -(i + 2)])
+		]);
+
+		const score_gebs = window.gebnis.filter(g=> (g.GebStatus === 10 && g.GebType === 10));
+
+		const score_trace = {
+			x: score_gebs.map(g => g.detailed_minute),
+			y: score_gebs.map(g => relguid_to_y[g.RelGUID] + .2), 
+			text: score_gebs.map(g => g.Text[0]),
+			// type: 'scatter',
+			mode: 'text',
+			hoverinfo: 'none',
+			// showlegend: true,
+			// name: 'Score'
+		};
+
+		const foul_gebs = window.gebnis.filter(g=> (g.GebStatus === 10 && g.GebType === 30));
+		const fouls_trace = {
+			x: foul_gebs.map(g => g.detailed_minute),
+			y: foul_gebs.map(g => relguid_to_y[g.RelGUID] - .2), 
+			text: foul_gebs.map(g => g.Text),
+			mode: 'text',
+			hoverinfo: 'none',
+			textfont:{'color': "Red"}
+		}
+
+		let stint_traces = [];
+
+		function add_stint(x1, x2, y, text_1, text_2) {
+			stint_traces.push({
+				x: [x1, x2],
+				y: [y, y],
+				legend: false,
+				mode: 'lines',
+				hoverinfo: 'text',
+				line: {
+					color: 'rgb(.3, .3, .3)',
+					width: 1
+				},
+				name: '',
+				text: [text_1, text_2],
+				showlegend: true,
+			});
+		}
+
+		Object.keys(relguid_to_y).forEach(relguid => {
+			// const player_gebs = window.gebnis.filter(g=> (g.GebStatus === 10 && g.RelGUID === relguid));
+			const y = relguid_to_y[relguid];
+			let last_in_g = 0;
+			let score = "0-0";
+			let score_at_last_in = String(score);
+
+			window.gebnis.filter(g => (g.GebStatus === 10)).forEach(g => {
+				if (g.RelGUID === relguid && g.Text === "in") {
+					last_in_g = g;
+					score_at_last_in = score;
+				}
+
+				if (g.RelGUID === relguid && g.Text === "uit") {
+					add_stint(last_in_g.detailed_minute, g.detailed_minute, y, score_at_last_in, score);
+					last_in_g = 0;
+				}
+
+				if (g.GebType === 10) {
+					score = g.Text.split(/\b/).slice(2, 5).join(' ');
+				}
+			});
+
+			if (last_in_g) {
+				// stints aan het eind van de match
+				add_stint(last_in_g.detailed_minute, window.gebnis.at(-1).detailed_minute, y, score_at_last_in, score);
+			}
+		})
+
+		// minuten-zijn-bullshit mode
+
+		Object.entries(relguid_to_y)
+		const tickvals = Object.values(relguid_to_y);
+		const ticktext = (
+			Object.keys(relguid_to_y)
+			.map(relguid => [...roster.TuDeel, ...roster.TtDeel].find(rp => rp.RelGUID === relguid))
+			.map(p => '' + p.RugNr + ' ' + p.Naam.split(' ').map(s=> s[0]).join(''))
+		);
+
+
+		const config = {
+			responsive: true,
+			displaylogo: false,
+		}
+		let layout = {
+			xaxis: {
+				title: 'Minuut',
+				dtick: 10,
+				fixedrange: true,
+				zeroline: false,
+			},
+			yaxis: {
+				showgrid: false,
+				title: ``,
+				zeroline: false,
+				// autotick: false,
+				tickvals: tickvals,
+				ticktext: ticktext,
+				fixedrange: true,
+			},
+			margin: {
+				l: window.innerWidth * .05,
+				r: 10,
+				t: 10,
+			},
+			// shapes: shapes,
+			legend: {
+				// x: 0.99,
+				// xanchor: 'right',
+				// y: last_y < 0 ? 1 : 0
+			},
+			showlegend: false,
+			font: {
+				family: 'Georgia, Palatino, serif',
+			}
+		};
+
+		window.stints = await Plotly.newPlot('stints', [...stint_traces, fouls_trace, score_trace], layout, config);
 	}
 
 	const td = content => `<td>${content}</td>`;
@@ -476,6 +614,7 @@
 		if (window.gebeurtenis_data) {
 			make_graph_promise = make_graph();
 			make_sheets_promise = make_team_tables();
+			make_stints_promise = make_stints();
 
 			document.getElementById("overlaylink").href = "overlay.html?game_id=" + window.game_id;
 			document.getElementById("tabellink").href = "gebeurtenis_tabel.html?game_id=" + window.game_id;
@@ -483,6 +622,7 @@
 			make_other_stats();
 
 			await make_graph_promise;
+			await make_stints_promise;
 		} else {
 			document.querySelectorAll('#plot, #box_scores, #other_stats').forEach(e => e.remove());
 			document.getElementById("tabellink").style.display = 'none'
@@ -490,7 +630,7 @@
 
 
 
-		// console.table(add_detailed_minute_to_gebnis(gebeurtenis_data.GebNis));
+		// console.table(add_fake_minute_to_gebnis(gebeurtenis_data.GebNis));
 
 	})();
 

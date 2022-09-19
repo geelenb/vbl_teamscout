@@ -10,10 +10,10 @@
     <script src="fetching.js"></script>
     <script src="common.js"></script>
 
-<script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"></script>
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"></script>
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.css">
   
-<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"></script>
 </head>
 <body>
     <table></table>
@@ -54,8 +54,8 @@
             'RelGUID',
             'RugNr',
             'Text',
+            "Naam",
         ];
-
 
         return "<thead>" + cells.map(td).join('') + "</thead>"
     }
@@ -63,6 +63,8 @@
     function type_text(geb) {
         return {
             10: "Score",
+            20: "Timeout",
+            30: "Fout",
             40: "Periode",
             50: "Wissel",
             60: "Wedstrijd",
@@ -83,6 +85,7 @@
             geb.RelGUID,
             geb.RugNr,
             geb.Text,
+            player ? player.Naam : "",
         ];
 
         return tr(cells.map(td).join(''));

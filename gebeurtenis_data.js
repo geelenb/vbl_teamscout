@@ -130,6 +130,58 @@ function add_detailed_minute_to_gebnis(gebnis) {
 }
 
 
+function add_fake_minute_to_gebnis(gebnis) {
+	const copy = [].concat(gebnis.map(geb => ({...geb})));
+	copy.forEach((geb, i) => {
+		if (i === 0) {
+			geb.index_this_quarter = 0;
+			return;
+		}
+
+		const prev = copy[i - 1];
+		if (geb.Periode !== prev.Periode) {
+			geb.index_this_quarter = 0;
+			return;
+		}
+
+		if (geb.GebStatus !== 10) {
+			// Foutieve gebeurtenis
+			geb.index_this_quarter = prev.index_this_quarter;
+			return
+		}
+
+		if (geb.GebType === 50 && ![30].includes(prev.GebType)) {
+			// if wissel and previous was not in {foul}
+			geb.index_this_quarter = prev.index_this_quarter;
+			return;
+		}
+
+		if (geb.GebType === 40) {
+			// Details at the beginning of quarters
+			geb.index_this_quarter = prev.index_this_quarter;
+			return;
+		}
+
+		geb.index_this_quarter = 1 + prev.index_this_quarter;
+	})
+
+	copy.forEach((geb, i) => {
+		const this_quarter = geb.Periode;
+		const gebs_this_quarter = copy.filter(geb => (geb.Periode == this_quarter));
+		let len_this_quarter = Math.max(...gebs_this_quarter.map(geb => geb.index_this_quarter))
+		geb.detailed_minute = (
+			(geb.Periode - 1) * 10 +
+			(geb.index_this_quarter / len_this_quarter || 0) * 10
+		);
+		if (geb.GebType === 60) {
+			geb.detailed_minute = copy[i-1].detailed_minute
+		}
+	})
+	// debugger;
+
+	return copy;
+}
+
 function minutes_for_player(gebeurtenis_data, player_relguid) {
 	let on = false;
 	let minutes = 0;
