@@ -43,6 +43,7 @@
 
             const previous_games = games
                     .filter(game => (game['uitslag'] !== ""))
+                    .filter(game => game.pouleNaam.indexOf('OEFEN') === -1)
                     .sort((a, b) => a['jsDTCode'] - b['jsDTCode']);
 
             let rosters = fetch_rosters_for_games(previous_games, team_id);
