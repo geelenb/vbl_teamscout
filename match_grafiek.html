@@ -190,6 +190,7 @@
 				xanchor: 'right',
 				y: last_y < 0 ? 1 : 0
 			},
+			dragmode: false,
 			font: {
 				family: 'Georgia, Palatino, serif',
 			}
@@ -312,7 +313,6 @@
 				showgrid: false,
 				title: ``,
 				zeroline: false,
-				// autotick: false,
 				tickvals: tickvals,
 				ticktext: ticktext,
 				fixedrange: true,
@@ -322,6 +322,7 @@
 				r: 10,
 				t: 10,
 			},
+			dragmode: false,
 			// shapes: shapes,
 			legend: {
 				// x: 0.99,
@@ -429,7 +430,16 @@
 
 			const row = document.createElement('tr');
 			row.innerHTML = [
-				'', '', 'pts', 'ft', '3', 'F', '+/-', 'min'
+				'', 
+				'', 
+				'pts',
+				'ft',
+				'3',
+				'F',
+				// '+/-',
+				// '+/-',
+				'+/-',
+				'min',
 			].map(td).join('');
 			table.appendChild(row)
 
@@ -468,6 +478,8 @@
 					score_1,
 					score_3,
 					fouls_str,
+					// pm[player.RelGUID] || '0',
+					// pm[player.RelGUID] || '0',
 					pm[player.RelGUID] || '0',
 					minutes_str
 				].map(td).join('');
