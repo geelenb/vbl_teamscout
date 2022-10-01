@@ -43,7 +43,7 @@
 
             const previous_games = games
                     .filter(game => (game['uitslag'] !== ""))
-                    .filter(game => game.pouleNaam.indexOf('OEFEN') === -1)
+                    .filter(game => game.pouleNaam.indexOf('OEFEN') === -1) // geen oefenmatchen
                     .sort((a, b) => a['jsDTCode'] - b['jsDTCode']);
 
             let rosters = fetch_rosters_for_games(previous_games, team_id);
@@ -68,7 +68,8 @@
                 rosters: rosters,
                 gebeurtenis_data: gebeurtenis_data,
                 next_opponent_id_plus: next_opponent_id_plus,
-                next_opponent_name: next_opponent_name
+                next_opponent_name: next_opponent_name,
+                next_game: next_game
             };
         }
 
@@ -80,11 +81,14 @@
 
             const h = `<h1>${data.team_name}</h1>`;
 
-
 			let p = '';
-			if (data.next_opponent_name) {
+			if (data.next_game) {
                 const next_opponent_id_plus = data.next_opponent_id_plus.replace(/\+/g, ' ');
-                p = `<p>Volgende tegenstander: <a href="team.html?team=${next_opponent_id_plus}">${data.next_opponent_name}</a></p>`;
+                p = `<p>
+                    Volgende tegenstander: 
+                    <a href="team.html?team=${next_opponent_id_plus}">${data.next_opponent_name}</a>
+                    <a href="match_grafiek.html?game_id=${data.next_game.guid}">(wedstrijdpagina)</a>
+                </p>`;
             }
 
             document.title = data.team_name;
