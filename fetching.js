@@ -143,9 +143,11 @@ async function fetch_rosters_for_games(game_datas, team_id) {
 }
 
 async function fetch_gebeurtenis_data_for_games(game_datas) {
+    const now = Number(new Date());
+    const game_is_long_ago = (game) => (now - game['jsDTCode']) > (6 * 3600 * 1000) // six hours
     return await Promise.all(
         game_datas
-            .map(game => {debugger;fetch_gebeurtenis_data(game.guid, true)})
+            .map(game => fetch_gebeurtenis_data(game.guid, game_is_long_ago(game)))
     );
 }
 
