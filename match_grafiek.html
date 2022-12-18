@@ -211,8 +211,8 @@
 
 	async function make_stints() {
 		let relguid_to_y = Object.fromEntries([
-			...window.roster.TtDeel.sort(p=> p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, i + 2]),
-			...window.roster.TuDeel.sort(p=> p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, -(i + 2)])
+			...window.roster.TtDeel.sort(p=> p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, i + 1]),
+			...window.roster.TuDeel.sort(p=>-p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, -(i + 1)])
 		]);
 
 		const score_gebs = window.gebnis.filter(g=> (g.GebStatus === 10 && g.GebType === 10));

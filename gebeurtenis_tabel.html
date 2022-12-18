@@ -21,7 +21,7 @@
 <script type="text/javascript">
     async function load_data(game_id) {
         let roster = fetch_rosters(game_id);
-        let gebeurtenis_data = fetch_gebeurtenis_data(game_id);
+        let gebeurtenis_data = fetch_gebeurtenis_data(game_id, false);
         let poule_games = fetch_poule_games(game_id.substring(0, game_id.length - 2));
 
         window.gebeurtenis_data = await gebeurtenis_data;

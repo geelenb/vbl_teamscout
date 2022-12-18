@@ -125,9 +125,9 @@ function make_data_table(data, attribute_to_display_and_extended_details) {
     }, {});
     const data_per_player_per_game = data[attribute_to_display];
 
-    const game_is_at_home = data.games.map(game => is_home_game_for_team(game, data.team_id_plus));
+    const game_is_at_home = data.previous_games.map(game => is_home_game_for_team(game, data.team_id_plus));
 
-    const uitslagen = data.games.map(game => game["uitslag"].substring(0, 7));
+    const uitslagen = data.previous_games.map(game => game["uitslag"].substring(0, 7));
     const own_points = uitslagen.map((uitslag, i) => game_is_at_home[i] ? uitslag.substring(0, 3) : uitslag.substring(4, 7)).map(Number);
     const opp_points = uitslagen.map((uitslag, i) => game_is_at_home[i] ? uitslag.substring(4, 7) : uitslag.substring(0, 3)).map(Number);
     const verschillen = uitslagen.map(eval).map((v, i) => game_is_at_home[i] ? v : -v).map(v => v > 0 ? '+' + v : v);
@@ -165,10 +165,10 @@ function make_data_table(data, attribute_to_display_and_extended_details) {
     let innerhtml = [// list of strings we will join at the end
         `<tr class="teamnaam">`,
         th(attribute_str),
-        ...data.games//.map(game => )
+        ...data.previous_games//.map(game => )
             .map(game =>
                 `<th><div><p><a href="match_grafiek.html?game_id=${game.guid}">`+
-                shorten_teamname(get_opponent_from_game(game, data.team_id_plus).naam) +
+                get_opponent_from_game(game, data.team_id_plus).naam +
                 '</a></p></div></th>'
             ),
         '<td></td>'.repeat(3),
@@ -176,13 +176,13 @@ function make_data_table(data, attribute_to_display_and_extended_details) {
 
         `<tr class="maand ${tr_class_only_on_extended_data}">`,
         th('Maand'),
-        ...data.games.map(game => game['datumString'].substring(3, 5)).map(Number).map(td_data),
+        ...data.previous_games.map(game => game['datumString'].substring(3, 5)).map(Number).map(td_data),
         '<td></td>'.repeat(3),
         '</tr>',
 
         `<tr class="dag ${tr_class_only_on_extended_data}">`,
         th('Dag'),
-        ...data.games.map(game => game['datumString'].substring(0, 2)).map(Number).map(td_data),
+        ...data.previous_games.map(game => game['datumString'].substring(0, 2)).map(Number).map(td_data),
         '<td></td>'.repeat(3),
         '</tr>',
 
@@ -206,7 +206,7 @@ function make_data_table(data, attribute_to_display_and_extended_details) {
 
         `<tr class="thuis ${tr_class_only_on_extended_data}">`,
         th('Thuis'),
-        ...data.games.map(g => is_home_game_for_team(g, data.team_id_plus))
+        ...data.previous_games.map(g => is_home_game_for_team(g, data.team_id_plus))
             .map(home_away_char)
             .map(td_data),
         '<td></td>'.repeat(3),

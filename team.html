@@ -55,7 +55,8 @@
             return {
                 team_id_plus: team_id,
                 team_name: team_name,
-                games: previous_games,
+                previous_games: previous_games,
+                games: games,
                 relguid_to_most_common_number: get_most_common_number_per_player(rosters),
                 points: gebeurtenis_data.map(gebeurtenis_data_to_points),
                 plus_minus: gebeurtenis_data.map(gebeurtenis_data_to_plus_minus),
