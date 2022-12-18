@@ -70,6 +70,11 @@
 </body>
 
 <script type="text/javascript">
+
+	function filter_for_valid_players(player) {
+		return player.Naam && player.Naam !== null && player['Functie'] === "S"
+	}
+
 	async function load_data(game_id) {
 		let roster = fetch_rosters(game_id);
 		let gebeurtenis_data = fetch_gebeurtenis_data(game_id);
@@ -202,18 +207,12 @@
 		}
 
 		window.plot = await Plotly.newPlot('plot', [points_trace, to_trace, fouls_trace], layout, config);
-
-		plot.on('plotly_hover', function (data) {
-			// console.log(data)
-		});
 	}
 
 	async function make_stints() {
-		// debugger;
-
 		let relguid_to_y = Object.fromEntries([
-			...window.roster.TtDeel.sort(p=> p.SortCode).filter(p=> p.Naam).map((p, i) => [p.RelGUID, i + 2]),
-			...window.roster.TuDeel.sort(p=> p.SortCode).filter(p=> p.Naam).map((p, i) => [p.RelGUID, -(i + 2)])
+			...window.roster.TtDeel.sort(p=> p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, i + 2]),
+			...window.roster.TuDeel.sort(p=> p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, -(i + 2)])
 		]);
 
 		const score_gebs = window.gebnis.filter(g=> (g.GebStatus === 10 && g.GebType === 10));
@@ -288,12 +287,10 @@
 		})
 
 		// minuten-zijn-bullshit mode
-
-		Object.entries(relguid_to_y)
 		const tickvals = Object.values(relguid_to_y);
 		const ticktext = (
 			Object.keys(relguid_to_y)
-			.map(relguid => [...roster.TuDeel, ...roster.TtDeel].find(rp => rp.RelGUID === relguid))
+			.map(relguid => [...roster.TuDeel, ...roster.TtDeel].filter(filter_for_valid_players).find(rp => rp.RelGUID === relguid))
 			// .map(p => '' + p.RugNr + ' ' + p.Naam.split(' ').map(s=> s[0]).join('')) // initialen
 			.map(p => p.Naam.split(' ')[0] + ' ' + p.RugNr) // voornaam
 		);
@@ -437,8 +434,6 @@
 				'ft',
 				'3',
 				'F',
-				// '+/-',
-				// '+/-',
 				'+/-',
 				'min',
 			].map(td).join('');
@@ -446,6 +441,9 @@
 
 			teamroster.forEach(player => {
 				if (!player.Naam) {
+					return
+				}
+				if (player["Functie"] !== "S") {
 					return
 				}
 
@@ -486,7 +484,6 @@
 				].map(td).join('');
 
 				table.appendChild(row);
-
 
 				sum_pts += points_total;
 				sum_ft += score_1;
@@ -601,7 +598,6 @@
 				.map((geb) => Number.parseInt(geb.Text[1] || 0))
 				.reduce(sum, 0)
 		);
-
 	}
 
 
