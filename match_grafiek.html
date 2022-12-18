@@ -294,7 +294,8 @@
 		const ticktext = (
 			Object.keys(relguid_to_y)
 			.map(relguid => [...roster.TuDeel, ...roster.TtDeel].find(rp => rp.RelGUID === relguid))
-			.map(p => '' + p.RugNr + ' ' + p.Naam.split(' ').map(s=> s[0]).join(''))
+			// .map(p => '' + p.RugNr + ' ' + p.Naam.split(' ').map(s=> s[0]).join('')) // initialen
+			.map(p => p.Naam.split(' ')[0] + ' ' + p.RugNr) // voornaam
 		);
 
 
@@ -639,11 +640,6 @@
 			document.querySelectorAll('#plot, #box_scores, #other_stats').forEach(e => e.remove());
 			document.getElementById("tabellink").style.display = 'none'
 		}
-
-
-
-		// console.table(add_fake_minute_to_gebnis(gebeurtenis_data.GebNis));
-
 	})();
 
 </script>
