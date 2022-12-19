@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Overzicht reeks</title>
 
-    <script src="fetching.js"></script>
-    <script src="vis.js"></script>
+    <script src="fetching.js?t"></script>
+    <script src="vis.js?t"></script>
 
     <style type="text/css">
         .colhead, .rowhead {
@@ -142,6 +142,10 @@
                     }
 
                     const game = games.find(g => g.tTGUID === home_team_guid && g.tUGUID === away_team_guid);
+                    if (!game) {
+                        table_innerhtml.push(td("???", 'diagonal'));
+                        return;
+                    }
                     const url = `match_grafiek.html?game_id=${game.guid}`;
                     const a = s => `<a href=${url}>${s}</a>`
                     const uitslag = game["uitslag"];

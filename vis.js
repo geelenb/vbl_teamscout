@@ -158,7 +158,7 @@ function make_data_table(data, attribute_to_display_and_extended_details) {
         'fouls': 'Fouten',
         'minutes': 'Minuten<br>(ongeveer)',
         'free_throws': 'Gescoorde<br>vrijworpen',
-        'three_pt': 'Driepunters',
+        'three_pt': 'Driepunters'
     }[attribute_to_display] || '';
 
     const row_for_player = relguid => make_row_for_player(
