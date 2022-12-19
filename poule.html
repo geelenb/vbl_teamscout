@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Overzicht reeks</title>
+
+    <script src="fetching.js"></script>
+    <script src="vis.js"></script>
+
+    <style type="text/css">
+        .colhead, .rowhead {
+            font-weight: bold;
+        }
+        .colhead, .diagonal {
+            text-align: center;
+        }
+        .rowhead {
+            text-align: right;
+        }
+        .home_win, .away_win {
+            font-family: monospace;
+            text-align: center;
+        }
+        .home_win {
+            background: lightblue;
+        }
+        .away_win {
+            background: mistyrose;
+        }
+        #crosstable a {
+            color: unset;
+            text-decoration: unset;
+        }
+    </style>
+</head>
+<body>
+    <h1>Javascript staat uit!</h1>
+    <table id="stand"></table>
+
+    <!-- 
+        naam
+        record 
+        pct 
+        home record 
+        home pct 
+        away record 
+        away pct 
+        avg own score 
+        highest own score 
+        lowest own score 
+        highest score against 
+        lowest score against 
+        biggest win 
+        smallest win 
+        smallest loss 
+        biggest loss 
+        avg fouls 
+        avg # players 
+        FT pct 
+        FTA
+        avg 3PT
+        avg age 
+        oldest 
+        youngest 
+    -->
+
+    <table id="crosstable"></table>
+    <table id="players"></table>
+    <!--
+        naam 
+        team
+        no.
+        leeftijd
+        points
+        points pg
+        3pt
+        3pt pg
+        fouls
+        fouls pg
+        games
+        minutes
+        +/-
+        +/- pg
+        +/- on bench
+    -->
+
+    <script type="text/javascript">
+        function record_of_team(games, team_guid) {
+            const played_games = games.filter(g => g['uitslag']);
+            const home_games = played_games.filter(g=> g.tTGUID === team_guid);
+            const away_games = played_games.filter(g=> g.tUGUID === team_guid);
+
+            const home_wins = n_home_wins_in_games(home_games);
+            const home_losses = home_games.length - home_wins;
+            const away_losses = n_home_wins_in_games(away_games);
+            const away_wins = away_games.length - away_losses;
+            // debugger;
+            return [home_wins + away_wins, home_losses + away_losses];
+        }
+
+        function percentage_of_team(games, team_guid) {
+            let [W, L] = record_of_team(games, team_guid);
+            return W / (W + L);
+        }
+
+        function td(contents, classes) {
+            return `<td class=${classes}>${contents}</td>`
+        }
+
+        function make_cross_table(games) {
+            let all_team_guids = [...new Set(games.map(g => g.tTGUID))];
+
+            // sort by percentage: 
+            // all_team_guids = all_team_guids.sort(guid => - percentage_of_team(games, guid));
+            all_team_guids = all_team_guids.sort((a, b) => percentage_of_team(games, b) - percentage_of_team(games, a));
+            
+            const team_guid_to_i = Object.fromEntries(all_team_guids.map((guid, i) => [guid, i]));
+            const team_guid_to_name = Object.fromEntries(games.map(g => [g.tTGUID, g.tTNaam]));
+
+            let table_innerhtml = []
+            table_innerhtml.push(
+                    "<tr>",
+                    td("Home \\ away", "colhead rowhead"),
+                    ...all_team_guids.flatMap(guid => td(shorten_teamname_more(team_guid_to_name[guid]), "colhead")),
+                    "</tr>",
+            );
+
+
+            all_team_guids.forEach((home_team_guid, i) => {
+                table_innerhtml.push(
+                    "<tr>",
+                    td(shorten_teamname(team_guid_to_name[home_team_guid]), "rowhead"),
+                )
+
+                all_team_guids.forEach((away_team_guid, j) => {
+                    if (i === j) {
+                        // const percentage_str = percentage_of_team(games, home_team_guid).toFixed(3),
+                        const record_str = record_of_team(games, home_team_guid).join("-");
+                        table_innerhtml.push(td(`(${record_str})`, 'diagonal'));
+                        return;
+                    }
+
+                    const game = games.find(g => g.tTGUID === home_team_guid && g.tUGUID === away_team_guid);
+                    const url = `match_grafiek.html?game_id=${game.guid}`;
+                    const a = s => `<a href=${url}>${s}</a>`
+                    const uitslag = game["uitslag"];
+                    if (uitslag) {
+                        const home_win = (uitslag.substring(0, 3) - uitslag.substring(4, 7)) > 0;
+                        const cell_class = home_win ? "home_win" : "away_win";
+                        table_innerhtml.push(td(a(uitslag.substring(0, 7).replaceAll(' ', '')), cell_class));
+                    } else {
+                        const [d, m, y] = game['datumString'].split('-')
+                        const date_str = `${Number(d)} ${short_months[Number(m)]}`;
+                        table_innerhtml.push(td(a(date_str, 'date')));
+                    }
+
+                    // End of cell
+                });
+
+                // add home record column?
+                table_innerhtml.push(
+                    "</tr>",
+                )
+
+                // row made, End of home team
+            });
+
+            // add row with away records?
+
+            document.getElementById('crosstable').innerHTML = table_innerhtml.join('');
+        }
+
+        addEventListener('load', async () => {
+            const poule_guid = (new URLSearchParams(window.location.search)).get('pouleGUID');
+            document.querySelector('h1').innerText = 'Laden...';
+
+            games = await fetch_poule_games(poule_guid);
+            
+            document.querySelector('h1').innerText = games[0]['pouleNaam'];
+
+            make_cross_table(games);
+        })
+
+    </script>
+</body>
+</html>

@@ -38,25 +38,44 @@ function get_most_common_number_per_player(roster_for_games) {
     return guid_to_most_common
 }
 
+const months = ['', 'januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
+const short_months = ['', 'jan', 'feb', 'maa', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+
+const short_teamnames = [
+    "As", "Achel", "Alken", "Asse-Ternat", "Aarschot",
+    "Bilzerse", "Black Sheep", "Bree", "Beringen", "Brasschaat", "Bertem", "Bavi", "Bulldogs",
+    "Cosmo",
+    "Dilbeek", "Dino",
+    "Gems", "Grimbergen",
+    "Hades", "Hasselt BT", "Helchteren", "Hageland", "Haacht", "Halle",
+    "Maasmechelen", "Mechelen", "Merchtem",
+    "Kortenberg", "Kapelle",
+    "Landen", "Leopoldsburg", "Lommel", "Lummen", "Londerzeelse", "Leuven Bears",
+    "Machelen", "Molenbeek",
+    "Nijlen",
+    "Optima", "Orly", "Opwijk",
+    "Pelt", "Peer",
+    "Rode Leeuwen",
+    "Sint-Truiden", "Stevoort", "Streek Inn",
+    "Tienen", "Tongeren",
+    "Vorst",
+    "Waremme", "Woluwe", "WIZ", "Waregem", "Wemmel",
+    "Zolder", "Zonhoven", "Zemst", "Zaventem",
+];
+const short_teamname_and_re = short_teamnames.map(short => [short, RegExp(`\\b${short}\\b`)]);
+
 function shorten_teamname(teamname) {
-    return [
-        " As ", "Achel", "Alken",
-        "Bilzerse", "Black Sheep", "Bree", "Beringen", "Brasschaat",
-        "Cosmo",
-        "Gems",
-        "Hades", "Hasselt BT", "Helchteren", "Hageland",
-        "Maasmechelen",
-        "Landen", "Leopoldsburg", "Lommel", "Lummen",
-        "Nijlen",
-        "Optima", "Orly",
-        "Pelt",
-        "Sint-Truiden", "Stevoort",
-        "Tienen", "Tongeren",
-        "Waremme", "Woluwe",
-        "Zolder", "Zonhoven",
-    ].filter(kw =>
-        teamname.toLowerCase().includes(kw.toLowerCase())
-    ).map(kw => `${kw.trim()} ${teamname[teamname.length - 1]}`)[0] || teamname;
+    const found_short_teamname = short_teamname_and_re
+        .filter(([short, re]) => re.test(teamname))
+        .map(([short, re]) => `${short.trim()} ${teamname[teamname.length - 1]}`)[0]
+    return found_short_teamname || teamname;
+}
+
+function shorten_teamname_more(teamname) {
+    const found_short_teamname = short_teamname_and_re
+        .filter(([short, re]) => re.test(teamname))
+        .map(([short, re]) => short.trim())[0]
+    return found_short_teamname || teamname;
 }
 
 const th = content => `<th></th><th colspan="2" style="text-align: left;">${content}</th>`;
@@ -165,10 +184,10 @@ function make_data_table(data, attribute_to_display_and_extended_details) {
     let innerhtml = [// list of strings we will join at the end
         `<tr class="teamnaam">`,
         th(attribute_str),
-        ...data.previous_games//.map(game => )
+        ...data.previous_games
             .map(game =>
                 `<th><div><p><a href="match_grafiek.html?game_id=${game.guid}">`+
-                get_opponent_from_game(game, data.team_id_plus).naam +
+                shorten_teamname(get_opponent_from_game(game, data.team_id_plus).naam) +
                 '</a></p></div></th>'
             ),
         '<td></td>'.repeat(3),
@@ -272,3 +291,6 @@ function table_from_list_of_objs(objs) {
     return table.join('')
 }
 
+const n_home_wins_in_games = (games) => {
+    return games.filter(pg =>pg.uitslag.substring(0, 3) - pg.uitslag.substring(4, 7) > 0).length
+}

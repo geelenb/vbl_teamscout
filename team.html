@@ -82,21 +82,35 @@
 
             const h = `<h1>${data.team_name}</h1>`;
 
-			let p = '';
+			let next_game_p = '';
 			if (data.next_game) {
                 const next_opponent_id_plus = data.next_opponent_id_plus.replace(/\+/g, ' ');
-                p = `<p>
+                next_game_p = `<p>
                     Volgende tegenstander: 
                     <a href="team.html?team=${next_opponent_id_plus}">${data.next_opponent_name}</a>
                     <a href="match_grafiek.html?game_id=${data.next_game.guid}">(wedstrijdpagina)</a>
                 </p>`;
             }
 
+            let competitions_arr = data.games
+                .filter(g => !g.pouleNaam.includes(" OEFEN"))
+                .filter(g => !g.pouleNaam.toLowerCase().includes("beker"))
+                .map(g => [g.pouleGUID, g.pouleNaam]);
+
+            // remove duplicates
+            competitions_arr = Object.fromEntries(competitions_arr);
+            competitions_arr = Object.entries(competitions_arr);
+
+            const competitions_p = competitions_arr
+                .map(([pouleGUID, pouleNaam]) => `<p><a href="poule.html?pouleGUID=${pouleGUID}">${pouleNaam}</a></p>`)
+                .join('<br>');
+
             document.title = data.team_name;
 
-            div.innerHTML = `${h}${p}`;
+            const innerHTML = `${h}${competitions_p}${next_game_p}`
+            div.innerHTML = innerHTML;
 
-            return `${h}${p}`;
+            return innerHTML;
         }
 
         function make_div_with_tables(data) {

@@ -340,15 +340,11 @@
 
 	function make_title() {
 		const record_for_team = (guid) => {
-			const n_home_wins_in_filtered_poule_games = (filtered_poule_games) => {
-				return filtered_poule_games.filter(pg =>pg.uitslag.substring(0, 3) - pg.uitslag.substring(4, 7) > 0).length
-			}
-
 			const home_games = poule_games.filter(pg => pg.tTGUID == guid && pg.uitslag);
 			const away_games = poule_games.filter(pg => pg.tUGUID == guid && pg.uitslag);
 
-			const home_wins = n_home_wins_in_filtered_poule_games(home_games);
-            const away_losses = n_home_wins_in_filtered_poule_games(away_games);
+			const home_wins = n_home_wins_in_games(home_games);
+            const away_losses = n_home_wins_in_games(away_games);
 			const home_losses = home_games.length - home_wins;
 			const away_wins = away_games.length - away_losses
 			return [
@@ -373,7 +369,7 @@
 
 		document.querySelector('p#date').innerHTML = [
 			Number.parseInt(game.datumString.substring(0, 2)),
-			['', 'januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'][Number.parseInt(game.datumString.substring(3, 5))],
+			months[Number.parseInt(game.datumString.substring(3, 5))],
 			' ' + Number.parseInt(game.datumString.substring(6, 10)),
             '<br>',
 			game.accNaam
