@@ -2,8 +2,13 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv='cache-control' content='no-cache'>
+    <meta http-equiv='expires' content='0'>
+    <meta http-equiv='pragma' content='no-cache'>
     <title>Gebeurtenissen</title>
+    
+    <script src="libs/dexie.js"></script>
+    <script src="libs/lz-string.min.js"></script>
 
     <script src="itertools.js?t"></script>
     <script src="gebeurtenis_data.js?t"></script>
@@ -12,7 +17,6 @@
 
     <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"></script>
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.css">
-  
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"></script>
 </head>
 <body>
@@ -20,7 +24,7 @@
 </body>
 <script type="text/javascript">
     async function load_data(game_id) {
-        let roster = fetch_rosters(game_id);
+        let roster = fetch_rosters(game_id, true);
         let gebeurtenis_data = fetch_gebeurtenis_data(game_id, false);
         let poule_games = fetch_poule_games(game_id.substring(0, game_id.length - 2));
 

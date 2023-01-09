@@ -169,15 +169,14 @@ function add_fake_minute_to_gebnis(gebnis) {
 		const this_quarter = geb.Periode;
 		const gebs_this_quarter = copy.filter(geb => (geb.Periode == this_quarter));
 		let len_this_quarter = Math.max(...gebs_this_quarter.map(geb => geb.index_this_quarter))
-		geb.detailed_minute = (
+		geb.fake_minute = (
 			(geb.Periode - 1) * 10 +
 			(geb.index_this_quarter / len_this_quarter || 0) * 10
 		);
 		if (geb.GebType === 60) {
-			geb.detailed_minute = copy[i-1].detailed_minute
+			geb.fake_minute = copy[i-1].fake_minute
 		}
 	})
-	// debugger;
 
 	return copy;
 }
@@ -186,7 +185,8 @@ function minutes_for_player(gebeurtenis_data, player_relguid) {
 	let on = false;
 	let minutes = 0;
 
-	const gebnis = add_detailed_minute_to_gebnis(gebeurtenis_data['GebNis'] || gebeurtenis_data);
+	// const gebnis = add_detailed_minute_to_gebnis(gebeurtenis_data['GebNis'] || gebeurtenis_data);
+	const gebnis = gebeurtenis_data['GebNis'] || gebeurtenis_data;
 
 	gebnis.forEach((geb) => {
 		if (geb.GebStatus !== 10) {

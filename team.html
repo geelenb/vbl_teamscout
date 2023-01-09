@@ -3,16 +3,21 @@
 <head>
     <title>Laden...</title>
     <meta charset='utf-8'>
+    <meta http-equiv='cache-control' content='no-cache'>
+    <meta http-equiv='expires' content='0'>
+    <meta http-equiv='pragma' content='no-cache'>
 
     <link rel="stylesheet" href="team.css">
 
-    <script src="itertools.js?t"></script>
-    <script src="gebeurtenis_data.js?t"></script>
-    <script src="fetching.js?t"></script>
-    <script src="vis.js?t"></script>
-    <script src="common.js?t"></script>
-
+    <script src="libs/dexie.js"></script>    
     <script language="javascript" src="libs/lz-string.min.js"></script>
+    
+    <script src="vis.js?v=1"></script>
+    <script src="itertools.js?v=1"></script>
+    <script src="gebeurtenis_data.js?v=1"></script>
+    <script src="fetching.js?v=1"></script>
+    <script src="common.js?v=1"></script>
+
 
     <script type="text/javascript">
         my_fav_team = "BVBL1049HSE++1"; // Orly A
@@ -46,13 +51,13 @@
                     .filter(game => game.pouleNaam.indexOf('OEFEN') === -1) // geen oefenmatchen
                     .sort((a, b) => a['jsDTCode'] - b['jsDTCode']);
 
-            let rosters = fetch_rosters_for_games(previous_games, team_id);
+            let rosters = fetch_relevant_team_rosters_for_games(previous_games, team_id);
             let gebeurtenis_data = fetch_gebeurtenis_data_for_games(previous_games);
 
             rosters = await rosters;
             gebeurtenis_data = await gebeurtenis_data;
 
-            return {
+            data = {
                 team_id_plus: team_id,
                 team_name: team_name,
                 previous_games: previous_games,
@@ -72,6 +77,8 @@
                 next_opponent_name: next_opponent_name,
                 next_game: next_game
             };
+
+            return data;
         }
 
         function make_title(data) {

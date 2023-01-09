@@ -23,7 +23,7 @@ function get_most_common_number_per_player(roster_for_games) {
     const guid_to_most_common = {};
     for (let guid in name_to_counts) {
         if (!guid) {
-            continue
+            continue;
         }
         let max_count = 0;
         for (let number in name_to_counts[guid]) {
@@ -82,9 +82,9 @@ const th = content => `<th></th><th colspan="2" style="text-align: left;">${cont
 const td_data = content => `<td class="data">${content}</td>`;
 
 // const char_for_winst = w => String.fromCodePoint(w ? 0x2705 : 0x274C);
-const char_for_winst = w => w ? 'âœ“' : '';
+const char_for_winst = w => w ? String.fromCodePoint(0x2705) : '';
 // const home_away_char = is_home => String.fromCodePoint(is_home ? 0x1F3E0 : 0x1F697);
-const home_away_char = is_home => is_home ? 'âŒ‚' : '';
+const home_away_char = is_home => is_home ? String.fromCodePoint(0x1F3E0) : '';
 
 function make_row_for_player(disp_name, number, birth_date, player_data_cells, tr_class="player") {
     let row = [ // list of strings we will join at the end

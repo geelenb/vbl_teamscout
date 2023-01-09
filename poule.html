@@ -2,11 +2,23 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv='cache-control' content='no-cache'>
+    <meta http-equiv='expires' content='0'>
+    <meta http-equiv='pragma' content='no-cache'>
+
     <title>Overzicht reeks</title>
 
+    <script src="libs/dexie.js"></script>
+    <script src="libs/lz-string.min.js"></script>
+    
     <script src="fetching.js?t"></script>
     <script src="vis.js?t"></script>
+    <script src="gebeurtenis_data.js?t"></script>
+
+
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.css">
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"></script>
 
     <style type="text/css">
         .colhead, .rowhead {
@@ -67,23 +79,6 @@
 
     <table id="crosstable"></table>
     <table id="players"></table>
-    <!--
-        naam 
-        team
-        no.
-        leeftijd
-        points
-        points pg
-        3pt
-        3pt pg
-        fouls
-        fouls pg
-        games
-        minutes
-        +/-
-        +/- pg
-        +/- on bench
-    -->
 
     <script type="text/javascript">
         function record_of_team(games, team_guid) {
@@ -95,7 +90,7 @@
             const home_losses = home_games.length - home_wins;
             const away_losses = n_home_wins_in_games(away_games);
             const away_wins = away_games.length - away_losses;
-            // debugger;
+
             return [home_wins + away_wins, home_losses + away_losses];
         }
 
@@ -105,7 +100,7 @@
         }
 
         function td(contents, classes) {
-            return `<td class=${classes}>${contents}</td>`
+            return `<td class="${classes}">${contents}</td>`
         }
 
         function make_cross_table(games) {
@@ -175,16 +170,251 @@
             document.getElementById('crosstable').innerHTML = table_innerhtml.join('');
         }
 
+
+        function make_players_table(previous_games, rosters, gebeurtenis_data) {
+            const all_players_with_duplicates = rosters
+                .flatMap(r => [...r['TuDeel'], ...r['TtDeel']])
+                .filter(p => p['Functie'] == 'S');
+
+            const relguid_to_player = Object.fromEntries(all_players_with_duplicates.map(p => [p.RelGUID, p]));
+            const relguid_to_teamnaam = Object.fromEntries(rosters.flatMap(
+                (r, i) => [
+                    ...r['TtDeel'].map(p => [p['RelGUID'], previous_games[i]['tTNaam']]),
+                    ...r['TuDeel'].map(p => [p['RelGUID'], previous_games[i]['tUNaam']]),
+                ]));
+            const all_gebeurtenissen = gebeurtenis_data.flatMap(g => g['GebNis']).filter(g => g['GebStatus'] === 10);
+
+            const on_court_plus = Object.fromEntries(all_players_with_duplicates.map(p => [p.RelGUID, 0]));
+            const on_court_minus = Object.fromEntries(all_players_with_duplicates.map(p => [p.RelGUID, 0]));
+            const on_bench_plus = Object.fromEntries(all_players_with_duplicates.map(p => [p.RelGUID, 0]));
+            const on_bench_minus = Object.fromEntries(all_players_with_duplicates.map(p => [p.RelGUID, 0]));
+
+            previous_games.forEach((game, i) => {
+                const roster = rosters[i];
+                const game_gebeurtenissen = gebeurtenis_data[i];
+
+                const players_on_field = {T: [], U: []};
+                const players_on_bench = {
+                    T: roster.TtDeel.filter(player => player['Functie'] === 'S').map(player => player.RelGUID), 
+                    U: roster.TuDeel.filter(player => player['Functie'] === 'S').map(player => player.RelGUID)
+                };
+
+                game_gebeurtenissen.GebNis.forEach(geb => {
+                    if (geb.GebStatus !== 10) {
+                        return;
+                    }
+                    const tofu = geb.TofU;
+                    const opp = tofu === 'T' ? 'U' : 'T';
+
+                    if (geb['GebType'] === 50) {
+                        // wissel
+                        if (geb['Text'] === 'in') {
+                            players_on_field[tofu].push(geb['RelGUID']);
+                            players_on_bench[tofu] = players_on_bench[tofu].filter(v => v !== geb['RelGUID']);
+                        } else if (geb['Text'] === 'uit') {
+                            players_on_bench[tofu].push(geb['RelGUID']);
+                            players_on_field[tofu] = players_on_field[tofu].filter(v => v !== geb['RelGUID']);
+                        }
+                    } else if (geb['GebType'] === 10) {
+                        // score
+                        const score = Number(geb['Text'].split(' ')[0]);
+                        players_on_field[tofu].forEach(relguid => on_court_plus[relguid] += score);
+                        players_on_bench[tofu].forEach(relguid => on_bench_plus[relguid] += score);
+                        players_on_field[opp].forEach(relguid => on_court_minus[relguid] += score);
+                        players_on_bench[opp].forEach(relguid => on_bench_minus[relguid] += score);
+                    }
+                });
+
+            });
+
+            const make_top_row = () => {
+                const cells = [
+                    // "RugNr", // todo: most common number
+                    "Relguid",
+                    "Birthdate",
+                    "Naam",
+                    "Team",
+                    "Games",
+                    "Minutes",
+                    "Minutes per game",
+                    "Points",
+                    "Points per game",
+                    "High score",
+                    "Threes",
+                    "Trees per game",
+                    "Fouls",
+                    "Fouls per game",
+                    "Non personal fouls",
+                    "Plus",
+                    "Minus",
+                    "Plus minus",
+                    "Plus per minute",
+                    "Minus per minute",
+                    "Plus minus per minute",
+                    "Benched plus",
+                    "Benched minus",
+                    "Benched plus minus",
+                    "Benched plus per minute",
+                    "Benched minus per minute",
+                    "Benched plus minus per minute",
+                    "Offensive improvement",
+                    "Defensive improvement",
+                    "Netto improvement",
+                ].map(s => `<th>${s}</th>`).join('');
+
+                return `<thead><tr>${cells}</tr></thead>`;
+            }
+
+            const make_row_for_player = (player) => {
+                const relguid = player['RelGUID'];
+
+                const player_games_indices = rosters.flatMap((roster, i) => 
+                    [...roster.TtDeel, ...roster.TuDeel]
+                    .filter(p => p['Functie'] == 'S')
+                    .map(player => player['RelGUID'])
+                    .includes(relguid) ? [i] : []
+                );
+                const player_previous_games = player_games_indices.map(i => previous_games[i]);
+                const player_games_rosters = player_games_indices.map(i => rosters[i]);
+                const player_games_gebeurtenis_data = player_games_indices.map(i => gebeurtenis_data[i]);
+
+                const player_games_all_gebeurtenissen = player_games_gebeurtenis_data
+                    .flatMap(g => g['GebNis'])
+                    .filter(g => g['GebStatus'] === 10);
+
+                const player_gebeurtenissen = player_games_all_gebeurtenissen.filter(g => g['RelGUID'] === relguid);
+                const player_scores = player_gebeurtenissen.filter(g => g['GebType'] === 10);
+                const player_fouten = player_gebeurtenissen.filter(g => g['GebType'] === 30);
+
+                const birthdate = `${player.GebDat.substr(6, 4)}-${player.GebDat.substr(3, 2)}-${player.GebDat.substr(0, 2)}`
+                const n_games = player_previous_games.length;
+                const minutes = gebeurtenis_data.map(gd => minutes_for_player(gd, relguid)).reduce((a, b) => a+b, 0);
+                const minutes_per_game = minutes / n_games;
+
+                const points = player_scores.map(g => Number(g.Text.split(' ')[0])).reduce((a, b) => a+b, 0);
+                const points_per_game = points / n_games;
+                const high_score = Math.max(...
+                    gebeurtenis_data.map(match_geb => match_geb.GebNis
+                        .filter(g=> g['GebStatus'] === 10 && g['RelGUID'] === relguid && g['GebType'] === 10)
+                        .map(g => Number(g.Text.split(' ')[0]))
+                        .reduce((a, b) => a+b, 0)
+                    )
+                );
+
+                const n_threes = player_scores.filter(g => g.Text[0] === "3").length;
+                const n_trees_per_game = n_threes / n_games;
+
+                const n_fouls = player_fouten.length;
+                const n_fouls_per_game = n_fouls / n_games;
+                const n_non_personal_fouls = player_fouten.filter(g => g.Text[0] !== 'P').length;
+
+                const plus = on_court_plus[relguid];
+                const minus = on_court_minus[relguid];
+                const plus_minus = on_court_plus[relguid] - on_court_minus[relguid];
+
+                const plus_per_minute = plus / minutes;
+                const minus_per_minute = minus / minutes;
+                const plus_minus_per_minute = plus_minus / minutes;
+
+                const benched_plus = on_bench_plus[relguid];
+                const benched_minus = on_bench_minus[relguid];
+                const benched_plus_minus = on_bench_plus[relguid] - on_bench_minus[relguid];
+
+                const benched_plus_per_minute = benched_plus / (40 * n_games - minutes);
+                const benched_minus_per_minute = benched_minus / (40 * n_games - minutes);
+                const benched_plus_minus_per_minute = benched_plus_minus / (40 * n_games - minutes);
+
+                const offensive_improvement = plus_per_minute - benched_plus_per_minute;
+                const defensive_improvement = -(minus_per_minute - benched_minus_per_minute);
+                const netto_improvement = plus_minus_per_minute - benched_plus_minus_per_minute;
+                // if (relguid === 'BVBL623461'){
+                //     debugger;
+                // }
+
+                const cells = [
+                    // player['RugNr'], // todo: most common number
+                    relguid,
+                    birthdate,
+                    player['Naam'],
+                    relguid_to_teamnaam[relguid],
+                    n_games,
+                    minutes.toFixed(1),
+                    minutes_per_game.toFixed(1),
+                    points,
+                    points_per_game.toFixed(1),
+                    high_score,
+                    n_threes,
+                    n_trees_per_game.toFixed(1),
+                    n_fouls,
+                    n_fouls_per_game.toFixed(1),
+                    n_non_personal_fouls,
+                    plus,
+                    minus,
+                    plus_minus,
+                    plus_per_minute.toFixed(2),
+                    minus_per_minute.toFixed(2),
+                    plus_minus_per_minute.toFixed(2),
+                    benched_plus,
+                    benched_minus,
+                    benched_plus_minus,
+                    benched_plus_per_minute.toFixed(2),
+                    benched_minus_per_minute.toFixed(2),
+                    benched_plus_minus_per_minute.toFixed(2),
+                    offensive_improvement.toFixed(2),
+                    defensive_improvement.toFixed(2),
+                    netto_improvement.toFixed(2),
+               ].map(v => td(v, ''));
+
+                const joined_string = [
+                    '<tr>', 
+                    ...cells,
+                    '</tr>'
+                ].join('');
+
+                return joined_string;
+            }
+
+
+            const rows = [
+                make_top_row(),
+                ...Object.values(relguid_to_player).map(make_row_for_player),
+            ];
+
+            document.getElementById('players').innerHTML = rows.join('');
+
+            new DataTable("#players", {paging: false,});
+        }
+
         addEventListener('load', async () => {
             const poule_guid = (new URLSearchParams(window.location.search)).get('pouleGUID');
             document.querySelector('h1').innerText = 'Laden...';
 
-            games = await fetch_poule_games(poule_guid);
-            
-            document.querySelector('h1').innerText = games[0]['pouleNaam'];
+            all_games =  fetch_poule_games(poule_guid);
 
-            make_cross_table(games);
-        })
+            all_games = await all_games;
+            g = all_games[0];
+
+            played_games = all_games.filter(g => g['uitslag']);
+
+            played_guids = played_games.map(g=> g.guid);
+
+            rosters = fetch_team_rosters_for_games(played_games);
+            gebeurtenis_data = fetch_gebeurtenis_data_for_games(played_games);
+
+            rosters = await rosters;
+            gebeurtenis_data = await gebeurtenis_data;
+
+            gebeurtenis_data.forEach(gdi => {
+                gdi.GebNis = add_fake_minute_to_gebnis(gdi.GebNis);
+                gdi.GebNis = add_detailed_minute_to_gebnis(gdi.GebNis);
+            });
+            
+            document.querySelector('h1').innerText = all_games[0]['pouleNaam'];
+
+            make_cross_table(all_games);
+
+            make_players_table(played_games, rosters, gebeurtenis_data);
+        });
 
     </script>
 </body>

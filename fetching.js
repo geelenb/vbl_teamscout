@@ -1,10 +1,17 @@
+const db = new Dexie("CacheDatabase");
+
+db.version(1).stores({
+  cache: "++id, key, value"
+});
+
 function cache_save(key, value) {
     localStorage.setItem(key, LZString.compress(JSON.stringify(value)));
 }
 
 function cache_load(key) {
+    const r = JSON.parse(LZString.decompress(localStorage.getItem(key)))
     console.warn(`Using older result of ${key}`);
-    return JSON.parse(LZString.decompress(localStorage.getItem(key)))
+    return r;
 }
 
 async function fetch_games(team_guid_plus) {
@@ -60,15 +67,17 @@ async function fetch_poule_games(issguid) {
     }
 }
 
-// BVBL21229120LIHSE31A
-
-async function fetch_rosters(game_uid) {
+async function fetch_rosters(game_uid, use_cache) {
     const referrer = `https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=${game_uid}`;
     const localStorage_key =  referrer.split('/').pop();
 
-    try {
-        return cache_load(localStorage_key);
-    } catch {}
+    if (use_cache) {
+        try {
+            return cache_load(localStorage_key);
+        } catch {
+            console.error(`cache_load ${localStorage_key} failed!`);
+        }
+    }
 
     console.log(`fetching game stats ${game_uid}`);
 
@@ -84,9 +93,11 @@ async function fetch_rosters(game_uid) {
         }
     )).json();
 
-    try {
-        cache_save(localStorage_key, json);
-    } catch {}
+    if (use_cache) {
+        try {
+            cache_save(localStorage_key, json);
+        } catch {}
+    }
     return json
 }
 
@@ -97,7 +108,9 @@ async function fetch_gebeurtenis_data(game_uid, use_cache) {
     if (use_cache) {
         try {
             return cache_load(localStorage_key);
-        } catch {}
+        } catch {
+            console.error(`cache_load ${localStorage_key} failed!`);
+        }
     }
 
     console.log(`fetching gebeurtenis data ${game_uid} ...`);
@@ -131,25 +144,27 @@ async function fetch_gebeurtenis_data(game_uid, use_cache) {
 }
 
 
-async function fetch_rosters_for_games(game_datas, team_id) {
-    return (await Promise.all(
-        game_datas
-            .map(game => game.guid)
-            .map(fetch_rosters)
-    )).map((game, i) => get_relevant_part_from_game_data(
-        game,
-        is_home_game_for_team(game_datas[i], team_id)
-    ));
-}
+const now = Number(new Date());
+const game_is_long_ago = (game) => (now - game['jsDTCode']) > (6 * 3600 * 1000) // six hours
 
+async function fetch_team_rosters_for_games(game_datas) {
+    return await Promise.all(
+        game_datas
+            .map(game => fetch_rosters(game.guid, game_is_long_ago(game)))
+    );
+}
 async function fetch_gebeurtenis_data_for_games(game_datas) {
-    const now = Number(new Date());
-    const game_is_long_ago = (game) => (now - game['jsDTCode']) > (6 * 3600 * 1000) // six hours
     return await Promise.all(
         game_datas
             .map(game => fetch_gebeurtenis_data(game.guid, game_is_long_ago(game)))
     );
 }
 
-
-
+async function fetch_relevant_team_rosters_for_games(game_datas, team_id) {
+    return (await fetch_team_rosters_for_games(game_datas))
+            .map((game, i) => get_relevant_part_from_game_data(
+                game,
+                is_home_game_for_team(game_datas[i], team_id)
+            )
+        );
+}

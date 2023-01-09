@@ -2,16 +2,21 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta content="width=device-width, initial-scale=1" name="viewport">
+
+    <meta http-equiv='cache-control' content='no-cache'>
+    <meta http-equiv='expires' content='0'>
+    <meta http-equiv='pragma' content='no-cache'>
     <title>Laden...</title>
 
+    <script src="libs/dexie.js"></script>
+    <script src="libs/lz-string.min.js"></script>
+    <script src="libs/plotly-2.9.0.min.js"></script>
+    
     <script src="itertools.js?t"></script>
     <script src="gebeurtenis_data.js?t"></script>
     <script src="fetching.js?t"></script>
     <script src="vis.js?t"></script>
     <script src="common.js?t"></script>
-    <script src="libs/lz-string.min.js"></script>
-    <script src="libs/plotly-2.9.0.min.js"></script>
 
     <link href="match_grafiek.css" rel="stylesheet" type="text/css">
 </head>
@@ -22,7 +27,6 @@
 
 <div id='general_stats'>
     <table id='quarters'></table>
-
 </div>
 
 
@@ -76,7 +80,7 @@
 	}
 
 	async function load_data(game_id) {
-		let roster = fetch_rosters(game_id);
+		let roster = fetch_rosters(game_id, true);
 		let gebeurtenis_data = fetch_gebeurtenis_data(game_id);
         let poule_games = fetch_poule_games(game_id.substring(0, game_id.length - 2));
 
@@ -84,7 +88,8 @@
 		window.roster = await roster;
 		window.poule_games = await poule_games;
 
-		window.gebnis = add_fake_minute_to_gebnis(window.gebeurtenis_data.GebNis);
+		window.gebeurtenis_data = add_fake_minute_to_gebnis(window.gebeurtenis_data.GebNis);
+		window.gebeurtenis_data = add_detailed_minute_to_gebnis(window.gebeurtenis_data);
 
 		window.game = window.poule_games.find(game => game.guid === game_id);
 	}
@@ -127,14 +132,14 @@
 		let last_y;
 
 
-		window.gebnis.forEach((geb, i) => {
+		window.gebeurtenis_data.forEach((geb, i) => {
 			let team_str = geb.TofU === 'T' ? 'Home' : 'Away'
 
 			if (geb.GebStatus !== 10) {
 				return;
 			}
 
-			const x = geb.detailed_minute;
+			const x = geb.fake_minute;
 			last_y = points_trace.y[points_trace.y.length - 1]
 
 			const player = roster.TuDeel.concat(roster.TtDeel).find(player => player.RelGUID == geb.RelGUID)
@@ -215,10 +220,10 @@
 			...window.roster.TuDeel.sort(p=>-p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, -(i + 1)])
 		]);
 
-		const score_gebs = window.gebnis.filter(g=> (g.GebStatus === 10 && g.GebType === 10));
+		const score_gebs = window.gebeurtenis_data.filter(g=> (g.GebStatus === 10 && g.GebType === 10));
 
 		const score_trace = {
-			x: score_gebs.map(g => g.detailed_minute),
+			x: score_gebs.map(g => g.fake_minute),
 			y: score_gebs.map(g => relguid_to_y[g.RelGUID] + .2), 
 			text: score_gebs.map(g => g.Text[0]),
 			// type: 'scatter',
@@ -228,9 +233,9 @@
 			// name: 'Score'
 		};
 
-		const foul_gebs = window.gebnis.filter(g=> (g.GebStatus === 10 && g.GebType === 30));
+		const foul_gebs = window.gebeurtenis_data.filter(g=> (g.GebStatus === 10 && g.GebType === 30));
 		const fouls_trace = {
-			x: foul_gebs.map(g => g.detailed_minute),
+			x: foul_gebs.map(g => g.fake_minute),
 			y: foul_gebs.map(g => relguid_to_y[g.RelGUID] - .2), 
 			text: foul_gebs.map(g => g.Text),
 			mode: 'text',
@@ -258,20 +263,20 @@
 		}
 
 		Object.keys(relguid_to_y).forEach(relguid => {
-			// const player_gebs = window.gebnis.filter(g=> (g.GebStatus === 10 && g.RelGUID === relguid));
+			// const player_gebs = window.gebeurtenis_data.filter(g=> (g.GebStatus === 10 && g.RelGUID === relguid));
 			const y = relguid_to_y[relguid];
 			let last_in_g = 0;
 			let score = "0-0";
 			let score_at_last_in = String(score);
 
-			window.gebnis.filter(g => (g.GebStatus === 10)).forEach(g => {
+			window.gebeurtenis_data.filter(g => (g.GebStatus === 10)).forEach(g => {
 				if (g.RelGUID === relguid && g.Text === "in") {
 					last_in_g = g;
 					score_at_last_in = score;
 				}
 
 				if (g.RelGUID === relguid && g.Text === "uit") {
-					add_stint(last_in_g.detailed_minute, g.detailed_minute, y, score_at_last_in, score);
+					add_stint(last_in_g.fake_minute, g.fake_minute, y, score_at_last_in, score);
 					last_in_g = 0;
 				}
 
@@ -282,7 +287,7 @@
 
 			if (last_in_g) {
 				// stints aan het eind van de match
-				add_stint(last_in_g.detailed_minute, window.gebnis.at(-1).detailed_minute, y, score_at_last_in, score);
+				add_stint(last_in_g.fake_minute, window.gebeurtenis_data.at(-1).fake_minute, y, score_at_last_in, score);
 			}
 		})
 
@@ -384,7 +389,7 @@
 
 		if (gebeurtenis_data) {
 			periodenames = (
-				gebeurtenis_data.GebNis
+				gebeurtenis_data
 					.filter(geb => geb.GebStatus === 10)
 					.filter(geb => geb.GebType === 40)
 					.filter(geb => !geb.Text.includes('Balbezit'))
@@ -392,7 +397,7 @@
 			);
 
 			td_points_in_periode = (periode, T_OR_U) => td(
-				gebeurtenis_data.GebNis
+				gebeurtenis_data
 					.filter(geb => geb.GebStatus === 10)
 					.filter(geb => geb.Periode == periode)
 					.filter(geb => geb.TofU === T_OR_U)
@@ -444,7 +449,7 @@
 				}
 
 				const this_player_gebs = (
-					gebeurtenis_data.GebNis
+					gebeurtenis_data
 						.filter(g => g.GebStatus === 10)
 						.filter(g => g.RelGUID === player.RelGUID)
 				);
@@ -518,7 +523,7 @@
 		document.querySelector('div#other_stats img.a').src = `https://vblapi1.wisseq.eu/vbldataOrgLogo/${away_id}.jpg`;
 
 		const score_diffs = (
-			gebeurtenis_data.GebNis
+			gebeurtenis_data
 				.filter((geb) => (geb.GebStatus === 10) && (geb.GebType === 10))
 				.map((geb) => geb.Text.split(/\b/))
 				.map((split) => split[2] - split[4])
@@ -531,7 +536,7 @@
 			let current_running_team = '';
 			let current_team_run = 0;
 
-			gebeurtenis_data.GebNis.forEach((geb) => {
+			gebeurtenis_data.forEach((geb) => {
 				if (geb.GebStatus !== 10) {
 					return;
 				}
@@ -553,13 +558,13 @@
 		document.querySelector('div#other_stats div.largest_run.h').innerHTML = biggest_runs.T;
 		document.querySelector('div#other_stats div.largest_run.a').innerHTML = biggest_runs.U;
 
-		document.querySelector('div#other_stats div.n_fouls.h').innerHTML = gebeurtenis_data.GebNis
+		document.querySelector('div#other_stats div.n_fouls.h').innerHTML = gebeurtenis_data
 			.filter((geb) => (geb.GebStatus === 10) && (geb.GebType === 30) && (geb.TofU === 'T')).length;
-		document.querySelector('div#other_stats div.n_fouls.a').innerHTML = gebeurtenis_data.GebNis
+		document.querySelector('div#other_stats div.n_fouls.a').innerHTML = gebeurtenis_data
 			.filter((geb) => (geb.GebStatus === 10) && (geb.GebType === 30) && (geb.TofU === 'U')).length;
 
 		document.querySelector('div#other_stats div.free_throws.h').innerHTML = (
-			gebeurtenis_data.GebNis
+			gebeurtenis_data
 				.filter((geb) =>
                     (geb.GebStatus === 10) &&
                     (geb.GebType === 10) &&
@@ -567,7 +572,7 @@
                     (geb.Text[0] === "1")
                 ).length
 			+ ' / ' +
-			gebeurtenis_data.GebNis
+			gebeurtenis_data
 				.filter((geb) =>
 					(geb.GebStatus === 10) &&
 					(geb.GebType === 30) &&
@@ -577,7 +582,7 @@
                 .reduce(sum, 0)
         );
 		document.querySelector('div#other_stats div.free_throws.a').innerHTML = (
-			gebeurtenis_data.GebNis
+			gebeurtenis_data
 				.filter((geb) =>
 					(geb.GebStatus === 10) &&
 					(geb.GebType === 10) &&
@@ -585,7 +590,7 @@
 					(geb.Text[0] === "1")
 				).length
 			+ ' / ' +
-			gebeurtenis_data.GebNis
+			gebeurtenis_data
 				.filter((geb) =>
 					(geb.GebStatus === 10) &&
 					(geb.GebType === 30) &&
