@@ -254,6 +254,7 @@
                     "Benched plus",
                     "Benched minus",
                     "Benched plus minus",
+                    "Benched minutes",
                     "Benched plus per minute",
                     "Benched minus per minute",
                     "Benched plus minus per minute",
@@ -320,9 +321,10 @@
                 const benched_minus = on_bench_minus[relguid];
                 const benched_plus_minus = on_bench_plus[relguid] - on_bench_minus[relguid];
 
-                const benched_plus_per_minute = benched_plus / (40 * n_games - minutes);
-                const benched_minus_per_minute = benched_minus / (40 * n_games - minutes);
-                const benched_plus_minus_per_minute = benched_plus_minus / (40 * n_games - minutes);
+                const benched_minutes = 40 * n_games - minutes;
+                const benched_plus_per_minute = benched_plus / benched_minutes;
+                const benched_minus_per_minute = benched_minus / benched_minutes;
+                const benched_plus_minus_per_minute = benched_plus_minus / benched_minutes;
 
                 const offensive_improvement = plus_per_minute - benched_plus_per_minute;
                 const defensive_improvement = -(minus_per_minute - benched_minus_per_minute);
@@ -357,6 +359,7 @@
                     benched_plus,
                     benched_minus,
                     benched_plus_minus,
+                    benched_minutes.toFixed(1),
                     benched_plus_per_minute.toFixed(2),
                     benched_minus_per_minute.toFixed(2),
                     benched_plus_minus_per_minute.toFixed(2),

@@ -198,19 +198,19 @@ function minutes_for_player(gebeurtenis_data, player_relguid) {
 
 		if (geb.Text === 'in') {
 			on = true;
-			minutes -= geb.detailed_minute;
+			minutes -= geb.fake_minute;
 		}
 
 		if (geb.Text === 'uit') {
 			on = false;
-			minutes += geb.detailed_minute;
+			minutes += geb.fake_minute;
 		}
 	});
 	if (on) {
 		const copy = [].concat(gebnis)
 		copy.reverse();
 		const last_geb = copy.find(geb => geb.Periode < 99);
-		minutes += last_geb.detailed_minute;
+		minutes += last_geb.fake_minute;
 	}
 	return minutes;
 }

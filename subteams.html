@@ -1,0 +1,230 @@
+<head>
+    <title>Laden...</title>
+    <meta charset='utf-8'>
+
+    <link rel="stylesheet" href="index.css">
+    
+    <script src="libs/dexie.js"></script>
+    <script language="javascript" src="libs/lz-string.min.js"></script>
+
+    <script src="itertools.js"></script>
+    <script src="gebeurtenis_data.js"></script>
+    <script src="fetching.js?t"></script>
+    <script src="vis.js"></script>
+    <script src="common.js"></script>
+
+
+    <script type="text/javascript">
+        const my_fav_team = "BVBL1049HSE++1"; // Orly A
+
+        const get_next_game_from_games = games => (
+            games
+                .filter(v => v['jsDTCode'] > new Date().getTime())
+                .sort((a, b) => a['jsDTCode'] - b['jsDTCode'])
+        )[0];
+
+        async function get_all_data_of_team(team_id) {
+            const games = await fetch_games(team_id);
+            const next_game = get_next_game_from_games(games);
+
+            let team_name = next_game['tUNaam'];
+            let next_opponent_id_plus = next_game['tTGUID'];
+            let next_opponent_name = next_game['tTNaam'];
+            if (is_home_game_for_team(next_game, team_id)) {
+                team_name = next_game['tTNaam'];
+                next_opponent_id_plus = next_game['tUGUID'];
+                next_opponent_name = next_game['tUNaam'];
+            }
+
+            const previous_games = games
+                    .filter(game => (game['uitslag'] !== ""))
+                    .filter(game => game.pouleNaam.indexOf('OEFEN') === -1) // geen oefenmatchen
+                    .sort((a, b) => a['jsDTCode'] - b['jsDTCode']);
+
+
+            let rosters = fetch_relevant_team_rosters_for_games(previous_games, team_id);
+            let gebeurtenis_data = fetch_gebeurtenis_data_for_games(previous_games);
+
+            rosters = await rosters;
+            gebeurtenis_data = await gebeurtenis_data;
+
+            gebeurtenis_data.forEach(gd => add_fake_minute_to_gebnis(gd.GebNis));
+
+            return {
+                team_id_plus: team_id,
+                team_name: team_name,
+                games: previous_games,
+                relguid_to_most_common_number: get_most_common_number_per_player(rosters),
+                points: gebeurtenis_data.map(gebeurtenis_data_to_points),
+                plus_minus: gebeurtenis_data.map(gebeurtenis_data_to_plus_minus),
+                fouls: gebeurtenis_data.map(gebeurtenis_data_to_fouls),
+                minutes: gebeurtenis_data.map(gebeurtenis_data_to_minutes),
+                free_throws: gebeurtenis_data.map(gebeurtenis_data_to_free_throws),
+                free_throws_attempted: gebeurtenis_data.map(gebeurtenis_data_to_free_throws_attempted),
+                three_pt: gebeurtenis_data.map(gebeurtenis_data_to_three_pt),
+
+                rosters: rosters,
+                gebeurtenis_data: gebeurtenis_data,
+                next_opponent_id_plus: next_opponent_id_plus,
+                next_opponent_name: next_opponent_name
+            };
+        }
+
+        function redirect_if_team_unspecified() {
+            const params = new URLSearchParams(window.location.search.substr(1));
+            if (params.get('team') || params.get('opponent')) {
+                return;
+            }
+            window.location.replace(`${window.location}?team=${my_fav_team}`)
+        }
+
+        async function team_id_from_get_params() {
+            const params = new URLSearchParams(window.location.search.substr(1));
+            let team_id;
+            if (team_id = params.get('team')) {
+                return team_id
+            } else if (team_id = params.get('opponent')) {
+                const own_games = await fetch_games(team_id);
+                const next_game = await get_next_game_from_games(own_games);
+                return get_opponent_from_game(next_game, team_id).id_plus;
+            }
+            return my_fav_team;
+        }
+
+        function subsets(l, k) {
+            if (k <= 0) {
+                return [];
+            }
+
+            if (k === 1) {
+                return l.map(x => [x])
+            }
+
+            return l.flatMap((car, i) => 
+                subsets(l.slice(i + 1), k - 1).map(subset => [car].concat(subset))
+            );
+        }
+
+        function all_5_subsets(l) {
+            return Array(5).fill().flatMap((x, i) => subsets(l, i + 1));
+        }
+
+        function calc_plus_minuses() {
+            const all_subteams_to_plus_minus = {} ;
+
+            data.gebeurtenis_data.forEach((gebdata, game_i) => {
+                if (gebdata === null) {
+                    return;
+                }
+                
+                const homegame = data.games[game_i].tTGUID === data.team_id_plus;
+                const tofu = homegame ? 'T' : 'U';
+
+                let currently_in = [];
+
+                gebdata.GebNis.forEach((geb, geb_i) => {
+                    if (geb.GebStatus !== 10) {
+                        return;
+                    }
+
+                    if (geb.GebType === 50) {
+                        // wissel
+
+                        if (geb.TofU !== tofu) {
+                            // other team
+                            return;
+                        }
+
+                        if (geb.Text === 'in') {
+                            currently_in.push(geb.RelGUID);
+                        } else if (geb.Text === 'uit') {
+                            const index = currently_in.findIndex(x => x === geb.RelGUID);
+                            if (index === -1) {
+                                console.log(geb.RelGUID, 'not found!');
+                                debugger;
+                            }
+                            currently_in.splice(index, 1);
+                        }
+                    }
+
+                    if (geb.GebType === 10) {
+                        // score
+                        let change = Number(geb.Text.split(/\b/)[0]);
+                        if (geb.TofU !== tofu) {
+                            change *= -1;
+                        }
+
+                        all_5_subsets(currently_in).forEach((ids) => {
+                            const ids_str = ids.sort().join('_');
+                            if (all_subteams_to_plus_minus.hasOwnProperty(ids_str)) {
+                                all_subteams_to_plus_minus[ids_str] += change;
+                            } else{
+                                all_subteams_to_plus_minus[ids_str] = change;
+                            }
+                        })
+
+                        // console.log('score', change, 'with team', currently_in);
+                    }
+                });
+
+            });
+
+            // console.log(all_subteams_to_plus_minus);
+
+            return Object.entries(all_subteams_to_plus_minus).map((entry, i) => [entry[0].split('_'), entry[1]]);
+        }
+
+        function relguid_to_name(RelGUID) {
+            return data.rosters.flatMap(roster => roster).filter(player => player.RelGUID === RelGUID)[0].Naam;
+        }
+
+        function make_table_from_plus_minuses(plus_minuses, n) {
+            const summary = `<summary>${n}</summary>`;
+            const rows = (
+                plus_minuses
+                .sort(([teama, pma], [teamb, pmb]) => pma - pmb)
+                .reverse()
+                .map(([team, pm], i) => team.map(relguid_to_name).concat(pm))
+                .map((cell, i) => `<tr><td>${cell.join('</td><td>')}</td></tr>`)
+            );
+            const details = `<table>${rows.join('')}</table>`;
+            return `<details open>${summary}${details}</details>`;
+        }
+
+        function make_tabs_from_plus_minuses(plus_minuses) {
+            return (
+                Array(5).fill()
+                    .map((x, i) => i + 1)
+                    .map(n => make_table_from_plus_minuses(plus_minuses.filter(([subteam, pm], i) => subteam.length === n), n))
+                    .join('<br>')
+            )
+        }
+
+        addEventListener('load', async () => {
+            const to_fill = document.body;
+            to_fill.innerHTML = 'Laden...';
+            redirect_if_team_unspecified();
+            const team_id = await team_id_from_get_params();
+            data = await get_all_data_of_team(team_id);
+
+            plus_minuses = calc_plus_minuses();
+
+            to_fill.innerHTML = make_tabs_from_plus_minuses(plus_minuses);
+
+        })
+    </script>
+
+</head>
+<body>
+    Javascript staat uit!
+</body>
+</html>
+
+
+<!--
+TODO:
+- +/- duo's, ...
+- Wedstrijd / box score
+- laat rijen tussen tegenstander en tabel weg
+- link naar basketbal.vlaanderen
+-->
