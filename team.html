@@ -94,6 +94,8 @@
 
             const h = `<h1>${data.team_name}</h1>`;
 
+            const subteams = `<p><a href="subteams.html?team=${data.team_id_plus}">Subteam analysis</a></p>`
+
 			let next_game_p = '';
 			if (data.next_game) {
                 const next_opponent_id_plus = data.next_opponent_id_plus.replace(/\+/g, ' ');
@@ -119,7 +121,13 @@
 
             document.title = data.team_name;
 
-            const innerHTML = `${h}${competitions_p}${next_game_p}`
+            const innerHTML = [
+                h,
+                competitions_p,
+                next_game_p,
+                subteams,
+            ].join('');
+
             div.innerHTML = innerHTML;
 
             return innerHTML;

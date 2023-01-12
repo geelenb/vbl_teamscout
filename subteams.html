@@ -1,3 +1,5 @@
+<!DOCTYPE html>
+<html lang="nl-be">
 <head>
     <title>Laden...</title>
     <meta charset='utf-8'>
@@ -5,6 +7,10 @@
     <script src="libs/dexie.js"></script>
 
     <script src="libs/plotly-2.9.0.min.js"></script>
+
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.css">
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"></script>
 
     <script src="itertools.js"></script>
     <script src="gebeurtenis_data.js"></script>
@@ -283,6 +289,19 @@
 
         function make_table(subteams, n) {
             const summary = `<summary>${n}</summary>`;
+            const toprow = (
+                [
+                    ...Array(n).fill().map((_, i) => `Player ${i + 1}`),
+                    "Plus",
+                    "Minus",
+                    "Plus minus",
+                    "Minutes",
+                    "Plus per minute",
+                    "Minus per minute",
+                    "Plus minus per minute",
+                ]
+                .map(cell => `<td>${cell}</td>`).join('')
+            );
             const rows = (
                 subteams
                 .sort((data_a, data_b) => data_a.plus_minus - data_b.plus_minus)
@@ -298,17 +317,26 @@
                     ((subteam.plus - subteam.minus) / subteam.minutes).toFixed(2), 
                 ])
                 .map(cells => cells.map(cell => `<td>${cell}</td>`).join(''))
-                .map(cells => `<tr>${cells}</tr>`)
+                .map(row => `<tr>${row}</tr>`)
             );
-            const details = `<table>${rows.join('')}</table>`;
-            return `<details>${summary}${details}</details>`; // <details open>
+            const table = `<table id="subteams_table_${n}" class="subteams_table">
+                <thead><tr>${toprow}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
+            return `<details>${summary}${table}</details>`; // <details open>
+            // return table;
         }
 
         function make_all_tables_from_plus_minuses(plus_minuses) {
             document.querySelector('#tables').innerHTML = Array(5).fill()
                 .map((_, i) => plus_minuses.filter(data => data.len === i + 1))
                 .map((n_subteams, i) => make_table(n_subteams, i+1))
-                .join('<br>')
+                .join('<br>');
+
+                // debugger;
+            const tables = [...document.getElementsByClassName('subteams_table')]
+            console.log(DataTable)
+            tables.forEach(table => {
+                window[table.id] = new DataTable('#' + table.id, {paging: false})
+            });
         }
 
         function n_to_color(n) {
@@ -373,9 +401,7 @@
                 // .filter(st => st.relguids.includes('BVBL624310')) // mich
                 .filter(st => st.relguids.includes('BVBL606358')) // bram
                 // .filter(st => st.relguids.includes('BVBL230842')) // levi
-
-
-                ;
+            ;
 
             const x_function = st => (st.plus / st.minutes);
             const y_function = st => (st.minus / st.minutes);
@@ -428,3 +454,4 @@
 </body>
 </html>
 
+</html>
