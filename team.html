@@ -57,6 +57,11 @@
             rosters = await rosters;
             gebeurtenis_data = await gebeurtenis_data;
 
+            gebeurtenis_data.forEach(gdi => {
+                gdi.GebNis = add_fake_minute_to_gebnis(gdi.GebNis);
+                gdi.GebNis = add_detailed_minute_to_gebnis(gdi.GebNis);
+            });
+
             data = {
                 team_id_plus: team_id,
                 team_name: team_name,

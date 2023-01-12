@@ -1,17 +1,29 @@
 <head>
     <title>Laden...</title>
     <meta charset='utf-8'>
-
-    <link rel="stylesheet" href="index.css">
     
     <script src="libs/dexie.js"></script>
-    <script language="javascript" src="libs/lz-string.min.js"></script>
+
+    <script src="libs/plotly-2.9.0.min.js"></script>
 
     <script src="itertools.js"></script>
     <script src="gebeurtenis_data.js"></script>
     <script src="fetching.js?t"></script>
     <script src="vis.js"></script>
     <script src="common.js"></script>
+
+    <style type="text/css">
+        
+        table {
+            border-collapse: collapse;
+        }
+
+        td, th {
+            padding: 4px;
+            text-align: right;
+        }
+
+    </style>
 
 
     <script type="text/javascript">
@@ -48,7 +60,11 @@
             rosters = await rosters;
             gebeurtenis_data = await gebeurtenis_data;
 
-            gebeurtenis_data.forEach(gd => add_fake_minute_to_gebnis(gd.GebNis));
+
+            gebeurtenis_data.forEach(gdi => {
+                gdi.GebNis = add_fake_minute_to_gebnis(gdi.GebNis);
+                gdi.GebNis = add_detailed_minute_to_gebnis(gdi.GebNis);
+            });
 
             return {
                 team_id_plus: team_id,
@@ -105,19 +121,35 @@
             );
         }
 
-        function all_5_subsets(l) {
+        function all_subsets_of_5(l) {
             return Array(5).fill().flatMap((x, i) => subsets(l, i + 1));
         }
 
-        function calc_plus_minuses() {
-            const all_subteams_to_plus_minus = {} ;
+        function all_subsets(l) {
+            if (l.length === 0) {
+                return [[]]
+            }
+            if (l.length === 1) {
+                return [l, []]
+            }
+            next_subsets = all_subsets(l.slice(1))
 
-            data.gebeurtenis_data.forEach((gebdata, game_i) => {
-                if (gebdata === null) {
+            return [
+                ...next_subsets.map(sl => [l[0], ...sl]),
+                ...next_subsets,
+            ]
+        }
+
+        function calc_subteam_data() {
+            const all_subteams_to_data = {} ;
+
+            team_data.gebeurtenis_data.forEach((gebdata, game_i) => {
+                // match
+                if (!gebdata) {
                     return;
                 }
                 
-                const homegame = data.games[game_i].tTGUID === data.team_id_plus;
+                const homegame = team_data.games[game_i].tTGUID === team_data.team_id_plus;
                 const tofu = homegame ? 'T' : 'U';
 
                 let currently_in = [];
@@ -136,95 +168,263 @@
                         }
 
                         if (geb.Text === 'in') {
+                            all_subsets(currently_in)
+                                .map(sl => [geb.RelGUID, ...sl])
+                                .map(relguids_to_key)
+                                .forEach(key => {
+                                    all_subteams_to_data[key] ||= {};
+                                    all_subteams_to_data[key]['minutes'] ||= 0;
+                                    all_subteams_to_data[key]['minutes'] -= geb.fake_minute;
+                                }
+                            );
                             currently_in.push(geb.RelGUID);
                         } else if (geb.Text === 'uit') {
-                            const index = currently_in.findIndex(x => x === geb.RelGUID);
-                            if (index === -1) {
-                                console.log(geb.RelGUID, 'not found!');
-                                debugger;
-                            }
-                            currently_in.splice(index, 1);
+                            currently_in = currently_in.filter(x => x !== geb.RelGUID)
+                            // const index = currently_in.findIndex(x => x === geb.RelGUID);
+                            // currently_in.splice(index, 1);
+                            // if(geb.RelGUID === "BVBL606358")
+                                // debugger;
+
+                            all_subsets(currently_in)
+                                .map(sl => [geb.RelGUID, ...sl])
+                                .map(relguids_to_key)
+                                .forEach(key => {
+                                    // all_subteams_to_data[key] ||= {};
+                                    // all_subteams_to_data[key]['minutes'] ||= 0;
+                                    all_subteams_to_data[key]['minutes'] += geb.fake_minute;
+                                }
+                            );
                         }
                     }
 
                     if (geb.GebType === 10) {
                         // score
-                        let change = Number(geb.Text.split(/\b/)[0]);
-                        if (geb.TofU !== tofu) {
-                            change *= -1;
-                        }
 
-                        all_5_subsets(currently_in).forEach((ids) => {
-                            const ids_str = ids.sort().join('_');
-                            if (all_subteams_to_plus_minus.hasOwnProperty(ids_str)) {
-                                all_subteams_to_plus_minus[ids_str] += change;
-                            } else{
-                                all_subteams_to_plus_minus[ids_str] = change;
-                            }
+                        all_subsets(currently_in).forEach((ids) => {
+                            const key = relguids_to_key(ids);
+                            all_subteams_to_data[key] ||= {};
+                            all_subteams_to_data[key]['plus'] ||= 0;
+                            all_subteams_to_data[key]['minus'] ||= 0;
                         })
 
-                        // console.log('score', change, 'with team', currently_in);
+
+                        let change = Number(geb.Text.split(/\b/)[0]);
+                        if (geb.TofU === tofu) {
+                            // we scored
+
+                            all_subsets(currently_in)
+                                .map(relguids_to_key)
+                                .forEach((key) => {
+                                    all_subteams_to_data[key]['plus'] += change;
+                                }
+                            );
+                        } else {
+                            // other team scored
+
+                            all_subsets(currently_in)
+                                .map(relguids_to_key)
+                                .forEach((key) => {
+                                    all_subteams_to_data[key]['minus'] += change;
+                                }
+                            );
+                        }
                     }
                 });
 
-            });
+                if (currently_in){
+                    const last_geb = [...gebdata.GebNis].reverse().find(geb => geb.Periode < 99);
+                    all_subsets(currently_in)
+                        .map(relguids_to_key)
+                        .forEach(key => {
+                            all_subteams_to_data[key] ||= {};
+                            all_subteams_to_data[key]['minutes'] ||= 0;
+                            all_subteams_to_data[key]['minutes'] += last_geb.fake_minute;
+                        }
+                    );
+                }
+            }); // foreach game
 
-            // console.log(all_subteams_to_plus_minus);
+            const subteams = 
+                Object.entries(all_subteams_to_data)
+                    .filter(([key, data]) => key)
+                    .map(([key, data]) => ({
+                            'key': key, 
+                            'relguids': key.split('_'),
+                            'plus': data['plus'] || 0,
+                            'minus': data['minus'] || 0,
+                            'plus_minus': (data['plus'] - data['minus']) || 0,
+                            'minutes': data['minutes'] || 0,
+                            'len': key.split('_').length
+                    }))
+                    .filter(st => st.minutes > 0)
+                    .filter(st => st.len > 0);
 
-            return Object.entries(all_subteams_to_plus_minus).map((entry, i) => [entry[0].split('_'), entry[1]]);
+            return subteams;
         }
+
+
+
+        function relguids_to_key(relguids) {
+            return relguids.sort().join("_");
+        }
+
+        function key_to_relguids(key) {
+            return key.split('_');
+        }
+
 
         function relguid_to_name(RelGUID) {
-            return data.rosters.flatMap(roster => roster).filter(player => player.RelGUID === RelGUID)[0].Naam;
+            return team_data.rosters.flatMap(roster => roster).filter(player => player.RelGUID === RelGUID)[0].Naam;
         }
 
-        function make_table_from_plus_minuses(plus_minuses, n) {
+        function key_to_names(key) {
+            return key_to_relguids(key).map(relguid_to_name)
+        }
+
+        function make_table(subteams, n) {
             const summary = `<summary>${n}</summary>`;
             const rows = (
-                plus_minuses
-                .sort(([teama, pma], [teamb, pmb]) => pma - pmb)
+                subteams
+                .sort((data_a, data_b) => data_a.plus_minus - data_b.plus_minus)
                 .reverse()
-                .map(([team, pm], i) => team.map(relguid_to_name).concat(pm))
-                .map((cell, i) => `<tr><td>${cell.join('</td><td>')}</td></tr>`)
+                .map(subteam => [
+                    ...subteam.relguids.map(relguid_to_name), 
+                    subteam.plus, 
+                    subteam.minus, 
+                    subteam.plus - subteam.minus, 
+                    subteam.minutes.toFixed(1),
+                    (subteam.plus / subteam.minutes).toFixed(2), 
+                    (subteam.minus / subteam.minutes).toFixed(2), 
+                    ((subteam.plus - subteam.minus) / subteam.minutes).toFixed(2), 
+                ])
+                .map(cells => cells.map(cell => `<td>${cell}</td>`).join(''))
+                .map(cells => `<tr>${cells}</tr>`)
             );
             const details = `<table>${rows.join('')}</table>`;
-            return `<details open>${summary}${details}</details>`;
+            return `<details>${summary}${details}</details>`; // <details open>
         }
 
-        function make_tabs_from_plus_minuses(plus_minuses) {
-            return (
-                Array(5).fill()
-                    .map((x, i) => i + 1)
-                    .map(n => make_table_from_plus_minuses(plus_minuses.filter(([subteam, pm], i) => subteam.length === n), n))
-                    .join('<br>')
-            )
+        function make_all_tables_from_plus_minuses(plus_minuses) {
+            document.querySelector('#tables').innerHTML = Array(5).fill()
+                .map((_, i) => plus_minuses.filter(data => data.len === i + 1))
+                .map((n_subteams, i) => make_table(n_subteams, i+1))
+                .join('<br>')
+        }
+
+        function n_to_color(n) {
+            return `hsl(${(n * 72 * 3) % 360}, 100%, 40%)`
+        }
+        function subteam_to_text(subteam) {
+            return key_to_names(subteam.key).join('<br>')
+        }
+
+        function make_absolute_plot() {
+            const x_function = st => st.minutes;
+            const y_function = st => st.plus_minus;
+
+            const data = {
+                x: subteam_data.map(x_function),
+                y: subteam_data.map(y_function),
+                marker: { 
+                    size: subteam_data.map(st => Math.sqrt(st.minutes)),
+                    color : subteam_data.map(st => st.len).map(n_to_color)
+                },
+                text: subteam_data.map(subteam_to_text),
+                mode: 'markers',
+                type: 'scatter',
+            }
+
+            const lines = {
+
+            }
+
+            const layout = {
+              xaxis: { title: "minutes" },
+              yaxis: { title: "plus minus" },
+            }
+            window.absolute_plot = Plotly.newPlot('absolute_plot', [data], layout);
+        }
+
+        function make_per_minute_plot() {
+            const x_function = st => (st.plus / st.minutes);
+            const y_function = st => (st.minus / st.minutes);
+
+            const data = {
+                x: subteam_data.map(x_function),
+                y: subteam_data.map(y_function),
+                marker: { 
+                    size: subteam_data.map(st => Math.sqrt(st.minutes)),
+                    color : subteam_data.map(st => st.len).map(n_to_color)
+                },
+                text: subteam_data.map(subteam_to_text),
+                mode: 'markers',
+                type: 'scatter',
+            }
+            const layout = {
+              xaxis: { title: "plus per minute" },
+              yaxis: { title: "minus per minute" },
+            }
+            window.per_minute_plot = Plotly.newPlot('per_minute_plot', [data], layout);
+        }
+
+        function make_third_plot() {
+            const filtered_subteams = subteam_data
+                .filter(st => st.len < 3)
+                // .filter(st => st.relguids.includes('BVBL624310')) // mich
+                .filter(st => st.relguids.includes('BVBL606358')) // bram
+                // .filter(st => st.relguids.includes('BVBL230842')) // levi
+
+
+                ;
+
+            const x_function = st => (st.plus / st.minutes);
+            const y_function = st => (st.minus / st.minutes);
+
+            const data = {
+                x: filtered_subteams.map(x_function),
+                y: filtered_subteams.map(y_function),
+                marker: { 
+                    size: filtered_subteams.map(st => Math.sqrt(st.minutes)),
+                    color : filtered_subteams.map(st => st.len).map(n_to_color)
+                },
+                text: filtered_subteams.map(subteam_to_text),
+                mode: 'markers',
+                type: 'scatter',
+            }
+            const layout = {
+              // xaxis: { title: "plus per minute" },
+              // yaxis: { title: "minus per minute" },
+            }
+            window.third_plot = Plotly.newPlot('third_plot', [data], layout);
         }
 
         addEventListener('load', async () => {
-            const to_fill = document.body;
-            to_fill.innerHTML = 'Laden...';
+            // document.body.innerHTML = 'Laden...';
             redirect_if_team_unspecified();
             const team_id = await team_id_from_get_params();
-            data = await get_all_data_of_team(team_id);
+            team_data = await get_all_data_of_team(team_id);
 
-            plus_minuses = calc_plus_minuses();
+            document.title = `Subteams ${shorten_teamname(team_data.team_name)}`;
 
-            to_fill.innerHTML = make_tabs_from_plus_minuses(plus_minuses);
+            subteam_data = calc_subteam_data();
+            // minutes = calc_minutes();
 
-        })
+            make_all_tables_from_plus_minuses(subteam_data);
+
+
+            make_absolute_plot();
+            make_per_minute_plot();
+            make_third_plot();
+        });
     </script>
 
 </head>
 <body>
-    Javascript staat uit!
+    <!-- Javascript staat uit! -->
+    <div id="tables"></div>
+    <div id="absolute_plot" style="height: 80vh"></div>
+    <div id="per_minute_plot" style="height: 80vh"></div>
+    <div id="third_plot" style="height: 80vh"></div>
 </body>
 </html>
 
-
-<!--
-TODO:
-- +/- duo's, ...
-- Wedstrijd / box score
-- laat rijen tussen tegenstander en tabel weg
-- link naar basketbal.vlaanderen
--->

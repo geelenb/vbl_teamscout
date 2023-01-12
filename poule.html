@@ -9,7 +9,7 @@
     <title>Overzicht reeks</title>
 
     <script src="libs/dexie.js"></script>
-    <script src="libs/lz-string.min.js"></script>
+    <script src="libs/plotly-2.9.0.min.js"></script>
     
     <script src="fetching.js?t"></script>
     <script src="vis.js?t"></script>
@@ -79,6 +79,7 @@
 
     <table id="crosstable"></table>
     <table id="players"></table>
+    <div id="plus_minus_plot"></div>
 
     <script type="text/javascript">
         function record_of_team(games, team_guid) {
@@ -266,7 +267,7 @@
                 return `<thead><tr>${cells}</tr></thead>`;
             }
 
-            const make_row_for_player = (player) => {
+            const data_for_player = (player) => {
                 const relguid = player['RelGUID'];
 
                 const player_games_indices = rosters.flatMap((roster, i) => 
@@ -329,43 +330,79 @@
                 const offensive_improvement = plus_per_minute - benched_plus_per_minute;
                 const defensive_improvement = -(minus_per_minute - benched_minus_per_minute);
                 const netto_improvement = plus_minus_per_minute - benched_plus_minus_per_minute;
-                // if (relguid === 'BVBL623461'){
-                //     debugger;
-                // }
 
+                const data = {
+                    "Nr": player['RugNr'], // todo: most common number
+                    "relguid": relguid,
+                    "birthdate": birthdate,
+                    "player": player['Naam'],
+                    "teamnaam": relguid_to_teamnaam[relguid],
+                    "n_games": n_games,
+                    "minutes": minutes,
+                    "minutes_per_game": minutes_per_game,
+                    "points": points,
+                    "points_per_game": points_per_game,
+                    "high_score": high_score,
+                    "n_threes": n_threes,
+                    "n_trees_per_game": n_trees_per_game,
+                    "n_fouls": n_fouls,
+                    "n_fouls_per_game": n_fouls_per_game,
+                    "n_non_personal_fouls": n_non_personal_fouls,
+                    "plus": plus,
+                    "minus": minus,
+                    "plus_minus": plus_minus,
+                    "plus_per_minute": plus_per_minute,
+                    "minus_per_minute": minus_per_minute,
+                    "plus_minus_per_minute": plus_minus_per_minute,
+                    "benched_plus": benched_plus,
+                    "benched_minus": benched_minus,
+                    "benched_plus_minus": benched_plus_minus,
+                    "benched_minutes": benched_minutes,
+                    "benched_plus_per_minute": benched_plus_per_minute,
+                    "benched_minus_per_minute": benched_minus_per_minute,
+                    "benched_plus_minus_per_minute": benched_plus_minus_per_minute,
+                    "offensive_improvement": offensive_improvement,
+                    "defensive_improvement": defensive_improvement,
+                    "netto_improvement": netto_improvement,
+               };
+
+               return data;
+            }
+
+            const row_from_data = (data) => {
                 const cells = [
-                    // player['RugNr'], // todo: most common number
-                    relguid,
-                    birthdate,
-                    player['Naam'],
-                    relguid_to_teamnaam[relguid],
-                    n_games,
-                    minutes.toFixed(1),
-                    minutes_per_game.toFixed(1),
-                    points,
-                    points_per_game.toFixed(1),
-                    high_score,
-                    n_threes,
-                    n_trees_per_game.toFixed(1),
-                    n_fouls,
-                    n_fouls_per_game.toFixed(1),
-                    n_non_personal_fouls,
-                    plus,
-                    minus,
-                    plus_minus,
-                    plus_per_minute.toFixed(2),
-                    minus_per_minute.toFixed(2),
-                    plus_minus_per_minute.toFixed(2),
-                    benched_plus,
-                    benched_minus,
-                    benched_plus_minus,
-                    benched_minutes.toFixed(1),
-                    benched_plus_per_minute.toFixed(2),
-                    benched_minus_per_minute.toFixed(2),
-                    benched_plus_minus_per_minute.toFixed(2),
-                    offensive_improvement.toFixed(2),
-                    defensive_improvement.toFixed(2),
-                    netto_improvement.toFixed(2),
+                    // data.Nr,
+                    data.relguid,
+                    data.birthdate,
+                    data.player,
+                    data.teamnaam,
+                    data.n_games,
+                    data.minutes.toFixed(1),
+                    data.minutes_per_game.toFixed(1),
+                    data.points,
+                    data.points_per_game.toFixed(1),
+                    data.high_score,
+                    data.n_threes,
+                    data.n_trees_per_game.toFixed(1),
+                    data.n_fouls,
+                    data.n_fouls_per_game.toFixed(1),
+                    data.n_non_personal_fouls,
+                    data.plus,
+                    data.minus,
+                    data.plus_minus,
+                    data.plus_per_minute.toFixed(2),
+                    data.minus_per_minute.toFixed(2),
+                    data.plus_minus_per_minute.toFixed(2),
+                    data.benched_plus,
+                    data.benched_minus,
+                    data.benched_plus_minus,
+                    data.benched_minutes.toFixed(1),
+                    data.benched_plus_per_minute.toFixed(2),
+                    data.benched_minus_per_minute.toFixed(2),
+                    data.benched_plus_minus_per_minute.toFixed(2),
+                    data.offensive_improvement.toFixed(2),
+                    data.defensive_improvement.toFixed(2),
+                    data.netto_improvement.toFixed(2),
                ].map(v => td(v, ''));
 
                 const joined_string = [
@@ -375,17 +412,59 @@
                 ].join('');
 
                 return joined_string;
+
             }
 
-
+            const datas = Object.values(relguid_to_player).map(data_for_player);
             const rows = [
                 make_top_row(),
-                ...Object.values(relguid_to_player).map(make_row_for_player),
+                ...datas.map(row_from_data),
             ];
 
             document.getElementById('players').innerHTML = rows.join('');
 
-            new DataTable("#players", {paging: false,});
+            window.table = new DataTable("#players", {paging: false,});
+
+            return datas;
+        }
+        
+        const plus_minus_trace_for_player = (player) => {
+            return {
+                x: [player.benched_plus_per_minute, player.plus_per_minute],
+                y: [player.benched_minus_per_minute, player.minus_per_minute],
+                type: 'scatter',
+                // mode: 'lines',
+                name: player.player,
+                marker: {
+                    symbol: ["none", 'circle'],
+                    size: [0, 6],
+                },
+            }
+        }
+
+        function make_plus_minus_plot(player_datas) {
+            const data = player_datas.map(plus_minus_trace_for_player);
+            const layout = {
+              xaxis: {
+                title: "plus per minute"
+              },
+              yaxis: {
+                title: "minus per minute"
+              },
+
+            }
+            window.plus_minus_plot = Plotly.newPlot('plus_minus_plot', data, layout);
+        }
+
+        function connect_table_search_to_plot() {
+            window.table.on('search', function (event, table_state) {
+                make_plus_minus_plot(table_state.aiDisplay.map(i => player_datas[i]));
+                // let data = table_state.aiDisplay.map(i => player_datas[i]).map(plus_minus_trace_for_player);
+                // window.plus_minus_plot = Plotly.newPlot('plus_minus_plot', data);
+                // window.plus_minus_plot.data = data;
+                // Plotly.redraw('plus_minus_plot');
+                // window.plus_minus_plot = Plotly.newPlot('plus_minus_plot', data);
+            });
         }
 
         addEventListener('load', async () => {
@@ -416,7 +495,11 @@
 
             make_cross_table(all_games);
 
-            make_players_table(played_games, rosters, gebeurtenis_data);
+            window.player_datas = make_players_table(played_games, rosters, gebeurtenis_data);
+
+            make_plus_minus_plot(player_datas);
+
+            connect_table_search_to_plot();
         });
 
     </script>

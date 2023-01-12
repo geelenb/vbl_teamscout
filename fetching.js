@@ -1,6 +1,6 @@
 const db = new Dexie("CacheDatabase");
 
-db.version(1).stores({
+db.version(2).stores({
   cache: "++id, key, value"
 });
 
