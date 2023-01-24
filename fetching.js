@@ -4,14 +4,28 @@ db.version(2).stores({
   cache: "++id, key, value"
 });
 
-function cache_save(key, value) {
-    localStorage.setItem(key, LZString.compress(JSON.stringify(value)));
+async function cache_save(key, value) {
+    // localStorage.setItem(key, LZString.compress(JSON.stringify(value)));
+    // db.cache.add({"key": key, "value": value});
+    const existing_item = await db.cache.where('key').equals(key).first();
+
+    if (existing_item) {
+        db.cache.update(existing_item.id, {"value": value})
+    } else {
+        db.cache.add({"key": key, "value": value})
+    }
 }
 
-function cache_load(key) {
-    const r = JSON.parse(LZString.decompress(localStorage.getItem(key)))
+async function cache_load(key) {
+    // const r = JSON.parse(LZString.decompress(localStorage.getItem(key)))
+
     console.warn(`Using older result of ${key}`);
-    return r;
+    r = await db.cache.where('key').equals(key).first();
+    // console.log(r)
+    if (!r) {
+        throw "KeyNotFound: " + key;
+    }
+    return r.value;
 }
 
 async function fetch_games(team_guid_plus) {
@@ -28,13 +42,13 @@ async function fetch_games(team_guid_plus) {
         ).json();
 
         try {
-            cache_save(localStorage_key, json);
+            await cache_save(localStorage_key, json);
         } catch {}
 
         return json
     } catch (te) {
         try {
-            result = cache_load(localStorage_key);
+            result = await cache_load(localStorage_key);
             return result;
         } catch {}
     }
@@ -53,13 +67,13 @@ async function fetch_poule_games(issguid) {
         ).json();
 
         try {
-            cache_save(localStorage_key, json);
+            await cache_save(localStorage_key, json);
         } catch {}
 
         return json
     } catch (te) {
         try {
-            result = cache_load(localStorage_key);
+            result = await cache_load(localStorage_key);
             return result;
         } catch {}
         
@@ -73,7 +87,7 @@ async function fetch_rosters(game_uid, use_cache) {
 
     if (use_cache) {
         try {
-            return cache_load(localStorage_key);
+            return await cache_load(localStorage_key);
         } catch {
             console.error(`cache_load ${localStorage_key} failed!`);
         }
@@ -95,7 +109,7 @@ async function fetch_rosters(game_uid, use_cache) {
 
     if (use_cache) {
         try {
-            cache_save(localStorage_key, json);
+            await cache_save(localStorage_key, json);
         } catch {}
     }
     return json
@@ -107,7 +121,7 @@ async function fetch_gebeurtenis_data(game_uid, use_cache) {
 
     if (use_cache) {
         try {
-            return cache_load(localStorage_key);
+            return await cache_load(localStorage_key);
         } catch {
             console.error(`cache_load ${localStorage_key} failed!`);
         }
@@ -137,7 +151,7 @@ async function fetch_gebeurtenis_data(game_uid, use_cache) {
 
     if (use_cache) {
         try {
-            cache_save(localStorage_key, json);
+            await cache_save(localStorage_key, json);
         } catch {}
     }
     return json
