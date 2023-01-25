@@ -331,7 +331,7 @@
 
                 // debugger;
             const tables = [...document.getElementsByClassName('subteams_table')]
-            console.log(DataTable)
+
             tables.forEach(table => {
                 window[table.id] = new DataTable('#' + table.id, {paging: false})
             });
@@ -340,8 +340,22 @@
         function n_to_color(n) {
             return `hsl(${(n * 72 * 3) % 360}, 100%, 40%)`
         }
+
         function subteam_to_text(subteam) {
-            return key_to_names(subteam.key).join('<br>')
+            return [
+                ...key_to_names(subteam.key).map(s => `<b>${s}</b>`),
+                `plus: ${subteam.plus}`,
+                `minus: ${subteam.minus}`,
+                `+/-: ${subteam.plus - subteam.minus}`,
+                `minutes: ${subteam.minutes.toFixed(1)}`,
+            ].join('<br>')
+        }
+
+        function subteams_to_marker(subteams) {
+            return { 
+                size: subteams.map(st => Math.sqrt(st.minutes)),
+                color : subteams.map(st => st.len).map(n_to_color),
+            }
         }
 
         function make_absolute_plot() {
@@ -351,22 +365,17 @@
             const data = {
                 x: subteam_data.map(x_function),
                 y: subteam_data.map(y_function),
-                marker: { 
-                    size: subteam_data.map(st => Math.sqrt(st.minutes)),
-                    color : subteam_data.map(st => st.len).map(n_to_color)
-                },
+                marker: subteams_to_marker(subteam_data),
                 text: subteam_data.map(subteam_to_text),
                 mode: 'markers',
                 type: 'scatter',
-            }
-
-            const lines = {
-
+                hoverinfo: 'text',
             }
 
             const layout = {
-              xaxis: { title: "minutes" },
-              yaxis: { title: "plus minus" },
+                dragmode: "pan",
+                xaxis: { title: "Minutes" },
+                yaxis: { title: "Plus minus" },
             }
             window.absolute_plot = Plotly.newPlot('absolute_plot', [data], layout);
         }
@@ -378,48 +387,114 @@
             const data = {
                 x: subteam_data.map(x_function),
                 y: subteam_data.map(y_function),
-                marker: { 
-                    size: subteam_data.map(st => Math.sqrt(st.minutes)),
-                    color : subteam_data.map(st => st.len).map(n_to_color)
-                },
+                marker: subteams_to_marker(subteam_data),
                 text: subteam_data.map(subteam_to_text),
                 mode: 'markers',
                 type: 'scatter',
+                hoverinfo: 'text',
             }
             const layout = {
-              xaxis: { title: "plus per minute" },
-              yaxis: { title: "minus per minute" },
-            }
+                title: "All subteams",
+                dragmode: "pan",
+                xaxis: { title: "Plus per Minute" },
+                yaxis: { 
+                    scaleanchor: "x",
+                    title: "Minus per Minute" 
+                },
+            };
             window.per_minute_plot = Plotly.newPlot('per_minute_plot', [data], layout);
         }
 
-        function make_third_plot() {
-            const filtered_subteams = subteam_data
-                .filter(st => st.len < 3)
-                // .filter(st => st.relguids.includes('BVBL624310')) // mich
-                .filter(st => st.relguids.includes('BVBL606358')) // bram
-                // .filter(st => st.relguids.includes('BVBL230842')) // levi
-            ;
+
+        function make_third_plot(center) { // center is a key
+            const all_individuals = subteam_data.filter(st => st.len === 1);
+            const key_to_subteam = Object.fromEntries(subteam_data.map(st => [st.key, st]));
+
+            if (!center) {
+                // then set center as the player with the most minutes
+                const max_minute_individual_i = argmax(all_individuals.map(st => st.minutes));
+                center = all_individuals[max_minute_individual_i].key;
+            }
+            const center_relguids = key_to_relguids(center);
+            const center_st = key_to_subteam[center];
+
+            const title = center_st.len === 1 ? [
+                'How does',
+                relguid_to_name(center_st.relguids[0]),
+                "play with others?",
+            ] : [
+                'How do',
+                center_st.relguids.slice(0, center_st.len - 1).map(relguid_to_name).join(', '),
+                "and",
+                relguid_to_name(center_st.relguids[center_st.len - 1]),
+                "play with others?",
+            ];
 
             const x_function = st => (st.plus / st.minutes);
             const y_function = st => (st.minus / st.minutes);
 
-            const data = {
-                x: filtered_subteams.map(x_function),
-                y: filtered_subteams.map(y_function),
-                marker: { 
-                    size: filtered_subteams.map(st => Math.sqrt(st.minutes)),
-                    color : filtered_subteams.map(st => st.len).map(n_to_color)
+            const lines_to_make = all_individuals.map(individual_st => [
+                individual_st.key,
+                ( // a key where individiual_st is toggled in the key center
+                    center_relguids.includes(individual_st.key) ?
+                    relguids_to_key(center_relguids.filter(rg => rg !== individual_st.key)): // remove it
+                    relguids_to_key([...center_relguids, individual_st.key]) // add it
+                ),
+                // center,
+            ]).filter(l => l[1]); // remove occasions where the toggled item is empty
+
+
+            const data = lines_to_make
+                .map(keys => keys.map(key => key_to_subteam[key]))
+                .filter(l => l[1]) // remove teams that have never played together
+                .map(subteams => ({
+                    x: subteams.map(x_function),
+                    y: subteams.map(y_function),
+                    marker: subteams_to_marker(subteams),
+                    line: {
+                        color: 'rgba(0, 0, 0, .1)',
+                        width: 1,
+                    },
+                    hoverinfo: 'text',
+                    text: subteams.map(subteam_to_text),
+                    subteams: subteams,
+                }));
+
+            data.push({
+                x: [center_st].map(x_function),
+                y: [center_st].map(y_function),
+                marker: {
+                    ...subteams_to_marker([center_st]),
+                    line: {
+                        color: 'black',
+                        width: 3,
+                    },
                 },
-                text: filtered_subteams.map(subteam_to_text),
+
+                text: [center_st].map(subteam_to_text),
+                hoverinfo: 'text',
                 mode: 'markers',
                 type: 'scatter',
-            }
+            });
+
             const layout = {
-              // xaxis: { title: "plus per minute" },
-              // yaxis: { title: "minus per minute" },
+                title: title.join(' '),
+                dragmode: "pan",
+                showlegend: false,
+                xaxis: { title: "Plus per minute" },
+                yaxis: {
+                    scaleanchor: "x", 
+                    autorange: 'reversed',
+                    title: "Minus per minute" 
+                },
+                annotations: corner_annotations
             }
-            window.third_plot = Plotly.newPlot('third_plot', [data], layout);
+            window.third_plot = Plotly.newPlot('third_plot', data, layout);
+            document.getElementById('third_plot').on('plotly_click', (data) => {
+                const new_center = data.points[0].data.subteams[data.points[0].pointIndex];
+                make_third_plot(new_center.key);
+            })
+            // debugger
         }
 
         addEventListener('load', async () => {
@@ -446,9 +521,9 @@
 <body>
     <!-- Javascript staat uit! -->
     <div id="tables"></div>
-    <div id="absolute_plot" style="height: 90vmin; width: 90vmin"></div>
-    <div id="per_minute_plot" style="height: 90vmin; width: 90vmin"></div>
-    <div id="third_plot" style="height: 90vmin; width: 90vmin"></div>
+    <div id="absolute_plot" style="height: 95vmin; width: 95vmin"></div>
+    <div id="per_minute_plot" style="height: 95vmin; width: 95vmin"></div>
+    <div id="third_plot" style="height: 95vmin; width: 95vmin"></div>
 </body>
 </html>
 

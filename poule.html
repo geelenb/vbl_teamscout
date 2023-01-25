@@ -14,6 +14,7 @@
     <script src="fetching.js?v=2"></script>
     <script src="vis.js?v=2"></script>
     <script src="gebeurtenis_data.js?v=2"></script>
+    <script src="common.js?v=2"></script>
 
 
     <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"></script>
@@ -434,24 +435,35 @@
                 y: [player.benched_minus_per_minute, player.minus_per_minute],
                 type: 'scatter',
                 // mode: 'lines',
-                name: player.player,
+                text: [
+                    `Team when ${player.player} is benched`,
+                    `Team when ${player.player} is on court`,
+                ],
                 marker: {
                     symbol: ["none", 'circle'],
                     size: [0, 6],
                 },
+                line: {
+                    width: 1,
+                },
+                hoverinfo: 'text',
             }
         }
 
         function make_plus_minus_plot(player_datas) {
             const data = player_datas.map(plus_minus_trace_for_player);
             const layout = {
-              xaxis: {
-                title: "plus per minute"
-              },
-              yaxis: {
-                title: "minus per minute"
-              },
-
+                xaxis: {
+                    title: "Plus per Minute",
+                },
+                yaxis: {
+                    title: "Minus per Minute",
+                    scaleanchor: "x", 
+                    autorange: 'reversed',
+                },
+                annotations: corner_annotations,
+                dragmode: "pan",
+                showlegend: false,
             }
             window.plus_minus_plot = Plotly.newPlot('plus_minus_plot', data, layout);
         }
