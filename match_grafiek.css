@@ -89,3 +89,12 @@ table.booktabs.w_totals tr:last-child td {
 table td span.on_court {
     text-decoration: underline;
 }
+
+#figures_container {
+    width: 100%;
+    overflow-x: scroll;
+}
+
+.js-plotly-plot {
+    min-width: 1000px;
+}

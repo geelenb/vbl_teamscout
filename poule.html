@@ -11,11 +11,11 @@
     <script src="libs/dexie.js"></script>
     <script src="libs/plotly-2.9.0.min.js"></script>
     
-    <script src="fetching.js?v=2"></script>
-    <script src="vis.js?v=2"></script>
-    <script src="gebeurtenis_data.js?v=2"></script>
-    <script src="itertools.js?v=2"></script>
-    <script src="common.js?v=2"></script>
+    <script src="fetching.js?v=3"></script>
+    <script src="vis.js?v=3"></script>
+    <script src="gebeurtenis_data.js?v=3"></script>
+    <script src="itertools.js?v=3"></script>
+    <script src="common.js?v=3"></script>
 
 
     <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"></script>
@@ -42,6 +42,8 @@
         .home_win, .away_win {
             font-family: monospace;
             text-align: center;
+            color: unset;
+            text-decoration: unset;
         }
         .home_win {
             background: lightblue;
@@ -49,9 +51,18 @@
         .away_win {
             background: mistyrose;
         }
-        #crosstable a {
+        #crosstable tbody a {
             color: unset;
             text-decoration: unset;
+            width: 100%;
+            display: block;
+        }
+        .js-plotly-plot {
+            margin-top: 5vmin;
+        }
+        g.textpoint text {
+            stroke: black;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -88,7 +99,11 @@
 
     <table id="crosstable"></table>
     <table id="players"></table>
-    <div id="plus_minus_plot" style="height:98vmin; width:98vmin"></div>
+    <br>
+    <div id="netto_improvement_plot" style="height:98vmin; width:98vmin"></div>
+    <div id="offense_defense_difference_plot" style="height:98vmin; width:98vmin"></div>
+    <div id="usage_plot" style="height:98vmin; width:98vmin"></div>
+    <div id="offense_defense_plot" style="height:98vmin; width:98vmin"></div>
 
     <script type="text/javascript">
         function record_of_team(games, team_guid) {
@@ -113,17 +128,16 @@
             return `<td class="${classes}">${contents}</td>`
         }
 
-        function make_cross_table(games) {
-            let all_team_guids = [...new Set(games.map(g => g.tTGUID))];
+        const a = (href, contents) => `<a href='${href}'>${contents}</a>`;
 
+        function make_cross_table(games) {
             // sort by percentage: 
-            // all_team_guids = all_team_guids.sort(guid => - percentage_of_team(games, guid));
-            all_team_guids = all_team_guids.sort((a, b) => percentage_of_team(games, b) - percentage_of_team(games, a));
+            const all_team_guids_sorted = [...new Set(games.map(g => g.tTGUID))];
+            all_team_guids_sorted.sort((a, b) => percentage_of_team(games, b) - percentage_of_team(games, a));
             
-            const team_guid_to_i = Object.fromEntries(all_team_guids.map((guid, i) => [guid, i]));
+            const team_guid_to_i = Object.fromEntries(all_team_guids_sorted.map((guid, i) => [guid, i]));
             const team_guid_to_name = Object.fromEntries(games.map(g => [g.tTGUID, g.tTNaam]));
 
-            const a = (href, contents) => `<a href='${href}'>${contents}</a>`
             const rowhead_from_team_guid = guid => td(
                 a(
                     `team.html?team=${guid}`, 
@@ -142,21 +156,21 @@
 
             let table_innerhtml = []
             table_innerhtml.push(
-                "<tr>",
+                "<thead><tr>",
                 td("Home \\ away", "colhead rowhead"),
-                ...all_team_guids.flatMap(guid => 
+                ...all_team_guids_sorted.flatMap(guid => 
                     colhead_from_team_guid(guid)
                 ),
-                "</tr>",
+                "</tr></thead>",
             );
 
-            all_team_guids.forEach((home_team_guid, i) => {
+            all_team_guids_sorted.forEach((home_team_guid, i) => {
                 table_innerhtml.push(
                     "<tr>",
                     rowhead_from_team_guid(home_team_guid),
                 )
 
-                all_team_guids.forEach((away_team_guid, j) => {
+                all_team_guids_sorted.forEach((away_team_guid, j) => {
                     if (i === j) {
                         // const percentage_str = percentage_of_team(games, home_team_guid).toFixed(3),
                         const record_str = record_of_team(games, home_team_guid).join("-");
@@ -209,6 +223,11 @@
                 (r, i) => [
                     ...r['TtDeel'].map(p => [p['RelGUID'], previous_games[i]['tTNaam']]),
                     ...r['TuDeel'].map(p => [p['RelGUID'], previous_games[i]['tUNaam']]),
+                ]));
+            const relguid_to_teamid = Object.fromEntries(rosters.flatMap(
+                (r, i) => [
+                    ...r['TtDeel'].map(p => [p['RelGUID'], previous_games[i]['tTGUID']]),
+                    ...r['TuDeel'].map(p => [p['RelGUID'], previous_games[i]['tUGUID']]),
                 ]));
             const all_gebeurtenissen = gebeurtenis_data.flatMap(g => g['GebNis']).filter(g => g['GebStatus'] === 10);
 
@@ -273,6 +292,7 @@
                     "Minutes per game",
                     "Points",
                     "Points per game",
+                    "Points per 40'",
                     "High score",
                     "Threes",
                     "Threes per game",
@@ -321,13 +341,15 @@
                 const player_scores = player_gebeurtenissen.filter(g => g['GebType'] === 10);
                 const player_fouten = player_gebeurtenissen.filter(g => g['GebType'] === 30);
 
-                const birthdate = `${player.GebDat.substr(6, 4)}-${player.GebDat.substr(3, 2)}-${player.GebDat.substr(0, 2)}`
+                const gd = player.GebDat || "";
+                const birthdate = `${gd.substr(6, 4)}-${gd.substr(3, 2)}-${gd.substr(0, 2)}`
                 const n_games = player_previous_games.length;
                 const minutes = gebeurtenis_data.map(gd => minutes_for_player(gd, relguid)).reduce((a, b) => a+b, 0);
                 const minutes_per_game = minutes / n_games;
 
                 const points = player_scores.map(g => Number(g.Text.split(' ')[0])).reduce((a, b) => a+b, 0);
                 const points_per_game = points / n_games;
+                const points_per_40 = points / minutes * 40 || 0.0;
                 const high_score = Math.max(...
                     gebeurtenis_data.map(match_geb => match_geb.GebNis
                         .filter(g=> g['GebStatus'] === 10 && g['RelGUID'] === relguid && g['GebType'] === 10)
@@ -369,12 +391,14 @@
                     "relguid": relguid,
                     "birthdate": birthdate,
                     "player": player['Naam'],
+                    "team_relguid": relguid_to_teamid[relguid],
                     "teamnaam": relguid_to_teamnaam[relguid],
                     "n_games": n_games,
                     "minutes": minutes,
                     "minutes_per_game": minutes_per_game,
                     "points": points,
                     "points_per_game": points_per_game,
+                    "points_per_40": points_per_40,
                     "high_score": high_score,
                     "n_threes": n_threes,
                     "n_trees_per_game": n_trees_per_game,
@@ -408,12 +432,13 @@
                     data.Nr,
                     // data.relguid,
                     data.birthdate,
-                    shorten_teamname(data.teamnaam).replaceAll(' ', '&nbsp;'),
+                    a('team.html?team=' + data.team_relguid, shorten_teamname(data.teamnaam).replaceAll(' ', '&nbsp;')),
                     data.n_games,
                     data.minutes.toFixed(1),
                     data.minutes_per_game.toFixed(1),
                     data.points,
                     data.points_per_game.toFixed(1),
+                    data.points_per_40.toFixed(1),
                     data.high_score,
                     data.n_threes,
                     data.n_trees_per_game.toFixed(1),
@@ -448,7 +473,7 @@
 
             }
 
-            const datas = Object.values(relguid_to_player).map(data_for_player);
+            const datas = Object.values(relguid_to_player).filter(x => !x.RelGUID.startsWith('NA')).map(data_for_player);
             const rows = [
                 make_top_row(),
                 ...datas.map(row_from_data),
@@ -466,30 +491,33 @@
             return datas;
         }
         
-        const plus_minus_trace_for_player = (player) => {
-            return {
+
+        function make_offense_defense_plot(player_datas) {
+            const offense_defense_trace_for_player = (player) => ({
                 x: player.minutes ? [player.benched_plus_per_minute, player.plus_per_minute] : [],
                 y: player.minutes ? [player.benched_minus_per_minute, player.minus_per_minute] : [],
                 type: 'scatter',
                 // mode: 'lines',
                 text: [
-                    `Team when ${player.player} is benched`,
-                    `Team when ${player.player} is on court`,
+                    `${shorten_teamname_more(player.teamnaam)} when ${player.player} is benched`,
+                    `${shorten_teamname_more(player.teamnaam)} when ${player.player} is on court`,
                 ],
                 marker: {
                     symbol: ["none", 'circle'],
                     size: [0, 5 * Math.sqrt(player.minutes_per_game)],
+                    size: [0, player.minutes_per_game],
+                    color: team_guid_to_colour[player.team_relguid],
                 },
                 line: {
                     width: player.minutes ? 1 : 0,
+                    color: team_guid_to_colour[player.team_relguid],
                 },
                 hoverinfo: 'text',
-            }
-        }
+            });
 
-        function make_plus_minus_plot(player_datas) {
-            const data = player_datas.map(plus_minus_trace_for_player);
+            const traces = player_datas.map(offense_defense_trace_for_player);
             const layout = {
+                title: "Plus &amp; minus per minute of teams when players are on and off court",
                 xaxis: {
                     title: "Plus per Minute",
                 },
@@ -502,17 +530,309 @@
                 dragmode: "pan",
                 showlegend: false,
             }
-            window.plus_minus_plot = Plotly.newPlot('plus_minus_plot', data, layout);
+            window.offense_defense_plot = Plotly.newPlot('offense_defense_plot', traces, layout, {scrollZoom: true});
         }
 
-        function connect_table_search_to_plot() {
+        function make_netto_improvement_plot(player_datas) {
+            const plus_minus_trace_for_player = (player) => ({
+                x: player.minutes ? [player.plus_minus_per_minute] : [],
+                y: player.minutes ? [player.benched_plus_minus_per_minute] : [],
+                // y: player.minutes ? [player.netto_improvement] : [],
+                type: 'scatter',
+                // mode: 'lines',
+                text: [
+                    `${player.player}<br>${shorten_teamname_more(player.teamnaam)}`
+                ],
+                marker: {
+                    symbol: ["none", 'circle'],
+                    size: [5 * Math.sqrt(player.minutes_per_game)],
+                    size: [player.minutes_per_game],
+                    color: team_guid_to_colour[player.team_relguid],
+                },
+                line: {
+                    width: player.minutes ? 1 : 0,
+                },
+                hoverinfo: 'text',
+            });
+            
+            const traces = player_datas.map(plus_minus_trace_for_player);
+
+            if (data_is_of_one_team(player_datas)){
+                traces.push(...numbers_traces_on_data(traces, player_datas));
+            }
+
+            const annotations = [
+                {
+                    ..._left_annotation,
+                    ..._top_annotation,
+                    text: '(Players rostered in losses)',
+                }, {
+                    ..._hmid_annotation,
+                    ..._top_annotation,
+                    text: '(Teammates are worse than opponents)',
+                }, {
+                    ..._right_annotation,
+                    ..._top_annotation,
+                    text: '(Team plays better with them on court)',
+                }, {
+                    ..._left_annotation,
+                    ..._vmid_annotation,
+                    textangle: -90,
+                    text: '(Players worse than their opponents)',
+                }, {
+                    ..._right_annotation,
+                    ..._vmid_annotation,
+                    textangle: -90,
+                    text: '(Players better than their opponents)',
+                }, {
+                    ..._left_annotation,
+                    ..._bottom_annotation,
+                    text: '(Team plays better with them benched)',
+                }, {
+                    ..._hmid_annotation,
+                    ..._bottom_annotation,
+                    text: '(Teammates are better than opponents)',
+                }, {
+                    ..._right_annotation,
+                    ..._bottom_annotation,
+                    text: '(Players rostered in wins)',
+                }
+            ].map(x => ({..._absolute_annotation, ...x}));
+
+            const layout = {
+                title: "Difference in +/- per minute between when player is benched and when playing",
+                xaxis: {
+                    title: "+/- per Minute on court",
+                },
+                yaxis: {
+                    title: "Team +/- per Minute when benched",
+                    scaleanchor: "x", 
+                    autorange: 'reversed',
+                },
+                annotations: annotations,
+                dragmode: "pan",
+                showlegend: false,
+            }
+            window.netto_improvement_plot = Plotly.newPlot('netto_improvement_plot', traces, layout, {scrollZoom: true});
+        }
+
+        function make_usage_plot(player_datas) {
+            const trace_for_player = (player) => ({
+                x: [player.plus_per_minute],
+                // y: [player.points_per_40 / 40 / player.plus_per_minute],
+                y: [player.points_per_40 / 40],
+                type: 'scatter',
+                // mode: 'lines',
+                text: [
+                    [
+                        player.player, 
+                        shorten_teamname_more(player.teamnaam),
+                        (player.points_per_40 / 40 / player.plus_per_minute * 100).toFixed(1) + '%',
+                    ].join('<br>')
+                ],
+                marker: {
+                    symbol: ["none", 'circle'],
+                    size: [5 * Math.sqrt(player.minutes_per_game)],
+                    size: [player.minutes_per_game],
+                    color: team_guid_to_colour[player.team_relguid],
+                },
+                line: {
+                    width: player.minutes ? 1 : 0,
+                },
+                hoverinfo: 'text',
+            });
+            const player_dots = player_datas.map(trace_for_player);
+
+            const max_x = Math.max(...player_dots.map(t => t.x[0])) * 1.1;
+            const max_y = Math.max(...player_dots.map(t => t.y[0])) * 1.1;
+
+            const diagonals = (
+                Array(10)
+                .fill()
+                .map((_, i) => i * 10 + 10)
+                .map(pct => ({
+                    x: [0, Math.min(max_x, max_y / pct * 100)],
+                    y: [0, Math.min(max_y, max_x * pct / 100)],
+                    text: ['', pct < 50 || pct % 20 === 0 ? `${pct}%` : ''],
+                    textposition: 'top',
+                    // z: 1000000,
+                    mode: 'lines+text',
+                    line: {
+                        color: 'lightgrey',
+                        width: 1,
+                        dash: "dash",
+                    },
+                    hoverinfo: 'none',
+                    textfont: {
+                        color: 'white',
+                    },
+                    class: 'diagonals',
+                }))
+            );
+
+            const traces = [...diagonals, ...player_dots,];
+
+            if (data_is_of_one_team(player_datas)){
+                traces.push(...numbers_traces_on_data(player_dots, player_datas));
+            }
+
+            const layout = {
+                title: "Scoring sources: points stake when on court",
+                xaxis: {
+                    title: "Plus per minute",
+                },
+                yaxis: {
+                    title: "Points per minute",
+                },
+                annotations: [{
+                    x: max_y / (0.5),
+                    y: max_y,
+                    xref: 'x',
+                    yref: 'y',
+                    text: 'Players who score 50% of the team\'s points when they are playing',
+                    showarrow: true,
+                    align: 'center',
+                    arrowhead: 2,
+                    arrowsize: 1,
+                    arrowwidth: 2,
+                    arrowcolor: 'black',
+                    ax: 20,
+                    ay: -30,
+                    bgcolor: 'white',
+                }],
+                dragmode: "pan",
+                showlegend: false,
+            }
+            window.netto_improvement_plot = Plotly.newPlot('usage_plot', traces, layout, {scrollZoom: true});
+        }
+
+        function data_is_of_one_team(player_datas) {
+            for (var i = 1; i < player_datas.length; i++) {
+                if (player_datas[i].team_relguid !== player_datas[i-1].team_relguid) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function numbers_traces_on_data(player_traces, player_datas) {
+            return player_datas.map((player, i) => ({
+                x: player_traces[i].x,
+                y: player_traces[i].y,
+                mode: 'text',
+                text: player.Nr,
+                hoverinfo: 'none',
+
+                textfont: {
+                    color: 'white',
+                },
+            }));
+        }
+
+        function make_offense_defense_difference_plot(player_datas) {
+            const trace_for_player = (player) => ({
+                x: [player.offensive_improvement],
+                y: [player.defensive_improvement],
+                type: 'scatter',
+                text: [
+                    [
+                        player.player, 
+                        shorten_teamname_more(player.teamnaam),
+                    ].join('<br>')
+                ],
+                marker: {
+                    symbol: ["none", 'circle'],
+                    size: [5 * Math.sqrt(player.minutes_per_game)],
+                    size: [player.minutes_per_game],
+                    color: team_guid_to_colour[player.team_relguid],
+                },
+                line: {
+                    width: player.minutes ? 1 : 0,
+                },
+                hoverinfo: 'text',
+            });
+            const traces = player_datas.map(trace_for_player);
+
+            if (data_is_of_one_team(player_datas)){
+                traces.push(...numbers_traces_on_data(traces, player_datas));
+            }
+            
+            const annotations = [
+                {
+                    ..._left_annotation,
+                    ..._top_annotation,
+                    text: '(Nobody scores when they play)',
+                }, {
+                    ..._hmid_annotation,
+                    ..._top_annotation,
+                    text: '(Good defenders)',
+                }, {
+                    ..._right_annotation,
+                    ..._top_annotation,
+                    text: '(Team plays better with them on court)',
+                }, {
+                    ..._left_annotation,
+                    ..._vmid_annotation,
+                    textangle: -90,
+                    text: '(Bad attackers)',
+                }, {
+                    ..._right_annotation,
+                    ..._vmid_annotation,
+                    textangle: -90,
+                    text: '(Good attackers)',
+                }, {
+                    ..._left_annotation,
+                    ..._bottom_annotation,
+                    text: '(Team plays better with them benched)',
+                }, {
+                    ..._hmid_annotation,
+                    ..._bottom_annotation,
+                    text: '(Bad defenders)',
+                }, {
+                    ..._right_annotation,
+                    ..._bottom_annotation,
+                    text: '(Both teams score when they play)',
+                }
+            ].map(x => ({..._absolute_annotation, ...x}));
+
+
+            const layout = {
+                title: "Difference in <i>plus per minute</i> and <i>minus per minute</i> of team when player is playing vs. benched",
+                xaxis: {
+                    title: "Difference in plus per minute of team when player is playing vs. benched (\"Offensive improvement\")",
+                },
+                yaxis: {
+                    title: "Difference in minus per minute of team when player is playing vs. benched (\"Defensive improvement\")",
+                    scaleanchor: "x", 
+                    // autorange: 'reversed',
+                },
+                annotations: annotations,
+                dragmode: "pan",
+                showlegend: false,
+            }
+            window.netto_improvement_plot = Plotly.newPlot('offense_defense_difference_plot', traces, layout, {scrollZoom: true});
+        }
+
+        function make_plots(selected_player_datas) {
+            make_offense_defense_plot(selected_player_datas);
+            make_netto_improvement_plot(selected_player_datas);
+            make_usage_plot(selected_player_datas);
+            make_offense_defense_difference_plot(selected_player_datas);
+        }
+
+        function connect_table_search_to_plots() {
             window.table.on('search', function (event, table_state) {
-                make_plus_minus_plot(table_state.aiDisplay.map(i => player_datas[i]));
-                // let data = table_state.aiDisplay.map(i => player_datas[i]).map(plus_minus_trace_for_player);
-                // window.plus_minus_plot = Plotly.newPlot('plus_minus_plot', data);
-                // window.plus_minus_plot.data = data;
-                // Plotly.redraw('plus_minus_plot');
-                // window.plus_minus_plot = Plotly.newPlot('plus_minus_plot', data);
+                const value_before_wait = document.querySelector('input[type=search').value;
+                window.setTimeout(
+                    () => {
+                        const value_after_wait = document.querySelector('input[type=search').value;
+                        if (value_before_wait !== value_after_wait) {
+                            return;
+                        }
+                        make_plots(table_state.aiDisplay.map(i => player_datas[i]));
+                    },
+                    1000
+                )
             });
         }
 
@@ -520,7 +840,7 @@
             const poule_guid = (new URLSearchParams(window.location.search)).get('pouleGUID');
             document.querySelector('h1').innerText = 'Laden...';
 
-            all_games =  fetch_poule_games(poule_guid);
+            all_games = fetch_poule_games(poule_guid);
 
             all_games = await all_games;
             g = all_games[0];
@@ -529,11 +849,21 @@
 
             played_guids = played_games.map(g=> g.guid);
 
+            // team_guid_to_colours = fetch_team_colours_from_games(all_games);
+            const all_team_guids = [...new Set(all_games.map(g => g.tTGUID))];
+            n_teams = all_team_guids.length;
+
+            team_guid_to_colour = Object.fromEntries(all_team_guids.map((g, i) => [g, 
+                `hsl(${i * 360 / n_teams}, ${i % 2 ? 0.4 : 0.8}, .4)`,
+                // `${i}`
+            ]))
+
             rosters = fetch_team_rosters_for_games(played_games);
             gebeurtenis_data = fetch_gebeurtenis_data_for_games(played_games);
 
             rosters = await rosters;
             gebeurtenis_data = await gebeurtenis_data;
+            // team_guid_to_colours = await team_guid_to_colours;
 
             gebeurtenis_data.forEach(gdi => {
                 gdi.GebNis = add_fake_minute_to_gebnis(gdi.GebNis);
@@ -546,9 +876,9 @@
 
             window.player_datas = make_players_table(played_games, rosters, gebeurtenis_data);
 
-            make_plus_minus_plot(player_datas);
+            make_plots(player_datas);
 
-            connect_table_search_to_plot();
+            connect_table_search_to_plots();
         });
 
     </script>

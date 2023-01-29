@@ -12,11 +12,11 @@
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.css">
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"></script>
 
-    <script src="itertools.js?v=2"></script>
-    <script src="gebeurtenis_data.js?v=2"></script>
-    <script src="fetching.js?v=2"></script>
-    <script src="vis.js?v=2"></script>
-    <script src="common.js?v=2"></script>
+    <script src="itertools.js?v=3"></script>
+    <script src="gebeurtenis_data.js?v=3"></script>
+    <script src="fetching.js?v=3"></script>
+    <script src="vis.js?v=3"></script>
+    <script src="common.js?v=3"></script>
 
     <style type="text/css">
         table {
@@ -252,16 +252,22 @@
                 Object.entries(all_subteams_to_data)
                     .filter(([key, data]) => key)
                     .map(([key, data]) => ({
-                            'key': key, 
-                            'relguids': key.split('_'),
-                            'plus': data['plus'] || 0,
-                            'minus': data['minus'] || 0,
-                            'plus_minus': (data['plus'] - data['minus']) || 0,
-                            'minutes': data['minutes'] || 0,
-                            'len': key.split('_').length
+                        'key': key, 
+                        'relguids': key.split('_'),
+                        'plus': data['plus'] || 0,
+                        'minus': data['minus'] || 0,
+                        'plus_minus': (data['plus'] - data['minus']) || 0,
+                        'minutes': data['minutes'] || 0,
+                        'len': key.split('_').length
                     }))
                     .filter(st => st.minutes > 0)
-                    .filter(st => st.len > 0);
+                    .filter(st => st.len > 0)
+                    .map(st => ({
+                        "plus_per_minute": st.plus / st.minutes,
+                        "minus_per_minute": st.minus / st.minutes,
+                        "plus_minus_per_minute": st.plus_minus / st.minutes,
+                        ...st,
+                    }));
 
             return subteams;
         }
@@ -285,7 +291,8 @@
             return key_to_relguids(key).map(relguid_to_name)
         }
 
-        function make_table(subteams, n) {
+        function make_table(size_n_subteams) {
+            const n = size_n_subteams[0].len;
             const summary = `<summary>${n}</summary>`;
             const toprow = (
                 [
@@ -297,22 +304,39 @@
                     "Plus per minute",
                     "Minus per minute",
                     "Plus minus per minute",
+                    "Improvement over individuals",
                 ]
                 .map(cell => `<td>${cell}</td>`).join('')
             );
+
+            const individuals_pmpm = Object.fromEntries(
+                subteam_data
+                .filter(st => st.len === 1)
+                .map(subteam => [subteam.key, subteam.plus_minus_per_minute])
+            );
+
+            const subteams_pmpm_improvement = Object.fromEntries(
+                size_n_subteams.map(st => [
+                    st.key, 
+                    st.plus_minus_per_minute - st.relguids.map(rg => individuals_pmpm[rg]).reduce(sum, 0) / st.len
+                ])
+            );
+            debugger;
+
             const rows = (
-                subteams
+                size_n_subteams
                 .sort((data_a, data_b) => data_a.plus_minus - data_b.plus_minus)
                 .reverse()
                 .map(subteam => [
                     ...subteam.relguids.map(relguid_to_name), 
                     subteam.plus, 
                     subteam.minus, 
-                    subteam.plus - subteam.minus, 
+                    subteam.plus_minus, 
                     subteam.minutes.toFixed(1),
-                    (subteam.plus / subteam.minutes).toFixed(2), 
-                    (subteam.minus / subteam.minutes).toFixed(2), 
-                    ((subteam.plus - subteam.minus) / subteam.minutes).toFixed(2), 
+                    subteam.plus_per_minute.toFixed(2), 
+                    subteam.minus_per_minute.toFixed(2), 
+                    subteam.plus_minus_per_minute.toFixed(2),
+                    subteams_pmpm_improvement[subteam.key].toFixed(2),
                 ])
                 .map(cells => cells.map(cell => `<td>${cell}</td>`).join(''))
                 .map(row => `<tr>${row}</tr>`)
@@ -323,10 +347,10 @@
             // return table;
         }
 
-        function make_all_tables_from_plus_minuses(plus_minuses) {
+        function make_all_tables_from_subteam_data(subteam_data) {
             document.querySelector('#tables').innerHTML = Array(5).fill()
-                .map((_, i) => plus_minuses.filter(data => data.len === i + 1))
-                .map((n_subteams, i) => make_table(n_subteams, i+1))
+                .map((_, i) => subteam_data.filter(data => data.len === i + 1))
+                .map(make_table)
                 .join('<br>');
 
                 // debugger;
@@ -377,7 +401,7 @@
                 xaxis: { title: "Minutes" },
                 yaxis: { title: "Plus minus" },
             }
-            window.absolute_plot = Plotly.newPlot('absolute_plot', [data], layout);
+            window.absolute_plot = Plotly.newPlot('absolute_plot', [data], layout, {scrollZoom: true});
         }
 
         function make_per_minute_plot() {
@@ -404,7 +428,7 @@
                 },
                 annotations: corner_annotations,
             };
-            window.per_minute_plot = Plotly.newPlot('per_minute_plot', [data], layout);
+            window.per_minute_plot = Plotly.newPlot('per_minute_plot', [data], layout, {scrollZoom: true});
         }
 
 
@@ -491,7 +515,7 @@
                 },
                 annotations: corner_annotations
             }
-            window.third_plot = Plotly.newPlot('third_plot', data, layout);
+            window.third_plot = Plotly.newPlot('third_plot', data, layout, {scrollZoom: true});
             document.getElementById('third_plot').on('plotly_click', (data) => {
                 const new_center = data.points[0].data.subteams[data.points[0].pointIndex];
                 make_third_plot(new_center.key);
@@ -510,7 +534,7 @@
             subteam_data = calc_subteam_data();
             // minutes = calc_minutes();
 
-            make_all_tables_from_plus_minuses(subteam_data);
+            make_all_tables_from_subteam_data(subteam_data);
 
 
             make_absolute_plot();

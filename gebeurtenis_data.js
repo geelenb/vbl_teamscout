@@ -120,7 +120,8 @@ function add_detailed_minute_to_gebnis(gebnis) {
 			len_this_minute += 1;
 		}
 		geb.detailed_minute = (
-			(geb.Periode - 1) * 10 +
+			(Math.max(4, geb.Periode) - 1) * 10 +
+			(geb.Periode >= 5 ? (geb.Periode - 5) * 5 : 0) + // for games with 2OT or more
 			(geb.Minuut - 1) +
 			(geb.index_this_minute / len_this_minute || 0)
 		);
@@ -167,11 +168,12 @@ function add_fake_minute_to_gebnis(gebnis) {
 
 	copy.forEach((geb, i) => {
 		const this_quarter = geb.Periode;
-		const gebs_this_quarter = copy.filter(geb => (geb.Periode == this_quarter));
-		let len_this_quarter = Math.max(...gebs_this_quarter.map(geb => geb.index_this_quarter))
+		const periode_length_in_minutes = this_quarter <= 4 ? 10 : 5;
+		const gebs_this_quarter = copy.filter(geb => (geb.Periode === this_quarter));
+		const len_this_quarter = Math.max(...gebs_this_quarter.map(geb => geb.index_this_quarter))
 		geb.fake_minute = (
 			(geb.Periode - 1) * 10 +
-			(geb.index_this_quarter / len_this_quarter || 0) * 10
+			(geb.index_this_quarter / len_this_quarter || 0) * periode_length_in_minutes
 		);
 		if (geb.GebType === 60) {
 			geb.fake_minute = copy[i-1].fake_minute

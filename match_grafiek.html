@@ -10,18 +10,21 @@
     <title>Laden...</title>
 
     <script src="libs/dexie.js"></script>
-    <script src="libs/lz-string.min.js"></script>
     <script src="libs/plotly-2.9.0.min.js"></script>
     
-    <script src="itertools.js?v=2"></script>
-    <script src="gebeurtenis_data.js?v=2"></script>
-    <script src="fetching.js?v=2"></script>
-    <script src="vis.js?v=2"></script>
-    <script src="common.js?v=2"></script>
+    <script src="itertools.js?v=3"></script>
+    <script src="gebeurtenis_data.js?v=3"></script>
+    <script src="fetching.js?v=3"></script>
+    <script src="vis.js?v=3"></script>
+    <script src="common.js?v=3"></script>
 
     <link href="match_grafiek.css" rel="stylesheet" type="text/css">
 </head>
 <body>
+<!-- <div id='calendar'>
+	<select></select>
+	<select></select>
+</div> -->
 <h1>Laden...</h1>
 <h2 id="reeks"></h2>
 <p id="date"></p>
@@ -37,7 +40,7 @@
 </div>
 
 <div>
-    <div id="other_stats">
+    <div id="other_stats" style="display: none;">
         <img class="h" src="">
         <img class="a" src="">
         <div class="largest_lead h"></div>
@@ -56,16 +59,15 @@
         <div class="time_led name" style="visibility: hidden">Tijd aan de leiding</div>
         <div class="time_led a"></div>
 <!--        <div class="both">Gelijkstanden</div>-->
-        <!--    <tr id="leader_changes">-->
-        <!--    <div colspan="3">Lead changes</div>-->
+<!--    <tr id="leader_changes">-->
+<!--    <div colspan="3">Lead changes</div>-->
     </div>
 </div>
 
-
-<div id='plot'></div>
-<div id='stints' style="height: 80vh"></div>
-
-
+<div id=figures_container>
+	<div id='home_advantage_fig'></div>
+	<div id='stints_fig' style="height: 80vh"></div>
+</div>
 
 <div class="other_links">
 	<a id="vblweblink" href="" >VBL web</a>
@@ -80,9 +82,7 @@
 		return player.Naam && player.Naam !== null && player['Functie'] === "S"
 	}
 
-
 	async function load_data() {
-		// debugger;
 		let gebeurtenis_data = fetch_gebeurtenis_data(game_id);
 
 		if (!window.roster){
@@ -179,7 +179,7 @@
 		})
 
 		// if (points_trace.x[points_trace.x.length - 1] < 40) {
-		if (game_is_finished()) {
+		if (false && game_is_finished()) {
 			points_trace.x.push(40);
 			points_trace.y.push(last_y);
 			points_trace.text.push('');
@@ -197,7 +197,7 @@
 				fixedrange: true,
 			},
 			margin: {
-				l: window.innerWidth * .05,
+				// l: "10ex",
 				r: 10,
 				t: 10,
 			},
@@ -215,15 +215,16 @@
 			responsive: true,
 			// displayModeBar: false,
 			displaylogo: false,
+			scrollZoom: true,
 		}
 
-		window.plot = await Plotly.newPlot('plot', [points_trace, to_trace, fouls_trace], layout, config);
+		window.home_advantage_fig = await Plotly.newPlot('home_advantage_fig', [points_trace, to_trace, fouls_trace], layout, config);
 	}
 
 	async function make_stints() {
 		let relguid_to_y = Object.fromEntries([
-			...window.roster.TtDeel.sort(p=> p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, i + 1]),
-			...window.roster.TuDeel.sort(p=>-p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, -(i + 1)])
+			...window.roster.TtDeel.sort(p=>-p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, i + 1]),
+			...window.roster.TuDeel.sort(p=> p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, -(i + 1)])
 		]);
 
 		const score_gebs = window.gebeurtenis_data.filter(g=> (g.GebStatus === 10 && g.GebType === 10));
@@ -310,6 +311,7 @@
 		const config = {
 			responsive: true,
 			displaylogo: false,
+			scrollZoom: true,
 		}
 		let layout = {
 			xaxis: {
@@ -327,7 +329,7 @@
 				fixedrange: true,
 			},
 			margin: {
-				l: window.innerWidth * .05,
+				// l: "10ex",
 				r: 10,
 				t: 10,
 			},
@@ -344,7 +346,7 @@
 			}
 		};
 
-		window.stints = await Plotly.newPlot('stints', [...stint_traces, fouls_trace, score_trace], layout, config);
+		window.stints_fig = await Plotly.newPlot('stints_fig', [...stint_traces, fouls_trace, score_trace], layout, config);
 	}
 
 	const td = content => `<td>${content}</td>`;
@@ -618,6 +620,8 @@
 				.map((geb) => Number.parseInt(geb.Text[1] || 0))
 				.reduce(sum, 0)
 		);
+
+		document.getElementById('other_stats').style.display = '';
 	}
 
 
@@ -656,7 +660,7 @@
 			await make_graph_promise;
 			await make_stints_promise;
 		} else {
-			document.querySelectorAll('#plot, #box_scores, #other_stats').forEach(e => e.remove());
+			document.querySelectorAll('#home_advantage_fig, #box_scores, #other_stats').forEach(e => e.remove());
 			document.getElementById("tabellink").style.display = 'none'
 		}
 
@@ -666,16 +670,43 @@
 		if (window.gebeurtenis_data && game_should_have_started && !game_is_finished()) {
 			window.setTimeout(main_loop, 10000);
 		}
-		console.log('refreshed.')
 	}
+
+	function make_calendar() {
+		const game_to_url = (game) => 'match_grafiek.html?game_id=' + game.guid
+		const fill_select = (select, team_guid) => {
+        	const games = poule_games.filter(g => g.tTGUID === team_guid || g.tUGUID === team_guid);
+			const game_to_option = (g) => {
+				// const w_or_l = (g.tTGUID === team_guid) === (homegame)
+				const text = (
+					g.tTGUID === team_guid 
+					? `vs. ` + shorten_teamname_more(g.tUNaam) 
+					: '@ ' + shorten_teamname_more(g.tTNaam) 
+				)
+
+				return `<option>${text}</option>`
+			}
+			select.innerHTML = [
+
+				...games.map(game_to_option)
+			].join('');
+        	// debugger;
+		}
+
+		const selects = document.querySelectorAll('div#calendar > select');
+		fill_select(selects[0], game.tTGUID);
+		fill_select(selects[1], game.tUGUID);
+
+    }
 
 	(async () => {
 		window.game_id = redirect_if_team_unspecified();
 
 		document.getElementById("vblweblink").href = "https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=" + window.game_id;
 
-
 		await main_loop();
+
+        // make_calendar();
 		
 	})();
 
