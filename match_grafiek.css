@@ -85,3 +85,7 @@ table.booktabs tr:last-child td {
 table.booktabs.w_totals tr:last-child td {
     border-top: black 1px solid;
 }
+
+table td span.on_court {
+    text-decoration: underline;
+}

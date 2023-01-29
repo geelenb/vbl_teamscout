@@ -55,16 +55,16 @@ const corner_annotations = [
         ..._corner_annotation,
         ..._right_annotation,
         ..._top_annotation,
-        text: `Only we score (best)`,
+        text: 'Only we score (best)',
     }, {
         ..._corner_annotation,
         ..._left_annotation,
         ..._top_annotation,
-        text: `No teams score`,
+        text: 'No teams score',
     }, {
         ..._corner_annotation,
         ..._right_annotation,
         ..._bottom_annotation,
-        text: `Both teams score`,
+        text: 'Both teams score',
     }
 ];

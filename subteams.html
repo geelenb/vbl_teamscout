@@ -398,9 +398,11 @@
                 dragmode: "pan",
                 xaxis: { title: "Plus per Minute" },
                 yaxis: { 
-                    scaleanchor: "x",
-                    title: "Minus per Minute" 
+                    scaleanchor: "x", 
+                    autorange: 'reversed',
+                    title: "Minus per Minute",
                 },
+                annotations: corner_annotations,
             };
             window.per_minute_plot = Plotly.newPlot('per_minute_plot', [data], layout);
         }

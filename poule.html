@@ -14,14 +14,22 @@
     <script src="fetching.js?v=2"></script>
     <script src="vis.js?v=2"></script>
     <script src="gebeurtenis_data.js?v=2"></script>
+    <script src="itertools.js?v=2"></script>
     <script src="common.js?v=2"></script>
 
 
     <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"></script>
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.css">
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/fixedcolumns/4.2.1/css/fixedColumns.dataTables.min.css">
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/fixedcolumns/4.2.1/js/dataTables.fixedColumns.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/fixedheader/3.3.1/css/fixedHeader.dataTables.min.css">
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/fixedheader/3.3.1/js/dataTables.fixedHeader.min.js"></script>
 
     <style type="text/css">
+        body {
+            margin: 0;
+        }
         .colhead, .rowhead {
             font-weight: bold;
         }
@@ -80,7 +88,7 @@
 
     <table id="crosstable"></table>
     <table id="players"></table>
-    <div id="plus_minus_plot" style="height:90vmin; width:90vmin"></div>
+    <div id="plus_minus_plot" style="height:98vmin; width:98vmin"></div>
 
     <script type="text/javascript">
         function record_of_team(games, team_guid) {
@@ -115,19 +123,37 @@
             const team_guid_to_i = Object.fromEntries(all_team_guids.map((guid, i) => [guid, i]));
             const team_guid_to_name = Object.fromEntries(games.map(g => [g.tTGUID, g.tTNaam]));
 
+            const a = (href, contents) => `<a href='${href}'>${contents}</a>`
+            const rowhead_from_team_guid = guid => td(
+                a(
+                    `team.html?team=${guid}`, 
+                    shorten_teamname(team_guid_to_name[guid]),
+                ),
+                'rowhead'
+            ); 
+            const colhead_from_team_guid = guid => td(
+                a(
+                    `team.html?team=${guid}`, 
+                    shorten_teamname_more(team_guid_to_name[guid]),
+                ),
+                'colhead'
+            ); 
+            // const a_from_team_guid = guid => `<a href='team.html?team=${guid}'>${shorten_teamname_more(team_guid_to_name[guid])}</a>`; 
+
             let table_innerhtml = []
             table_innerhtml.push(
-                    "<tr>",
-                    td("Home \\ away", "colhead rowhead"),
-                    ...all_team_guids.flatMap(guid => td(shorten_teamname_more(team_guid_to_name[guid]), "colhead")),
-                    "</tr>",
+                "<tr>",
+                td("Home \\ away", "colhead rowhead"),
+                ...all_team_guids.flatMap(guid => 
+                    colhead_from_team_guid(guid)
+                ),
+                "</tr>",
             );
-
 
             all_team_guids.forEach((home_team_guid, i) => {
                 table_innerhtml.push(
                     "<tr>",
-                    td(shorten_teamname(team_guid_to_name[home_team_guid]), "rowhead"),
+                    rowhead_from_team_guid(home_team_guid),
                 )
 
                 all_team_guids.forEach((away_team_guid, j) => {
@@ -191,6 +217,12 @@
             const on_bench_plus = Object.fromEntries(all_players_with_duplicates.map(p => [p.RelGUID, 0]));
             const on_bench_minus = Object.fromEntries(all_players_with_duplicates.map(p => [p.RelGUID, 0]));
 
+            const relguid_to_roster_entries = groupBy(all_players_with_duplicates, p => p.RelGUID);
+            const relguid_to_most_common_number = Object.fromEntries(
+                Object.entries(relguid_to_roster_entries).map(
+                    ([relguid, entries]) => [relguid, most_common_value(entries.map(p => p.RugNr))])
+                );
+
             previous_games.forEach((game, i) => {
                 const roster = rosters[i];
                 const game_gebeurtenissen = gebeurtenis_data[i];
@@ -231,10 +263,10 @@
 
             const make_top_row = () => {
                 const cells = [
-                    // "RugNr", // todo: most common number
-                    "Relguid",
-                    "Birthdate",
                     "Naam",
+                    "Nr",
+                    // "Relguid",
+                    "Birthdate",
                     "Team",
                     "Games",
                     "Minutes",
@@ -243,7 +275,7 @@
                     "Points per game",
                     "High score",
                     "Threes",
-                    "Trees per game",
+                    "Threes per game",
                     "Fouls",
                     "Fouls per game",
                     "Non personal fouls",
@@ -315,25 +347,25 @@
                 const minus = on_court_minus[relguid];
                 const plus_minus = on_court_plus[relguid] - on_court_minus[relguid];
 
-                const plus_per_minute = plus / minutes;
-                const minus_per_minute = minus / minutes;
-                const plus_minus_per_minute = plus_minus / minutes;
+                const plus_per_minute = plus / minutes || 0.0;
+                const minus_per_minute = minus / minutes || 0.0;
+                const plus_minus_per_minute = plus_minus / minutes || 0.0;
 
                 const benched_plus = on_bench_plus[relguid];
                 const benched_minus = on_bench_minus[relguid];
                 const benched_plus_minus = on_bench_plus[relguid] - on_bench_minus[relguid];
 
                 const benched_minutes = 40 * n_games - minutes;
-                const benched_plus_per_minute = benched_plus / benched_minutes;
-                const benched_minus_per_minute = benched_minus / benched_minutes;
-                const benched_plus_minus_per_minute = benched_plus_minus / benched_minutes;
+                const benched_plus_per_minute = benched_plus / benched_minutes || 0.0;
+                const benched_minus_per_minute = benched_minus / benched_minutes || 0.0;
+                const benched_plus_minus_per_minute = benched_plus_minus / benched_minutes || 0.0;
 
                 const offensive_improvement = plus_per_minute - benched_plus_per_minute;
                 const defensive_improvement = -(minus_per_minute - benched_minus_per_minute);
                 const netto_improvement = plus_minus_per_minute - benched_plus_minus_per_minute;
 
                 const data = {
-                    "Nr": player['RugNr'], // todo: most common number
+                    "Nr": relguid_to_most_common_number[relguid], // todo: most common number
                     "relguid": relguid,
                     "birthdate": birthdate,
                     "player": player['Naam'],
@@ -372,11 +404,11 @@
 
             const row_from_data = (data) => {
                 const cells = [
-                    // data.Nr,
-                    data.relguid,
+                    data.player.replaceAll(' ', '&nbsp;'),
+                    data.Nr,
+                    // data.relguid,
                     data.birthdate,
-                    data.player,
-                    data.teamnaam,
+                    shorten_teamname(data.teamnaam).replaceAll(' ', '&nbsp;'),
                     data.n_games,
                     data.minutes.toFixed(1),
                     data.minutes_per_game.toFixed(1),
@@ -424,15 +456,20 @@
 
             document.getElementById('players').innerHTML = rows.join('');
 
-            window.table = new DataTable("#players", {paging: false,});
+            window.table = new DataTable("#players", {
+                paging: false,
+                fixedHeader: true,
+                scrollX: true,
+                fixedColumns: true,
+            });
 
             return datas;
         }
         
         const plus_minus_trace_for_player = (player) => {
             return {
-                x: [player.benched_plus_per_minute, player.plus_per_minute],
-                y: [player.benched_minus_per_minute, player.minus_per_minute],
+                x: player.minutes ? [player.benched_plus_per_minute, player.plus_per_minute] : [],
+                y: player.minutes ? [player.benched_minus_per_minute, player.minus_per_minute] : [],
                 type: 'scatter',
                 // mode: 'lines',
                 text: [
@@ -441,10 +478,10 @@
                 ],
                 marker: {
                     symbol: ["none", 'circle'],
-                    size: [0, 6],
+                    size: [0, 5 * Math.sqrt(player.minutes_per_game)],
                 },
                 line: {
-                    width: 1,
+                    width: player.minutes ? 1 : 0,
                 },
                 hoverinfo: 'text',
             }

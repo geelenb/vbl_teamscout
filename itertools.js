@@ -26,3 +26,12 @@ function groupBy(xs, f) {
 function argmax(a) {
     return a.reduce((iMax, x, i, arr) => x > arr[iMax] ? i : iMax, 0);
 }
+
+function most_common_value(array) {
+    const count = {};
+    array.forEach(function (a) {
+        count[a] = (count[a] || 0) + 1;
+    });
+    const i = argmax(Object.values(count));
+    return Object.keys(count)[i];
+}

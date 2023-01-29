@@ -32,6 +32,9 @@
         window.roster = await roster;
         window.poule_games = await poule_games;
 
+
+        window.gebeurtenis_data.GebNis = add_fake_minute_to_gebnis(window.gebeurtenis_data.GebNis);
+
         window.game = window.poule_games.find(game => game.guid === game_id);
     }
 
@@ -54,6 +57,7 @@
             'Type str',
             'Periode',
             'Min',
+            't',
             'TofU',
             'RelGUID',
             'RugNr',
@@ -85,6 +89,7 @@
             type_text(geb),
             geb.Periode,
             geb.Minuut,
+            geb.fake_minute.toFixed(2),
             geb.TofU,
             geb.RelGUID,
             geb.RugNr,

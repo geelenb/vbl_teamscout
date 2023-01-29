@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <meta http-equiv='cache-control' content='no-cache'>
     <meta http-equiv='expires' content='0'>
@@ -79,19 +80,23 @@
 		return player.Naam && player.Naam !== null && player['Functie'] === "S"
 	}
 
-	async function load_data(game_id) {
-		let roster = fetch_rosters(game_id, true);
+
+	async function load_data() {
+		// debugger;
 		let gebeurtenis_data = fetch_gebeurtenis_data(game_id);
-        let poule_games = fetch_poule_games(game_id.substring(0, game_id.length - 2));
 
+		if (!window.roster){
+			let roster = fetch_rosters(game_id, true);
+	        let poule_games = fetch_poule_games(game_id.substring(0, game_id.length - 2));
+	
+			window.roster = await roster;
+			window.poule_games = await poule_games;
+			window.game = window.poule_games.find(game => game.guid === game_id);
+		}
 		window.gebeurtenis_data = await gebeurtenis_data;
-		window.roster = await roster;
-		window.poule_games = await poule_games;
-
+		
 		window.gebeurtenis_data = add_fake_minute_to_gebnis(window.gebeurtenis_data.GebNis);
 		window.gebeurtenis_data = add_detailed_minute_to_gebnis(window.gebeurtenis_data);
-
-		window.game = window.poule_games.find(game => game.guid === game_id);
 	}
 
 
@@ -173,7 +178,8 @@
 			});
 		})
 
-		if (points_trace.x[points_trace.x.length - 1] < 40) {
+		// if (points_trace.x[points_trace.x.length - 1] < 40) {
+		if (game_is_finished()) {
 			points_trace.x.push(40);
 			points_trace.y.push(last_y);
 			points_trace.text.push('');
@@ -342,6 +348,7 @@
 	}
 
 	const td = content => `<td>${content}</td>`;
+	const tr = content => `<tr>${content}</tr>`;
 
 	function make_title() {
 		const record_for_team = (guid) => {
@@ -416,9 +423,20 @@
 
 	async function make_team_tables() {
 		const pm = gebeurtenis_data_to_plus_minus(gebeurtenis_data);
+		let relguid_to_in_uit = (
+			gebeurtenis_data
+			.filter(g => g.GebStatus == 10 && g.GebType === 50)
+			.reduce((a, g) => ({...a, [g['RelGUID']]:g.Text}), {})
+		);
+		if (game_is_finished()) {
+			console.log(game_is_finished)
+			relguid_to_in_uit = {}; // niemand in
+		}
 
 		[["home", roster.TtDeel], ["away", roster.TuDeel]].forEach(([c, teamroster]) => {
 			const table = document.querySelector('table.stats.' + c);
+			let new_innerhtml = '';
+			// table.innerHTML = '';
 
 			let sum_pts = 0;
 			let sum_ft = 0;
@@ -427,20 +445,23 @@
 			let sum_pm = 0;
 			let sum_min = 0;
 
-			const row = document.createElement('tr');
-			row.innerHTML = [
-				'', 
-				'', 
-				'pts',
-				'ft',
-				'3',
-				'F',
-				'+/-',
-				'min',
-			].map(td).join('');
-			table.appendChild(row)
+			// const row = document.createElement('tr');
+			
+			new_innerhtml += tr([
+							'', 
+							'', 
+							'pts',
+							'ft',
+							'3',
+							'F',
+							'+/-',
+							'min',
+						].map(td).join(''));
+			// table.appendChild(row)
 
-			teamroster.forEach(player => {
+			// sort by number?
+			// console.log(teamroster.map(p => p.RugNr));
+			teamroster.sort((a, b) => a.RugNr - b.RugNr).forEach(player => {
 				if (!player.Naam) {
 					return
 				}
@@ -469,10 +490,11 @@
 					fouls_str += `<sup>${otherfouls}</sup>`;
 				}
 
-				const row = document.createElement('tr');
-				row.innerHTML = [
+				const on_court_class = relguid_to_in_uit[player.RelGUID] === 'in' ? 'class="on_court"' : '';
+				
+				new_innerhtml += tr([
 					player.RugNr,
-					player.Naam,
+					`<span ${on_court_class}>${player.Naam}</span>`,
 					// '\'' + player.GebDat.substring(8, 10),
 					points_total,
 					score_1,
@@ -482,9 +504,8 @@
 					// pm[player.RelGUID] || '0',
 					pm[player.RelGUID] || '0',
 					minutes_str
-				].map(td).join('');
+				].map(td).join(''));
 
-				table.appendChild(row);
 
 				sum_pts += points_total;
 				sum_ft += score_1;
@@ -494,8 +515,7 @@
 				sum_min += minutes;
 			});
 
-			const bottomrow = document.createElement('tr');
-			bottomrow.innerHTML = [
+			new_innerhtml += tr([
 				'',
 				'',
 				// '\'' + player.GebDat.substring(8, 10),
@@ -505,12 +525,11 @@
 				sum_F,
 				sum_pm,
 				Math.round(sum_min)
-			].map(td).join('');
+			].map(td).join(''));
 
-			table.appendChild(bottomrow);
-
+			table.innerHTML = new_innerhtml;
 			table.style.display = 'inline';
-		})
+		});
 	}
 
 	function make_other_stats() {
@@ -610,13 +629,16 @@
 		window.location.replace(window.location + '?game_id=BVBL22239180BNAHSEPBEA')
 	}
 
+	function game_is_finished() {
+		return window.gebeurtenis_data
+			.filter(g => g.Periode === 99)
+			.filter(g => g.Minuut === 99)
+			.filter(g => g.GebStatus === 10)
+			.length > 0;
+	}
 
-	(async () => {
-		window.game_id = redirect_if_team_unspecified();
-
-		await load_data(window.game_id);
-
-		document.getElementById("vblweblink").href = "https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=" + window.game_id;
+	async function main_loop() {
+		await load_data();
 
 		make_title();
 		make_quarters_table();
@@ -626,7 +648,7 @@
 			make_sheets_promise = make_team_tables();
 			make_stints_promise = make_stints();
 
-			document.getElementById("overlaylink").href = "overlay.html?game_id=" + window.game_id;
+			// document.getElementById("overlaylink").href = "overlay.html?game_id=" + window.game_id;
 			document.getElementById("tabellink").href = "gebeurtenis_tabel.html?game_id=" + window.game_id;
 
 			make_other_stats();
@@ -637,7 +659,27 @@
 			document.querySelectorAll('#plot, #box_scores, #other_stats').forEach(e => e.remove());
 			document.getElementById("tabellink").style.display = 'none'
 		}
+
+		const d = new Date();
+		const game_should_have_started = Number(d - d.getTimezoneOffset() * 60 * 1000) > game['jsDTCode'];
+
+		if (window.gebeurtenis_data && game_should_have_started && !game_is_finished()) {
+			window.setTimeout(main_loop, 10000);
+		}
+		console.log('refreshed.')
+	}
+
+	(async () => {
+		window.game_id = redirect_if_team_unspecified();
+
+		document.getElementById("vblweblink").href = "https://vblweb.wisseq.eu/Home/MatchDetail?wedguid=" + window.game_id;
+
+
+		await main_loop();
+		
 	})();
 
 </script>
 </html>
+
+<!-- volgende/vorige match -->
