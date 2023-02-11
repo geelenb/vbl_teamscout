@@ -31,7 +31,7 @@
 
 
     <script type="text/javascript">
-        const my_fav_team = "BVBL1049HSE++1"; // Orly A
+        const default_team = "BVBL1049HSE++1"; // Orly A
 
         const get_next_game_from_games = games => (
             games
@@ -95,7 +95,7 @@
             if (params.get('team') || params.get('opponent')) {
                 return;
             }
-            window.location.replace(`${window.location}?team=${my_fav_team}`)
+            window.location.replace(`${window.location}?team=${default_team}`)
         }
 
         async function team_id_from_get_params() {
@@ -108,7 +108,7 @@
                 const next_game = await get_next_game_from_games(own_games);
                 return get_opponent_from_game(next_game, team_id).id_plus;
             }
-            return my_fav_team;
+            return default_team;
         }
 
         function subsets(l, k) {
@@ -293,7 +293,7 @@
 
         function make_table(size_n_subteams) {
             const n = size_n_subteams[0].len;
-            const summary = `<summary>${n}</summary>`;
+            const summary = `<summary>${n} (click to open)</summary>`;
             const toprow = (
                 [
                     ...Array(n).fill().map((_, i) => `Player ${i + 1}`),
@@ -321,7 +321,6 @@
                     st.plus_minus_per_minute - st.relguids.map(rg => individuals_pmpm[rg]).reduce(sum, 0) / st.len
                 ])
             );
-            debugger;
 
             const rows = (
                 size_n_subteams
