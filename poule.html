@@ -117,6 +117,7 @@
     <br>
     <div id="netto_improvement_plot" class="figure" ></div>
     <div id="offense_defense_difference_plot" class="figure" ></div>
+    <div id="shooting_plot" class="figure" ></div>
     <div id="usage_plot" class="figure" ></div>
     <div id="offense_defense_plot" class="figure" ></div>
 
@@ -317,6 +318,8 @@
                     "High score",
                     "Threes",
                     "Threes per game",
+                    "FTs",
+                    "FTs per game",
                     "Fouls",
                     "Fouls per game",
                     "Non personal fouls",
@@ -380,7 +383,9 @@
                 );
 
                 const n_threes = player_scores.filter(g => g.Text[0] === "3").length;
-                const n_trees_per_game = n_threes / n_games;
+                const n_threes_per_game = n_threes / n_games;
+                const n_fts = player_scores.filter(g => g.Text[0] === "1").length;
+                const n_fts_per_game = n_fts / n_games;
 
                 const n_fouls = player_fouten.length;
                 const n_fouls_per_game = n_fouls / n_games;
@@ -422,7 +427,9 @@
                     "points_per_40": points_per_40,
                     "high_score": high_score,
                     "n_threes": n_threes,
-                    "n_trees_per_game": n_trees_per_game,
+                    "n_threes_per_game": n_threes_per_game,
+                    "n_fts": n_fts,
+                    "n_fts_per_game": n_fts_per_game,
                     "n_fouls": n_fouls,
                     "n_fouls_per_game": n_fouls_per_game,
                     "n_non_personal_fouls": n_non_personal_fouls,
@@ -462,7 +469,9 @@
                     data.points_per_40.toFixed(1),
                     data.high_score,
                     data.n_threes,
-                    data.n_trees_per_game.toFixed(1),
+                    data.n_threes_per_game.toFixed(1),
+                    data.n_fts,
+                    data.n_fts_per_game.toFixed(1),
                     data.n_fouls,
                     data.n_fouls_per_game.toFixed(1),
                     data.n_non_personal_fouls,
@@ -512,12 +521,20 @@
             return datas;
         }
         
+        function hover_text_for_player(player, more_lines) {
+            return [
+                player.player, 
+                shorten_teamname_more(player.teamnaam),
+                `${player.minutes_per_game.toFixed(1)}mpg in ${player.n_games} games`,
+                ...more_lines ? more_lines : [],
+            ].join('<br>');
+        }
+
         function make_offense_defense_plot(player_datas) {
-            const offense_defense_trace_for_player = (player) => ({
+            const trace_for_player = (player) => ({
                 x: player.minutes ? [player.benched_plus_per_minute, player.plus_per_minute] : [],
                 y: player.minutes ? [player.benched_minus_per_minute, player.minus_per_minute] : [],
                 type: 'scatter',
-                // mode: 'lines',
                 text: [
                     `${shorten_teamname_more(player.teamnaam)} when ${player.player} is benched`,
                     `${shorten_teamname_more(player.teamnaam)} when ${player.player} is on court`,
@@ -535,7 +552,7 @@
                 hoverinfo: 'text',
             });
 
-            const traces = player_datas.map(offense_defense_trace_for_player);
+            const traces = player_datas.map(trace_for_player);
             const layout = {
                 title: "Plus &amp; minus per minute of teams when players are on and off court",
                 xaxis: {
@@ -554,15 +571,13 @@
         }
 
         function make_netto_improvement_plot(player_datas) {
-            const plus_minus_trace_for_player = (player) => ({
+            const trace_for_player = (player) => ({
                 x: player.minutes ? [player.plus_minus_per_minute] : [],
                 y: player.minutes ? [player.benched_plus_minus_per_minute] : [],
                 // y: player.minutes ? [player.netto_improvement] : [],
                 type: 'scatter',
                 // mode: 'lines',
-                text: [
-                    `${player.player}<br>${shorten_teamname_more(player.teamnaam)}`
-                ],
+                text: hover_text_for_player(player),
                 marker: {
                     symbol: ["none", 'circle'],
                     size: [5 * Math.sqrt(player.minutes_per_game)],
@@ -575,7 +590,7 @@
                 hoverinfo: 'text',
             });
             
-            const traces = player_datas.map(plus_minus_trace_for_player);
+            const traces = player_datas.map(trace_for_player);
 
             if (data_is_of_one_team(player_datas)){
                 traces.push(...numbers_traces_on_data(traces, player_datas));
@@ -639,17 +654,9 @@
         function make_usage_plot(player_datas) {
             const trace_for_player = (player) => ({
                 x: [player.plus_per_minute],
-                // y: [player.points_per_40 / 40 / player.plus_per_minute],
                 y: [player.points_per_40 / 40],
                 type: 'scatter',
-                // mode: 'lines',
-                text: [
-                    [
-                        player.player, 
-                        shorten_teamname_more(player.teamnaam),
-                        (player.points_per_40 / 40 / player.plus_per_minute * 100).toFixed(1) + '%',
-                    ].join('<br>')
-                ],
+                text: hover_text_for_player(player, [(player.points_per_40 / 40 / player.plus_per_minute * 100).toFixed(1) + '%']),
                 marker: {
                     symbol: ["none", 'circle'],
                     size: [5 * Math.sqrt(player.minutes_per_game)],
@@ -754,12 +761,7 @@
                 x: [player.offensive_improvement],
                 y: [player.defensive_improvement],
                 type: 'scatter',
-                text: [
-                    [
-                        player.player, 
-                        shorten_teamname_more(player.teamnaam),
-                    ].join('<br>')
-                ],
+                text: hover_text_for_player(player),
                 marker: {
                     symbol: ["none", 'circle'],
                     size: [5 * Math.sqrt(player.minutes_per_game)],
@@ -833,11 +835,92 @@
             window.netto_improvement_plot = Plotly.newPlot('offense_defense_difference_plot', traces, layout, {scrollZoom: true});
         }
 
+        function make_shooting_plot(player_datas) {
+            const trace_for_player = (player) => ({
+                x: player.minutes ? [player.points_per_game - (player.n_threes_per_game * 3) - player.n_fts_per_game] : [],
+                y: player.minutes ? [player.n_threes_per_game] : [],
+                type: 'scatter',
+                text: hover_text_for_player(player),
+                marker: {
+                    symbol: ["none", 'circle'],
+                    size: [5 * Math.sqrt(player.minutes_per_game)],
+                    size: [player.minutes_per_game],
+                    color: team_guid_to_colour[player.team_relguid],
+                    // opacity: 1,
+                },
+                line: {
+                    width: player.minutes ? 1 : 0,
+                },
+                hoverinfo: 'text',
+            });
+            
+            const traces = player_datas.map(trace_for_player);
+
+            if (data_is_of_one_team(player_datas)){
+                traces.push(...numbers_traces_on_data(traces, player_datas));
+            }
+
+            const annotations = [
+                {
+                    ..._left_annotation,
+                    ..._top_annotation,
+                    text: '(Only score three-pointers)',
+                }, {
+                    ..._hmid_annotation,
+                    ..._top_annotation,
+                    text: '(Score many three-pointers)',
+                }, {
+                    ..._right_annotation,
+                    ..._top_annotation,
+                    text: '(Universal scorers)',
+                }, {
+                    ..._left_annotation,
+                    ..._vmid_annotation,
+                    textangle: -90,
+                    text: '(Never score two-pointers)',
+                }, {
+                    ..._right_annotation,
+                    ..._vmid_annotation,
+                    textangle: -90,
+                    text: '(Score many two-pointers)',
+                }, {
+                    ..._left_annotation,
+                    ..._bottom_annotation,
+                    text: '(Never score)',
+                }, {
+                    ..._hmid_annotation,
+                    ..._bottom_annotation,
+                    text: '(Never score three-pointers)',
+                }, {
+                    ..._right_annotation,
+                    ..._bottom_annotation,
+                    text: '(Only score two-pointers)',
+                }
+            ].map(x => ({..._absolute_annotation, ...x}));
+
+            const layout = {
+                title: "Shooters",
+                xaxis: {
+                    title: "Two-pointers per game",
+                    // type: 'log',  // Keep linear: show people with 0 two-pointers
+                },
+                yaxis: {
+                    title: "Three-pointers per game",
+                    // type: 'log', / Keep linear: show people with 0 three-pointers
+                },
+                annotations: annotations,
+                dragmode: "pan",
+                showlegend: false,
+            }
+            window.shooting_plot = Plotly.newPlot('shooting_plot', traces, layout, {scrollZoom: true});
+        }
+
         function make_plots(selected_player_datas) {
             make_offense_defense_plot(selected_player_datas);
             make_netto_improvement_plot(selected_player_datas);
             make_usage_plot(selected_player_datas);
             make_offense_defense_difference_plot(selected_player_datas);
+            make_shooting_plot(selected_player_datas);
         }
 
         function connect_table_search_to_plots() {
