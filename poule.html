@@ -28,7 +28,6 @@
 
     <style type="text/css">
         body {
-            margin: 0;
         }
         .colhead, .rowhead {
             font-weight: bold;
@@ -64,10 +63,24 @@
             stroke: black;
             font-weight: bold;
         }
+        body.loading #js {
+            display: none;
+        }
+        body > #loading_msg {
+            display: none;
+        }
+        body.loading > #loading_msg {
+            display: initial;
+        }
+        .figure {
+            height: 98vmin;
+            width: 98vmin;
+        }
     </style>
 </head>
 <body>
-    <h1>Javascript staat uit!</h1>
+    <h1 id="js">Javascript staat uit!</h1>
+    <h1 id="loading_msg">Laden...</h1>
     <table id="stand"></table>
 
     <!-- 
@@ -98,12 +111,14 @@
     -->
 
     <table id="crosstable"></table>
-    <table id="players"></table>
+
+    <table id="players_table"></table>
+
     <br>
-    <div id="netto_improvement_plot" style="height:98vmin; width:98vmin"></div>
-    <div id="offense_defense_difference_plot" style="height:98vmin; width:98vmin"></div>
-    <div id="usage_plot" style="height:98vmin; width:98vmin"></div>
-    <div id="offense_defense_plot" style="height:98vmin; width:98vmin"></div>
+    <div id="netto_improvement_plot" class="figure" ></div>
+    <div id="offense_defense_difference_plot" class="figure" ></div>
+    <div id="usage_plot" class="figure" ></div>
+    <div id="offense_defense_plot" class="figure" ></div>
 
     <script type="text/javascript">
         function record_of_team(games, team_guid) {
@@ -165,12 +180,15 @@
             );
 
             all_team_guids_sorted.forEach((home_team_guid, i) => {
+                // Rij maken
                 table_innerhtml.push(
                     "<tr>",
-                    rowhead_from_team_guid(home_team_guid),
-                )
+                    rowhead_from_team_guid(home_team_guid), // Eerste kolom
+                );
+                const home_games = games.filter(g => g.tTGUID === home_team_guid)
 
                 all_team_guids_sorted.forEach((away_team_guid, j) => {
+                    // Cel maken
                     if (i === j) {
                         // const percentage_str = percentage_of_team(games, home_team_guid).toFixed(3),
                         const record_str = record_of_team(games, home_team_guid).join("-");
@@ -178,16 +196,18 @@
                         return;
                     }
 
-                    const game = games.find(g => g.tTGUID === home_team_guid && g.tUGUID === away_team_guid);
+                    const game = home_games.find(g => g.tUGUID === away_team_guid);
                     if (!game) {
                         table_innerhtml.push(td("???", 'diagonal'));
                         return;
                     }
+
                     const url = `match_grafiek.html?game_id=${game.guid}`;
                     const a = s => `<a href=${url}>${s}</a>`
                     const uitslag = game["uitslag"];
+
                     if (uitslag) {
-                        const home_win = (uitslag.substring(0, 3) - uitslag.substring(4, 7)) > 0;
+                        const home_win = uitslag.substring(0, 3) - uitslag.substring(4, 7) > 0;
                         const cell_class = home_win ? "home_win" : "away_win";
                         table_innerhtml.push(td(a(uitslag.substring(0, 7).replaceAll(' ', '')), cell_class));
                     } else {
@@ -195,12 +215,14 @@
                         const date_str = `${Number(d)} ${short_months[Number(m)]}`;
                         table_innerhtml.push(td(a(date_str, 'date')));
                     }
-
                     // End of cell
                 });
 
                 // add home record column?
+                const home_played_games = home_games.filter(g => g['uitslag']);
+                const n_home_wins = n_home_wins_in_games(home_played_games);
                 table_innerhtml.push(
+                    // td(`${n_home_wins}-${home_played_games.length - n_home_wins}`),
                     "</tr>",
                 )
 
@@ -211,7 +233,6 @@
 
             document.getElementById('crosstable').innerHTML = table_innerhtml.join('');
         }
-
 
         function make_players_table(previous_games, rosters, gebeurtenis_data) {
             const all_players_with_duplicates = rosters
@@ -479,9 +500,9 @@
                 ...datas.map(row_from_data),
             ];
 
-            document.getElementById('players').innerHTML = rows.join('');
+            document.getElementById('players_table').innerHTML = rows.join('');
 
-            window.table = new DataTable("#players", {
+            window.player_table = new DataTable("#players_table", {
                 paging: false,
                 fixedHeader: true,
                 scrollX: true,
@@ -491,7 +512,6 @@
             return datas;
         }
         
-
         function make_offense_defense_plot(player_datas) {
             const offense_defense_trace_for_player = (player) => ({
                 x: player.minutes ? [player.benched_plus_per_minute, player.plus_per_minute] : [],
@@ -821,7 +841,7 @@
         }
 
         function connect_table_search_to_plots() {
-            window.table.on('search', function (event, table_state) {
+            window.player_table.on('search', function (event, table_state) {
                 const value_before_wait = document.querySelector('input[type=search').value;
                 window.setTimeout(
                     () => {
@@ -838,7 +858,7 @@
 
         addEventListener('load', async () => {
             const poule_guid = (new URLSearchParams(window.location.search)).get('pouleGUID');
-            document.querySelector('h1').innerText = 'Laden...';
+            document.body.classList.add('loading');
 
             all_games = fetch_poule_games(poule_guid);
 
@@ -879,6 +899,8 @@
             make_plots(player_datas);
 
             connect_table_search_to_plots();
+
+            document.body.classList.remove('loading');
         });
 
     </script>
