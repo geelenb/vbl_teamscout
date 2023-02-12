@@ -76,6 +76,9 @@
             height: 98vmin;
             width: 98vmin;
         }
+        .recent_or_soon {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -207,14 +210,20 @@
                     const a = s => `<a href=${url}>${s}</a>`
                     const uitslag = game["uitslag"];
 
+                    const game_is_recent_or_soon = Math.abs(now - game['jsDTCode']) < (3 * 24 * 60 * 60 * 1000);
+                    const recent_or_soon_class = game_is_recent_or_soon ? "recent_or_soon" : "";
+                    // debugger;
+
                     if (uitslag) {
                         const home_win = uitslag.substring(0, 3) - uitslag.substring(4, 7) > 0;
                         const cell_class = home_win ? "home_win" : "away_win";
-                        table_innerhtml.push(td(a(uitslag.substring(0, 7).replaceAll(' ', '')), cell_class));
+                        const cell = td(a(uitslag.substring(0, 7).replaceAll(' ', '')), `${cell_class} ${recent_or_soon_class}`);
+                        table_innerhtml.push(cell);
                     } else {
                         const [d, m, y] = game['datumString'].split('-')
                         const date_str = `${Number(d)} ${short_months[Number(m)]}`;
-                        table_innerhtml.push(td(a(date_str, 'date')));
+                        const cell = td(a(date_str, `date ${recent_or_soon_class}`))
+                        table_innerhtml.push(cell);
                     }
                     // End of cell
                 });
@@ -523,14 +532,21 @@
         
         function hover_text_for_player(player, more_lines) {
             return [
-                player.player, 
+                `${player.Nr} ${player.player}`, 
                 shorten_teamname_more(player.teamnaam),
                 `${player.minutes_per_game.toFixed(1)}mpg in ${player.n_games} games`,
                 ...more_lines ? more_lines : [],
             ].join('<br>');
         }
 
-        function make_offense_defense_plot(player_datas) {
+        function marker_size_for_player(player) {
+            // 5 * Math.sqrt(player.minutes_per_game)
+            return player.minutes_per_game
+        }
+
+        function make_offense_defense_plot(selected_player_datas) {
+            const selected_relguids = new Set(selected_player_datas.map(p => p.relguid));
+
             const trace_for_player = (player) => ({
                 x: player.minutes ? [player.benched_plus_per_minute, player.plus_per_minute] : [],
                 y: player.minutes ? [player.benched_minus_per_minute, player.minus_per_minute] : [],
@@ -541,15 +557,17 @@
                 ],
                 marker: {
                     symbol: ["none", 'circle'],
-                    size: [0, 5 * Math.sqrt(player.minutes_per_game)],
-                    size: [0, player.minutes_per_game],
+                    size: [0, marker_size_for_player(player)],
                     color: team_guid_to_colour[player.team_relguid],
+                    opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
                 },
                 line: {
                     width: player.minutes ? 1 : 0,
                     color: team_guid_to_colour[player.team_relguid],
+                    opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
                 },
-                hoverinfo: 'text',
+                opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
+                hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
 
             const traces = player_datas.map(trace_for_player);
@@ -564,36 +582,36 @@
                     autorange: 'reversed',
                 },
                 annotations: corner_annotations,
-                dragmode: "pan",
+                // dragmode: "pan",
                 showlegend: false,
             }
             window.offense_defense_plot = Plotly.newPlot('offense_defense_plot', traces, layout, {scrollZoom: true});
         }
 
-        function make_netto_improvement_plot(player_datas) {
+        function make_netto_improvement_plot(selected_player_datas) {
+            const selected_relguids = new Set(selected_player_datas.map(p => p.relguid));
+
             const trace_for_player = (player) => ({
                 x: player.minutes ? [player.plus_minus_per_minute] : [],
                 y: player.minutes ? [player.benched_plus_minus_per_minute] : [],
-                // y: player.minutes ? [player.netto_improvement] : [],
                 type: 'scatter',
-                // mode: 'lines',
                 text: hover_text_for_player(player),
                 marker: {
                     symbol: ["none", 'circle'],
-                    size: [5 * Math.sqrt(player.minutes_per_game)],
-                    size: [player.minutes_per_game],
+                    size: marker_size_for_player(player),
                     color: team_guid_to_colour[player.team_relguid],
+                    opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
                 },
                 line: {
                     width: player.minutes ? 1 : 0,
                 },
-                hoverinfo: 'text',
+                hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
             
             const traces = player_datas.map(trace_for_player);
 
-            if (data_is_of_one_team(player_datas)){
-                traces.push(...numbers_traces_on_data(traces, player_datas));
+            if (data_is_of_one_team(selected_player_datas)){
+                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
             }
 
             const annotations = [
@@ -645,13 +663,15 @@
                     autorange: 'reversed',
                 },
                 annotations: annotations,
-                dragmode: "pan",
+                // dragmode: "pan",
                 showlegend: false,
             }
             window.netto_improvement_plot = Plotly.newPlot('netto_improvement_plot', traces, layout, {scrollZoom: true});
         }
 
-        function make_usage_plot(player_datas) {
+        function make_usage_plot(selected_player_datas) {
+            const selected_relguids = new Set(selected_player_datas.map(p => p.relguid));
+
             const trace_for_player = (player) => ({
                 x: [player.plus_per_minute],
                 y: [player.points_per_40 / 40],
@@ -659,14 +679,14 @@
                 text: hover_text_for_player(player, [(player.points_per_40 / 40 / player.plus_per_minute * 100).toFixed(1) + '%']),
                 marker: {
                     symbol: ["none", 'circle'],
-                    size: [5 * Math.sqrt(player.minutes_per_game)],
-                    size: [player.minutes_per_game],
+                    size: marker_size_for_player(player),
                     color: team_guid_to_colour[player.team_relguid],
+                    opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
                 },
                 line: {
                     width: player.minutes ? 1 : 0,
                 },
-                hoverinfo: 'text',
+                hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
             const player_dots = player_datas.map(trace_for_player);
 
@@ -682,7 +702,6 @@
                     y: [0, Math.min(max_y, max_x * pct / 100)],
                     text: ['', pct < 50 || pct % 20 === 0 ? `${pct}%` : ''],
                     textposition: 'top',
-                    // z: 1000000,
                     mode: 'lines+text',
                     line: {
                         color: 'lightgrey',
@@ -699,8 +718,8 @@
 
             const traces = [...diagonals, ...player_dots,];
 
-            if (data_is_of_one_team(player_datas)){
-                traces.push(...numbers_traces_on_data(player_dots, player_datas));
+            if (data_is_of_one_team(selected_player_datas)){
+                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
             }
 
             const layout = {
@@ -727,7 +746,7 @@
                     ay: -30,
                     bgcolor: 'white',
                 }],
-                dragmode: "pan",
+                // dragmode: "pan",
                 showlegend: false,
             }
             window.netto_improvement_plot = Plotly.newPlot('usage_plot', traces, layout, {scrollZoom: true});
@@ -742,10 +761,11 @@
             return true;
         }
 
-        function numbers_traces_on_data(player_traces, player_datas) {
-            return player_datas.map((player, i) => ({
-                x: player_traces[i].x,
-                y: player_traces[i].y,
+        function numbers_traces_on_data(selected_player_datas, trace_function) {
+            const selected_player_traces = selected_player_datas.map(trace_function);
+            return selected_player_datas.map((player, i) => ({
+                x: selected_player_traces[i].x,
+                y: selected_player_traces[i].y,
                 mode: 'text',
                 text: player.Nr,
                 hoverinfo: 'none',
@@ -756,7 +776,8 @@
             }));
         }
 
-        function make_offense_defense_difference_plot(player_datas) {
+        function make_offense_defense_difference_plot(selected_player_datas) {
+            const selected_relguids = new Set(selected_player_datas.map(p => p.relguid));
             const trace_for_player = (player) => ({
                 x: [player.offensive_improvement],
                 y: [player.defensive_improvement],
@@ -764,19 +785,19 @@
                 text: hover_text_for_player(player),
                 marker: {
                     symbol: ["none", 'circle'],
-                    size: [5 * Math.sqrt(player.minutes_per_game)],
-                    size: [player.minutes_per_game],
+                    size: marker_size_for_player(player),
                     color: team_guid_to_colour[player.team_relguid],
+                    opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
                 },
                 line: {
                     width: player.minutes ? 1 : 0,
                 },
-                hoverinfo: 'text',
+                hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
             const traces = player_datas.map(trace_for_player);
 
-            if (data_is_of_one_team(player_datas)){
-                traces.push(...numbers_traces_on_data(traces, player_datas));
+            if (data_is_of_one_team(selected_player_datas)){
+                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
             }
             
             const annotations = [
@@ -829,35 +850,36 @@
                     // autorange: 'reversed',
                 },
                 annotations: annotations,
-                dragmode: "pan",
+                // dragmode: "pan",
                 showlegend: false,
             }
             window.netto_improvement_plot = Plotly.newPlot('offense_defense_difference_plot', traces, layout, {scrollZoom: true});
         }
 
-        function make_shooting_plot(player_datas) {
+        function make_shooting_plot(selected_player_datas) {
+            const selected_relguids = new Set(selected_player_datas.map(p => p.relguid));
+
             const trace_for_player = (player) => ({
-                x: player.minutes ? [player.points_per_game - (player.n_threes_per_game * 3) - player.n_fts_per_game] : [],
+                x: player.minutes ? [(player.points_per_game - (player.n_threes_per_game * 3) - player.n_fts_per_game) / 2] : [],
                 y: player.minutes ? [player.n_threes_per_game] : [],
                 type: 'scatter',
                 text: hover_text_for_player(player),
                 marker: {
                     symbol: ["none", 'circle'],
-                    size: [5 * Math.sqrt(player.minutes_per_game)],
-                    size: [player.minutes_per_game],
+                    size: marker_size_for_player(player),
                     color: team_guid_to_colour[player.team_relguid],
-                    // opacity: 1,
+                    opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
                 },
                 line: {
                     width: player.minutes ? 1 : 0,
                 },
-                hoverinfo: 'text',
+                hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
             
             const traces = player_datas.map(trace_for_player);
 
-            if (data_is_of_one_team(player_datas)){
-                traces.push(...numbers_traces_on_data(traces, player_datas));
+            if (data_is_of_one_team(selected_player_datas)){
+                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
             }
 
             const annotations = [
@@ -909,7 +931,7 @@
                     // type: 'log', / Keep linear: show people with 0 three-pointers
                 },
                 annotations: annotations,
-                dragmode: "pan",
+                // dragmode: "pan",
                 showlegend: false,
             }
             window.shooting_plot = Plotly.newPlot('shooting_plot', traces, layout, {scrollZoom: true});

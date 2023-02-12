@@ -8,6 +8,11 @@ body > * {
     text-align: center;
 }
 
+a {
+    text-decoration: none;
+    color: black;
+}
+
 body table {
     /*margin: 12px;*/
     border-collapse: collapse;

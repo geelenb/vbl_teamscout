@@ -86,7 +86,7 @@
 		let gebeurtenis_data = fetch_gebeurtenis_data(game_id);
 
 		if (!window.roster){
-			let roster = fetch_rosters(game_id, true);
+			let roster = fetch_rosters(game_id, false);
 	        let poule_games = fetch_poule_games(game_id.substring(0, game_id.length - 2));
 	
 			window.roster = await roster;
@@ -136,6 +136,7 @@
 		let geb_index_x = [];
 		let last_y;
 
+		const both_rosters = roster.TuDeel.concat(roster.TtDeel)
 
 		window.gebeurtenis_data.forEach((geb, i) => {
 			let team_str = geb.TofU === 'T' ? 'Home' : 'Away'
@@ -147,9 +148,10 @@
 			const x = geb.fake_minute;
 			last_y = points_trace.y[points_trace.y.length - 1]
 
-			const player = roster.TuDeel.concat(roster.TtDeel).find(player => player.RelGUID == geb.RelGUID)
+			const player = both_rosters.find(player => player.RelGUID == geb.RelGUID);
 
 			if (geb.GebType === 10) {
+				// score
 				const split = geb.Text.split(/\b/);
 				const newdiff = split[2] - split[4];
 				const text = `${team_str} score ${geb.Text}<br>${geb.RugNr} ${player.Naam}`;
@@ -160,12 +162,17 @@
 			}
 
 			if (geb.GebType === 20) {
+				// TO
 				to_trace.x.push(x);
 				to_trace.y.push(geb.TofU === 'T' ? .2 : -.2);
 				to_trace.text.push(`Time out<br>${team_str} team`);
 			}
 
 			if (geb.GebType === 30) {
+				// foul
+				if (!player) {
+					debugger;
+				}
 				fouls_trace.x.push(x);
 
 				fouls_trace.y.push(last_y + (geb.TofU === 'T' ? .2 : -.2));
@@ -184,7 +191,6 @@
 			points_trace.y.push(last_y);
 			points_trace.text.push('');
 		}
-
 
 		let layout = {
 			xaxis: {
@@ -379,7 +385,7 @@
 
 		document.title = `${game.tTNaam} - ${game.tUNaam}`
 
-		document.querySelector('h2#reeks').innerText = game.pouleNaam;
+		document.querySelector('h2#reeks').innerHTML = `<a href="poule.html?pouleGUID=${game.pouleGUID}">${game.pouleNaam}</a>`;
 
 		document.querySelector('p#date').innerHTML = [
 			Number.parseInt(game.datumString.substring(0, 2)),

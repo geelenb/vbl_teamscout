@@ -42,10 +42,11 @@ const months = ['', 'januari', 'februari', 'maart', 'april', 'mei', 'juni', 'jul
 const short_months = ['', 'jan', 'feb', 'maa', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
 
 const short_teamnames = [
-    "As", "Achel", "Alken", "Asse", "Aarschot", "Anderlecht", 
+    "As", "Achel", "Alken", "Asse", "Aarschot", "Anderlecht", "Alsemberg",
     "Bilzerse", "Black Sheep", "Bree", "Beringen", "Brasschaat", "Bertem", "Bavi", "Bulldogs", "Baclo", "Blue Tigers", "Betekom", "Bears", "Boom",
     "Cosmo", "Croonen",
     "Dilbeek", "Dino",
+    "Elite",
     "Gems", "Grimbergen",
     "Hades", "Hasselt BT", "Helchteren", "Hageland", "Haacht", "Halle",
     "Maasmechelen", "Mechelen", "Merchtem",
