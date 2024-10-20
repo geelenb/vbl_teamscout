@@ -39,6 +39,25 @@ table.stats td:nth-child(2) {
     text-align: left;
 }
 
+
+body #box_scores table {
+    display: inline;
+}
+body.pm #box_scores table.stats {
+    display: none;
+}
+body #box_scores table.pmstats {
+    display: none;
+}
+body.pm #box_scores table.pmstats {
+    display: inline;
+}
+
+table sup {
+    vertical-align: middle;
+    font-size: xx-small;
+}
+
 table#quarters tr td:first-child {
     text-align: left;
 }

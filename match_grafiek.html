@@ -18,7 +18,7 @@
     <script src="vis.js?v=3"></script>
     <script src="common.js?v=3"></script>
 
-    <link href="match_grafiek.css" rel="stylesheet" type="text/css">
+    <link href="match_grafiek.css?v=1" rel="stylesheet" type="text/css">
 </head>
 <body>
 <!-- <div id='calendar'>
@@ -34,9 +34,11 @@
 </div>
 
 
-<div id='box_scores'>
+<div id='box_scores' onclick='document.body.classList.toggle("pm")'>
     <table class='stats home booktabs w_totals'></table>
     <table class='stats away booktabs w_totals'></table>
+    <table class='pmstats home booktabs w_totals'></table>
+    <table class='pmstats away booktabs w_totals'></table>
 </div>
 
 <div>
@@ -440,7 +442,8 @@
 			console.log(game_is_finished)
 			relguid_to_in_uit = {}; // niemand in
 		}
-
+		
+		// make the normal table
 		[["home", roster.TtDeel], ["away", roster.TuDeel]].forEach(([c, teamroster]) => {
 			const table = document.querySelector('table.stats.' + c);
 			let new_innerhtml = '';
@@ -452,8 +455,6 @@
 			let sum_F = 0;
 			let sum_pm = 0;
 			let sum_min = 0;
-
-			// const row = document.createElement('tr');
 			
 			new_innerhtml += tr([
 							'', 
@@ -465,10 +466,7 @@
 							'+/-',
 							'min',
 						].map(td).join(''));
-			// table.appendChild(row)
 
-			// sort by number?
-			// console.log(teamroster.map(p => p.RugNr));
 			teamroster.sort((a, b) => a.RugNr - b.RugNr).forEach(player => {
 				if (!player.Naam) {
 					return
@@ -499,7 +497,7 @@
 				}
 
 				const on_court_class = relguid_to_in_uit[player.RelGUID] === 'in' ? 'class="on_court"' : '';
-				
+
 				new_innerhtml += tr([
 					player.RugNr,
 					`<span ${on_court_class}>${player.Naam}</span>`,
@@ -526,7 +524,6 @@
 			new_innerhtml += tr([
 				'',
 				'',
-				// '\'' + player.GebDat.substring(8, 10),
 				sum_pts,
 				sum_ft,
 				sum_3,
@@ -536,7 +533,115 @@
 			].map(td).join(''));
 
 			table.innerHTML = new_innerhtml;
-			table.style.display = 'inline';
+		});
+
+		// make the plus minus table
+
+        const on_court_plus = Object.fromEntries([...roster.TtDeel, ...roster.TuDeel].map(p => [p.RelGUID, 0]));
+        const on_court_minus = Object.fromEntries([...roster.TtDeel, ...roster.TuDeel].map(p => [p.RelGUID, 0]));
+        const players_on_field = {T: [], U: []};
+        const players_on_bench = {
+            T: roster.TtDeel.filter(player => player['Functie'] === 'S').map(player => player.RelGUID), 
+            U: roster.TuDeel.filter(player => player['Functie'] === 'S').map(player => player.RelGUID)
+        };
+
+        gebeurtenis_data.forEach(geb => {
+            if (geb.GebStatus !== 10) {
+                return;
+            }
+            const tofu = geb.TofU;
+            const opp = tofu === 'T' ? 'U' : 'T';
+
+            if (geb['GebType'] === 50) {
+                // wissel
+                if (geb['Text'] === 'in') {
+                    players_on_field[tofu].push(geb['RelGUID']);
+                    players_on_bench[tofu] = players_on_bench[tofu].filter(v => v !== geb['RelGUID']);
+                } else if (geb['Text'] === 'uit') {
+                    players_on_bench[tofu].push(geb['RelGUID']);
+                    players_on_field[tofu] = players_on_field[tofu].filter(v => v !== geb['RelGUID']);
+                }
+            } else if (geb['GebType'] === 10) {
+                // score
+                const score = Number(geb['Text'].split(' ')[0]);
+                players_on_field[tofu].forEach(relguid => on_court_plus[relguid] += score);
+                players_on_field[opp].forEach(relguid => on_court_minus[relguid] += score);
+            }
+        });
+
+		[["home", roster.TtDeel], ["away", roster.TuDeel]].forEach(([c, teamroster]) => {
+			const table = document.querySelector('table.pmstats.' + c);
+			let new_innerhtml = '';
+			// table.innerHTML = '';
+
+			let sum_plus = 0;
+			let sum_minus = 0;
+			let sum_plus_minus = 0;
+			let sum_minutes = 0;
+			let sum_plus_per_min = 0;
+			let sum_minus_per_min = 0;
+			let sum_plus_minus_per_min = 0;
+			
+			new_innerhtml += tr([
+							'', 
+							'+', 
+							'-',
+							'+-',
+							'min',
+							'+/min',
+							'-/min',
+							'+-/min',
+						].map(td).join(''));
+
+			teamroster.sort((a, b) => a.RugNr - b.RugNr).forEach(player => {
+				if (!player.Naam) {
+					return
+				}
+				if (player["Functie"] !== "S") {
+					return
+				}
+
+				const plus = on_court_plus[player.RelGUID];
+				const minus = on_court_minus[player.RelGUID];
+				const plus_minus = plus - minus;
+				const minutes = minutes_for_player(gebeurtenis_data,  player.RelGUID);
+				const plus_per_min = plus / minutes;
+				const minus_per_min = minus / minutes;
+				const plus_minus_per_min = plus_minus / minutes;
+
+				sum_plus += plus || 0;
+				sum_minus += minus || 0;
+				sum_plus_minus += plus_minus || 0;
+				sum_minutes += minutes || 0;
+				sum_plus_per_min += plus_per_min || 0;
+				sum_minus_per_min += minus_per_min || 0;
+				sum_plus_minus_per_min += plus_minus_per_min || 0;
+
+				new_innerhtml += tr([
+					player.RugNr,
+					plus,
+					minus,
+					plus_minus,
+					minutes.toFixed(1),
+					(plus_per_min || plus_per_min === 0.0) ? plus_per_min.toFixed(2) : '',
+					(minus_per_min || minus_per_min === 0.0) ? minus_per_min.toFixed(2) : '',
+					(plus_minus_per_min || plus_minus_per_min === 0.0) ? plus_minus_per_min.toFixed(2) : '',
+				].map(td).join(''));
+			});
+
+			const n_players = teamroster.filter(p => (p.Naam) && (p.Functie === "S")).length;
+			new_innerhtml += tr([
+				'Avg',
+				(sum_plus / n_players).toFixed(1),
+				(sum_minus / n_players).toFixed(1),
+				(sum_plus_minus / n_players).toFixed(1),
+				(sum_minutes / n_players).toFixed(1),
+				(sum_plus_per_min / n_players).toFixed(2),
+				(sum_minus_per_min / n_players).toFixed(2),
+				(sum_plus_minus_per_min / n_players).toFixed(2),
+			].map(td).join(''));
+
+			table.innerHTML = new_innerhtml;
 		});
 	}
 
@@ -696,7 +801,6 @@
 
 				...games.map(game_to_option)
 			].join('');
-        	// debugger;
 		}
 
 		const selects = document.querySelectorAll('div#calendar > select');

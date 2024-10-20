@@ -19,13 +19,18 @@ const get_relevant_part_from_game_data = (game_data, home) => home ? game_data['
 
 
 const sum = (a, b) => a + b;
+const average = l => l.reduce(sum, 0) / Math.max(l.length, 1);
 
-
+// usage: 
+// [4, 2].reduce(cumsum, []) // yields [4, 6]
+// [4, 2].reduce(cumsum, [0]) // yields [0, 4, 6]
+const cumsum = (acc, x) => [...acc, (acc.at(-1) || 0) + x];
+// const cumsum = (acc, x) => (acc.push((acc.at(-1) || 0) + x), acc);
 
 const _absolute_annotation = {
     xref: 'paper',
     yref: 'paper',
-    showarrow: false,                
+    showarrow: false,
 };
 
 const _left_annotation = {

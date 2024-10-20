@@ -295,7 +295,7 @@
 
             const competitions_p = competitions_arr
                 .map(([pouleGUID, pouleNaam]) => `<p><a href="poule.html?pouleGUID=${pouleGUID}">${pouleNaam}</a></p>`)
-                .join('<br>');
+                .join('');
 
             document.title = data.team_name;
 

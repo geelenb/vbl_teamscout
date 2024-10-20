@@ -114,8 +114,11 @@ function table_from_list_of_objs(objs) {
     return table.join('')
 }
 
+
+const game_is_home_win = g => g.uitslag.substring(0, 3) - g.uitslag.substring(4, 7) > 0;
+
 const n_home_wins_in_games = (games) => {
-    return games.filter(pg =>pg.uitslag.substring(0, 3) - pg.uitslag.substring(4, 7) > 0).length
+    return games.filter(game_is_home_win).length
 }
 
 
@@ -130,3 +133,6 @@ async function colours_for_team(team_id) {
         team.shirtReserve || '#000000'
     ]
 }
+
+const sign = x => x === 0.0 ? '' : x > 0 ? '+' : '-';
+const plus_sign = x => x >= 0 ? '+' : '';
