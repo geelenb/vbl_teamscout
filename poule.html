@@ -76,10 +76,14 @@
 </head>
 <body>
     <h1 id="js">Javascript staat uit!</h1>
-    <h1 id="loading_msg">Laden...</h1>
-    <p><a id="poule_players_link">Spelers in deze reeks</a></p>
+    <h1 id="loading_msg">Poule laden...</h1>
+    <p>
+        <a id="poule_teams_link">Ploegen in deze reeks</a>
+        <a id="poule_players_link">Spelers in deze reeks</a>
+    </p>
     <script type="text/javascript">
-        document.getElementById('poule_players_link').href = 'players.html' + window.location.search
+        document.getElementById('poule_teams_link').href = 'poule_teams.html' + window.location.search;
+        document.getElementById('poule_players_link').href = 'players.html' + window.location.search;
     </script>
 
     <table id="crosstable"></table>

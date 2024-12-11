@@ -47,10 +47,14 @@
 </head>
 <body>
     <h1 id="js">Javascript staat uit!</h1>
-    <h1 id="loading_msg">Laden...</h1>
-    <p><a id="poule_players_link">Spelers in deze reeks</a></p>
+    <h1 id="loading_msg">Teams laden...</h1>
+    <p>
+        <a id="poule_link">Reeksoverzicht</a>
+        <a id="poule_players_link">Spelers in deze reeks</a>
+    </p>
     <script type="text/javascript">
-        document.getElementById('poule_players_link').href = 'players.html' + window.location.search
+        document.getElementById('poule_link').href = 'poule.html' + window.location.search;
+        document.getElementById('poule_players_link').href = 'players.html' + window.location.search;
     </script>
 
     <table id="crosstable"></table>
@@ -477,9 +481,9 @@
                     average(team.away_played_games.map(g => Number.parseInt(g.uitslag.substr(4, 3)))), 
                 ],
                 y: [
-                    average(team.away_played_games.map(g => Number.parseInt(g.uitslag.substr(0, 3)))),
-                    team.average_score_against,
                     average(team.home_played_games.map(g => Number.parseInt(g.uitslag.substr(4, 3)))),
+                    team.average_score_against,
+                    average(team.away_played_games.map(g => Number.parseInt(g.uitslag.substr(0, 3)))),
                 ],
                 type: 'scatter',
                 marker: {
@@ -542,10 +546,10 @@
             layout = {
                 title: 'Average scores',
                 xaxis: {
-                    title: "average score for",
+                    title: "Average score for",
                 },
                 yaxis: {
-                    title: "average score against",
+                    title: "Average score against",
                     scaleanchor: "x", 
                     autorange: 'reversed',
                 },
@@ -666,7 +670,7 @@
                 gdi.GebNis = add_detailed_minute_to_gebnis(gdi.GebNis);
             });
             
-            document.querySelector('h1').innerText = all_games[0]['pouleNaam'];
+            document.querySelector('h1').innerText = 'Teams in ' + all_games[0]['pouleNaam'];
 
             window.teams_data = make_team_data(all_games);
             make_team_table(teams_data);
