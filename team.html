@@ -278,15 +278,16 @@
 			if (data.next_game) {
                 const next_opponent_id_plus = data.next_opponent_id_plus.replace(/\+/g, ' ');
                 next_game_p = `<p>
-                    Volgende tegenstander: 
+                    Volgende tegenstander:<br>
                     <a href="team.html?team=${next_opponent_id_plus}">${data.next_opponent_name}</a>
                     (<a href="match_grafiek.html?game_id=${data.next_game.guid}">wedstrijdpagina</a>)
                 </p>`;
             }
 
             let competitions_arr = data.games
-                .filter(g => !g.pouleNaam.includes(" OEFEN"))
-                .filter(g => !g.pouleNaam.toLowerCase().includes("beker"))
+                .filter(g => !g.pouleNaam.includes(" OEFEN")) // remove practice games
+                // .filter(g => !g.pouleNaam.toLowerCase().includes("beker")) // remove cup leagues
+                .sort((a, b) => a.pouleNaam.toLowerCase().includes("beker") - b.pouleNaam.toLowerCase().includes("beker")) // put cups at the bottom
                 .map(g => [g.pouleGUID, g.pouleNaam]);
 
             // remove duplicates
@@ -297,9 +298,13 @@
                 .map(
                     ([pouleGUID, pouleNaam]) => `
                         <p>
-                            <a href="poule.html?pouleGUID=${pouleGUID}">${pouleNaam}</a>
-                            (<a href="poule_teams.html?pouleGUID=${pouleGUID}">Teams</a> -
-                            <a href="players.html?pouleGUID=${pouleGUID}&search=${data.team_id_plus}">Spelers</a>)
+                            ${pouleNaam}
+
+                            <br>
+                            (<a href="poule.html?pouleGUID=${pouleGUID}">Reeks</a> &horbar;
+                            <a href="poule_teams.html?pouleGUID=${pouleGUID}">Teams</a> &horbar;
+                            <a href="players.html?pouleGUID=${pouleGUID}">Spelers</a> &horbar;
+                            <a href="players.html?pouleGUID=${pouleGUID}&search=${data.team_id_plus}">Spelers van ${shorten_teamname(data.team_name)}</a>)
                         </p>`
                 )
                 .join('');

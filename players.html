@@ -900,7 +900,7 @@
             connect_table_search_to_plots();
 
             const search_param = new URLSearchParams(window.location.search).get('search');
-            if (search_param !== undefined) {
+            if (search_param) {
                 window.player_table.search(search_param).draw();
             }
 
