@@ -17,7 +17,6 @@
     <script src="itertools.js?v=5"></script>
     <script src="common.js?v=5"></script>
 
-
     <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"></script>
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.css">
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"></script>
@@ -26,7 +25,7 @@
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/fixedheader/3.3.1/css/fixedHeader.dataTables.min.css">
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/fixedheader/3.3.1/js/dataTables.fixedHeader.min.js"></script>
 
-    <style type="text/css">
+    <style>
         body {
         }
         .colhead, .rowhead {
@@ -56,9 +55,6 @@
             width: 100%;
             display: block;
         }
-        .js-plotly-plot {
-            margin-top: 5vmin;
-        }
         g.textpoint text {
             stroke: black;
             font-weight: bold;
@@ -75,9 +71,6 @@
         .figure {
             height: 98vmin;
             width: 98vmin;
-        }
-        .recent_or_soon {
-            text-decoration: underline;
         }
     </style>
 </head>
@@ -96,9 +89,6 @@
     <div class="figure" id="wl_plot"></div>
     <div class="figure" id="percentage_plot" style="display: none"></div> <!-- pretty nor useful -->
     <div class="figure" id="games_above_500_plot"></div>
-    <div class="figure" id="avg_score_plot"></div>
-    <div class="figure" id="shooting_plot"></div>
-    <div class="figure" id="free_throws_plot"></div>
     <div class="figure" id="all_games_plot"></div> <!-- home team score / away team score -->
 
     <script type="text/javascript">
@@ -705,234 +695,6 @@
 
             window.wl_plot = Plotly.newPlot('wl_plot', traces, layout, {scrollZoom: true});
         }
-        
-        function make_shooting_plot() {
-            // 3pg / 2pg
-            const trace_for_team = (team) => ({
-                x: [(team.average_score_for - 3 * team.avg_three_pointers - team.avg_free_throws_made) / 2],
-                y: [team.avg_three_pointers],
-                type: 'scatter',
-                marker: {
-                    symbol: ['circle'],
-                    size: marker_size_for_team(team),
-                    color: team_guid_to_colour[team.team_guid],
-                    // opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
-                },
-                hoverinfo: "text",
-                text: hover_text_for_team(team),
-            });
-
-            const traces = teams_data.map(trace_for_team);
-            traces.push(...short_teamnames_on_data(trace_for_team));
-            const annotations = [
-                {
-                    ..._left_annotation,
-                    ..._top_annotation,
-                    text: 'Only score three-pointers',
-                }, {
-                    ..._hmid_annotation,
-                    ..._top_annotation,
-                    text: 'Score many three-pointers',
-                }, {
-                    ..._right_annotation,
-                    ..._top_annotation,
-                    text: 'Score many field goals',
-                }, {
-                    ..._left_annotation,
-                    ..._vmid_annotation,
-                    textangle: -90,
-                    text: 'Score few two-pointers',
-                }, {
-                    ..._right_annotation,
-                    ..._vmid_annotation,
-                    textangle: -90,
-                    text: 'Score many two-pointers',
-                }, {
-                    ..._left_annotation,
-                    ..._bottom_annotation,
-                    text: 'Score few field goals',
-                }, {
-                    ..._hmid_annotation,
-                    ..._bottom_annotation,
-                    text: 'Score few three-pointers',
-                }, {
-                    ..._right_annotation,
-                    ..._bottom_annotation,
-                    text: 'Only score two-pointers',
-                }
-            ].map(x => ({..._absolute_annotation, ...x}));
-
-            layout = {
-                title: 'Shooting teams',
-                xaxis: {
-                    title: "Two-pointers per game",
-                },
-                yaxis: {
-                    title: "Three-pointers per game",
-                },
-                annotations: annotations,
-                showlegend: false,
-            }
-            window.shooting_plot = Plotly.newPlot('shooting_plot', traces, layout, {scrollZoom: true});
-        }
-
-        function make_avg_score_plot() {
-            // home plus minus / away plus minus
-            const trace_for_team = (team) => ({
-                x: [
-                    average(team.home_played_games.map(g => Number.parseInt(g.uitslag.substr(0, 3)))), 
-                    team.average_score_for,
-                    average(team.away_played_games.map(g => Number.parseInt(g.uitslag.substr(4, 3)))), 
-                ],
-                y: [
-                    average(team.away_played_games.map(g => Number.parseInt(g.uitslag.substr(0, 3)))),
-                    team.average_score_against,
-                    average(team.home_played_games.map(g => Number.parseInt(g.uitslag.substr(4, 3)))),
-                ],
-                type: 'scatter',
-                marker: {
-                    symbol: ['none', 'circle', 'none'],
-                    size: [0, marker_size_for_team(team), 0],
-                    color: team_guid_to_colour[team.team_guid],
-                    opacity: 1,
-                },
-                line: {
-                    width: 1,
-                },
-                hoverinfo: "text",
-                text: [
-                    `${shorten_teamname_more(team.name)} at home`,
-                    hover_text_for_team(team),
-                    `${shorten_teamname_more(team.name)} away`,
-                ]
-            });
-
-            const traces = teams_data.map(trace_for_team);
-            traces.push(...short_teamnames_on_data(t => ({x: [t.average_score_for], y: [t.average_score_against]})));
-            const annotations = [
-                {
-                    ..._left_annotation,
-                    ..._top_annotation,
-                    text: '',
-                }, {
-                    ..._hmid_annotation,
-                    ..._top_annotation,
-                    text: 'Good defense',
-                }, {
-                    ..._right_annotation,
-                    ..._top_annotation,
-                    text: 'Good teams',
-                }, {
-                    ..._left_annotation,
-                    ..._vmid_annotation,
-                    textangle: -90,
-                    text: 'Bad offense',
-                }, {
-                    ..._right_annotation,
-                    ..._vmid_annotation,
-                    textangle: -90,
-                    text: 'Good offense',
-                }, {
-                    ..._left_annotation,
-                    ..._bottom_annotation,
-                    text: 'Bad team',
-                }, {
-                    ..._hmid_annotation,
-                    ..._bottom_annotation,
-                    text: 'Bad defense',
-                }, {
-                    ..._right_annotation,
-                    ..._bottom_annotation,
-                    text: '',
-                }
-            ].map(x => ({..._absolute_annotation, ...x}));
-
-            layout = {
-                title: 'Average scores',
-                xaxis: {
-                    title: "average score for",
-                },
-                yaxis: {
-                    title: "average score against",
-                    scaleanchor: "x", 
-                    autorange: 'reversed',
-                },
-                annotations: annotations,
-                showlegend: false,
-            }
-
-            window.avg_score_plot = Plotly.newPlot('avg_score_plot', traces, layout, {scrollZoom: true});
-        }
-
-        function make_free_throws_plot() {
-            const trace_for_team = (team) => ({
-                x: [team.avg_free_throws_attempted],
-                y: [100 * team.avg_free_throws_made / team.avg_free_throws_attempted],
-                type: 'scatter',
-                marker: {
-                    symbol: ['circle'],
-                    size: marker_size_for_team(team),
-                    color: team_guid_to_colour[team.team_guid],
-                    // opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
-                },
-                hoverinfo: "text",
-                text: hover_text_for_team(team),
-            });
-
-            const traces = teams_data.map(trace_for_team);
-            traces.push(...short_teamnames_on_data(trace_for_team));
-            const annotations = [
-                {
-                    ..._left_annotation,
-                    ..._top_annotation,
-                    text: '',
-                }, {
-                    ..._hmid_annotation,
-                    ..._top_annotation,
-                    text: 'High percentage',
-                }, {
-                    ..._right_annotation,
-                    ..._top_annotation,
-                    text: 'Score many',
-                }, {
-                    ..._left_annotation,
-                    ..._vmid_annotation,
-                    textangle: -90,
-                    text: 'Don\'t get to the line',
-                }, {
-                    ..._right_annotation,
-                    ..._vmid_annotation,
-                    textangle: -90,
-                    text: 'Attempt many',
-                }, {
-                    ..._left_annotation,
-                    ..._bottom_annotation,
-                    text: '',
-                }, {
-                    ..._hmid_annotation,
-                    ..._bottom_annotation,
-                    text: 'Low percentage',
-                }, {
-                    ..._right_annotation,
-                    ..._bottom_annotation,
-                    text: 'Miss many',
-                }
-            ].map(x => ({..._absolute_annotation, ...x}));
-
-            layout = {
-                title: 'Team free throws',
-                xaxis: {
-                    title: "Free throws attempted per game",
-                },
-                yaxis: {
-                    title: "Team free throw percentage",
-                },
-                annotations: annotations,
-                showlegend: false,
-            }
-
-            window.free_throws_plot = Plotly.newPlot('free_throws_plot', traces, layout, {scrollZoom: true});
-        }
 
         function make_all_games_plot() {
             const trace_for_game = (game) => ({
@@ -1013,9 +775,6 @@
             make_percentage_plot();
             make_wl_plot();
             make_games_above_500_plot();
-            make_shooting_plot();
-            make_avg_score_plot();
-            make_free_throws_plot();
             make_all_games_plot();
         }
 
@@ -1060,6 +819,8 @@
             make_team_table(teams_data);
 
             make_plots();
+
+            // TODO: make a VBL-points through time plot!
 
             document.body.classList.remove('loading');
         });

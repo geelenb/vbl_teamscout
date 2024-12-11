@@ -17,7 +17,6 @@
     <script src="itertools.js?v=5"></script>
     <script src="common.js?v=5"></script>
 
-
     <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"></script>
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.css">
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"></script>
@@ -58,13 +57,9 @@
 
     <table id="team_table" class="compact"></table>
     <br>
-    <div class="figure" id="wl_plot"></div>
-    <div class="figure" id="percentage_plot" style="display: none"></div> <!-- pretty nor useful -->
-    <div class="figure" id="games_above_500_plot"></div>
     <div class="figure" id="avg_score_plot"></div>
     <div class="figure" id="shooting_plot"></div>
     <div class="figure" id="free_throws_plot"></div>
-    <div class="figure" id="all_games_plot"></div> <!-- home team score / away team score -->
 
     <script type="text/javascript">
         function record_of_team(games, team_guid) {
@@ -403,182 +398,6 @@
             }));
         }
 
-        function make_percentage_plot() {
-            // pct / time
-            const trace_for_team = (team) => {
-                const n_wins_so_far = team.played_games_are_wins.map(x => x ? 1 : 0).reduce(cumsum, []);
-                const pct_so_far = n_wins_so_far.map((x, i) => x / (i + 1));
-
-                return {
-                    x: team.played_games.map(g => new Date(g.jsDTCode).toISOString()),
-                    y: pct_so_far, // winning percentage
-                    type: 'scatter',
-                    marker: {
-                        symbol: ['circle'],
-                        // size: marker_size_for_team(team),
-                        color: team_guid_to_colour[team.team_guid],
-                        // opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
-                    },
-                    hoverinfo: "text",
-                    text: hover_text_for_team(team),
-                    line: {shape: 'spline'},
-                }
-            };
-
-            const traces = teams_data.map(trace_for_team);
-            const annotations = [];
-
-            layout = {
-                title: 'Winning percentage through time',
-                xaxis: {
-                    title: "Time",
-                },
-                yaxis: {
-                    title: "Winning percentage",
-                },
-                showlegend: false,
-            }
-
-            window.percentage_plot = Plotly.newPlot('percentage_plot', traces, layout, {scrollZoom: true});
-        }
-
-        function make_games_above_500_plot() {
-            // pct / time
-            const traces_for_team = (team) => {
-                const n_wins_so_far = team.played_games_are_wins.map(x => x ? 1 : 0).reduce(cumsum, []);
-                const games_above_500 = n_wins_so_far.map((W, G_1) => (2 * W - G_1 - 1)); // games above 500
-                // todo: at dotted line from <next game win>  to <last game> to <next game loss>
-
-                const previous_games_trace = {
-                    x: team.played_games.map(g => new Date(g.jsDTCode).toISOString()),
-                    y: games_above_500,
-                    type: 'scatter',
-                    marker: {
-                        symbol: ['circle'],
-                        // size: marker_size_for_team(team),
-                        color: team_guid_to_colour[team.team_guid],
-                        // opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
-                    },
-                    hoverinfo: "text",
-                    text: hover_text_for_team(team),
-                    line: {shape: 'spline'},
-                    name: shorten_teamname(team.name),
-                    // mode: "line+markers+text",
-                };
-
-                // Return already; disable dotted lines of next game
-                return [previous_games_trace];
-
-
-                if (!team.next_game || !team.played_games) {
-                    return [previous_games_trace];
-                }
-
-                const last_x = previous_games_trace.x.at(-1);
-                const last_y = previous_games_trace.y.at(-1);
-                const next_game_trace = {
-                    x: [new Date(team.next_game.jsDTCode).toISOString(), last_x, new Date(team.next_game.jsDTCode).toISOString()],
-                    y: [last_y + 1, last_y, last_y - 1],
-                    type: 'scatter',
-                    marker: {
-                        symbol: ['circle', 'none', 'circle'],
-                        // size: marker_size_for_team(team),
-                        color: team_guid_to_colour[team.team_guid],
-                    },
-                    hoverinfo: ["text", 'none', "text"],
-                    text: [hover_text_for_team(team), "", hover_text_for_team(team)],
-                    line: {
-                        dash: "dash",
-                        width: .5,
-                    },
-                }
-
-                return [next_game_trace, previous_games_trace];
-            };
-
-            const traces = teams_data.flatMap(traces_for_team);
-
-            const now_line = {
-                type: 'line',
-                x: [new Date(now).toISOString(), new Date(now).toISOString()],
-                y: [0, 1],
-                yref: 'paper',
-                type: 'line',
-                marker: {symbol: 'none'},
-                hoverinfo: 'none',
-                text: 'none',
-                line: {
-                    color: 'grey',
-                    width: 1,
-                },
-            };
-
-            layout = {
-                title: 'Games above .500 through time',
-                xaxis: {
-                    title: "Time",
-                },
-                yaxis: {
-                    title: "Games above .500",
-                },
-                showlegend: true,
-                legend: {
-                    x: 0,
-                    xanchor: 'left',
-                    y: 1,
-                }
-                // shapes: [now_line], // doesn't work
-            }
-
-            window.games_above_500_plot = Plotly.newPlot('games_above_500_plot', traces, layout, {scrollZoom: true});
-        }
-        
-        function make_wl_plot() {
-            // pct / time
-            const trace_for_team = (team) => {
-                const n_wins_so_far = team.played_games_are_wins.map(x => x ? 1 : 0).reduce(cumsum, [0]);
-                const n_losses_so_far = n_wins_so_far.map((x, i) => (i - x));
-
-                return {
-                    x: [...n_losses_so_far],
-                    y: [...n_wins_so_far],
-                    type: 'scatter',
-                    marker: {
-                        symbol: ['circle'],
-                        // size: marker_size_for_team(team),
-                        color: team_guid_to_colour[team.team_guid],
-                        // opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
-                    },
-                    hoverinfo: "text",
-                    text: hover_text_for_team(team),
-                    hovertext: hover_text_for_team(team),
-                    line: {shape: 'spline'},
-                    name: shorten_teamname(team.name),
-                    // mode: "line+markers+text",
-                }
-            };
-
-            const traces = teams_data.sort((a, b) => b.pct - a.pct).map(trace_for_team);
-
-            layout = {
-                title: 'Wins and losses',
-                xaxis: {
-                    title: "Losses",
-                },
-                yaxis: {
-                    title: "Wins",
-                },
-                showlegend: true,
-                legend: {
-                    x: 1,
-                    xanchor: 'right',
-                    y: 1,
-                }
-            }
-
-            window.wl_plot = Plotly.newPlot('wl_plot', traces, layout, {scrollZoom: true});
-        }
-        
         function make_shooting_plot() {
             // 3pg / 2pg
             const trace_for_team = (team) => ({
@@ -807,89 +626,10 @@
             window.free_throws_plot = Plotly.newPlot('free_throws_plot', traces, layout, {scrollZoom: true});
         }
 
-        function make_all_games_plot() {
-            const trace_for_game = (game) => ({
-                x: [Number.parseInt(game.uitslag.substr(0, 3))],
-                y: [Number.parseInt(game.uitslag.substr(4, 3))],
-                type: 'scatter',
-                marker: {
-                    symbol: ['circle'],
-                    // size: 30,
-                    color: "black", // team_guid_to_colour[team.team_guid],
-                    // opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
-                },
-                hoverinfo: "text",
-                text: [
-                    shorten_teamname(game.tTNaam),
-                    game.uitslag.substr(0, 3),
-                    '-',
-                    game.uitslag.substr(4, 3),
-                    shorten_teamname(game.tUNaam),
-                ].join(' '),
-            });
-
-            const traces = played_games.map(trace_for_game);
-            const annotations = [
-                {
-                    ..._left_annotation,
-                    ..._top_annotation,
-                    text: 'Big away wins',
-                }, {
-                    ..._hmid_annotation,
-                    ..._top_annotation,
-                    text: 'Away score big',
-                }, {
-                    ..._right_annotation,
-                    ..._top_annotation,
-                    text: 'High-scoring games',
-                }, {
-                    ..._left_annotation,
-                    ..._vmid_annotation,
-                    textangle: -90,
-                    text: 'Home score little',
-                }, {
-                    ..._right_annotation,
-                    ..._vmid_annotation,
-                    textangle: -90,
-                    text: 'Home score big',
-                }, {
-                    ..._left_annotation,
-                    ..._bottom_annotation,
-                    text: 'Low-scoring games',
-                }, {
-                    ..._hmid_annotation,
-                    ..._bottom_annotation,
-                    text: 'Away score little',
-                }, {
-                    ..._right_annotation,
-                    ..._bottom_annotation,
-                    text: 'Big home wins',
-                }
-            ].map(x => ({..._absolute_annotation, ...x}));
-
-            layout = {
-                title: 'All games',
-                xaxis: {
-                    title: "Home score",
-                },
-                yaxis: {
-                    title: "Away score",
-                },
-                annotations: annotations,
-                showlegend: false,
-            }
-
-            window.all_games_plot = Plotly.newPlot('all_games_plot', traces, layout, {scrollZoom: true});
-        }
-
         function make_plots() {
-            make_percentage_plot();
-            make_wl_plot();
-            make_games_above_500_plot();
             make_shooting_plot();
             make_avg_score_plot();
             make_free_throws_plot();
-            make_all_games_plot();
         }
 
         addEventListener('load', async () => {
