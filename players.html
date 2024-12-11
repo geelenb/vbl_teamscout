@@ -43,6 +43,10 @@
             height: 98vmin;
             width: 98vmin;
         }
+        .teamid {
+            font-size: small;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -191,6 +195,7 @@
                     "Improvement in offense per 40' (on-off)",
                     "Improvement in defense per 40' (on-off)",
                     "Improvement in +/- per 40' (on-off)",
+                    "Team ID",
                 ].map(s => `<th>${s}</th>`).join('');
 
                 return `<thead><tr>${cells}</tr></thead>`;
@@ -346,6 +351,7 @@
                     td(data.offensive_improvement.toFixed(2), 'right'),
                     td(data.defensive_improvement.toFixed(2), 'right'),
                     td(data.netto_improvement.toFixed(2), 'right'),
+                    td(encodeURIComponent(data.team_relguid), 'teamid'),
                ];
 
                 const joined_string = [
@@ -892,6 +898,11 @@
             make_plots(player_datas);
 
             connect_table_search_to_plots();
+
+            const search_param = new URLSearchParams(window.location.search).get('search');
+            if (search_param !== undefined) {
+                window.player_table.search(search_param).draw();
+            }
 
             document.body.classList.remove('loading');
         });
