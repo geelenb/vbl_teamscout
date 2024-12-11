@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv='cache-control' content='no-cache'>
+    <meta http-equiv='expires' content='0'>
+    <meta http-equiv='pragma' content='no-cache'>
+
+    <title>Overzicht reeks</title>
+
+    <script src="libs/dexie.js"></script>
+    <script src="libs/plotly-2.9.0.min.js"></script>
+    
+    <script src="fetching.js?v=5"></script>
+    <script src="vis.js?v=5"></script>
+    <script src="gebeurtenis_data.js?v=5"></script>
+    <script src="itertools.js?v=5"></script>
+    <script src="common.js?v=5"></script>
+
+
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.css">
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/fixedcolumns/4.2.1/css/fixedColumns.dataTables.min.css">
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/fixedcolumns/4.2.1/js/dataTables.fixedColumns.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/fixedheader/3.3.1/css/fixedHeader.dataTables.min.css">
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/fixedheader/3.3.1/js/dataTables.fixedHeader.min.js"></script>
+
+    <style>
+        g.textpoint text {
+            stroke: black;
+            font-weight: bold;
+        }
+        body.loading #js {
+            display: none;
+        }
+        body > #loading_msg {
+            display: none;
+        }
+        body.loading > #loading_msg {
+            display: initial;
+        }
+        .figure {
+            height: 98vmin;
+            width: 98vmin;
+        }
+    </style>
+</head>
+<body>
+    <h1 id="js">Javascript staat uit!</h1>
+    <h1 id="loading_msg">Laden...</h1>
+    <p><a id="poule_players_link">Spelers in deze reeks</a></p>
+    <script type="text/javascript">
+        document.getElementById('poule_players_link').href = 'players.html' + window.location.search
+    </script>
+
+    <table id="crosstable"></table>
+
+    <table id="team_table" class="compact"></table>
+    <br>
+    <div class="figure" id="wl_plot"></div>
+    <div class="figure" id="percentage_plot" style="display: none"></div> <!-- pretty nor useful -->
+    <div class="figure" id="games_above_500_plot"></div>
+    <div class="figure" id="avg_score_plot"></div>
+    <div class="figure" id="shooting_plot"></div>
+    <div class="figure" id="free_throws_plot"></div>
+    <div class="figure" id="all_games_plot"></div> <!-- home team score / away team score -->
+
+    <script type="text/javascript">
+        function record_of_team(games, team_guid) {
+            const played_games = games.filter(g => g['uitslag']);
+            const home_games = played_games.filter(g=> g.tTGUID === team_guid);
+            const away_games = played_games.filter(g=> g.tUGUID === team_guid);
+
+            const home_wins = n_home_wins_in_games(home_games);
+            const home_losses = home_games.length - home_wins;
+            const away_losses = n_home_wins_in_games(away_games);
+            const away_wins = away_games.length - away_losses;
+
+            return [home_wins + away_wins, home_losses + away_losses];
+        }
+
+        function percentage_of_team(games, team_guid) {
+            let [W, L] = record_of_team(games, team_guid);
+            if (W === 0) {
+                return 0.0;
+            }
+            return W / (W + L);
+        }
+
+        function td(contents, classes) {
+            return `<td class="${classes}">${contents}</td>`
+        }
+
+        const a = (href, contents) => `<a href='${href}'>${contents}</a>`;
+
+        function make_team_data(games) {
+            const all_team_guids = [...new Set(games.map(g => g.tTGUID))];
+            const team_guid_to_name = Object.fromEntries(games.map(g => [g.tTGUID, g.tTNaam]));
+
+            return all_team_guids.map(team_guid => {
+                const team_games = games.filter(g => g.tTGUID === team_guid || g.tUGUID === team_guid);
+                const [W, L] = record_of_team(team_games, team_guid);
+                const team_played_games = team_games.filter(g => g.uitslag).sort((a, b) => a.jsDTCode - b.jsDTCode);
+                const next_game = team_games.filter(g => (!g.uitslag) && (g.jsDTCode > now)).sort((a, b) => a.jsDTCode - b.jsDTCode)[0];
+
+                const played_games_rosters = rosters.flatMap((r, i) => 
+                    played_games[i].tTGUID === team_guid ? [r.TtDeel] : [] + 
+                    played_games[i].tUGUID === team_guid ? [r.TuDeel] : []
+                ).map(r => r.filter(p => p.Functie === 'S'));
+                
+                const team_played_games_are_wins = team_played_games.map(g => (g.tTGUID === team_guid) === game_is_home_win(g));
+                const played_games_are_home = team_played_games.map(g => is_home_game_for_team(g, team_guid));
+
+                const home_played_games = team_played_games.filter(g => is_home_game_for_team(g, team_guid));
+                const away_played_games = team_played_games.filter(g =>!is_home_game_for_team(g, team_guid));
+
+                const score_for_team_in_game = (guid, g) => Number(g.tTGUID === guid ? g.uitslag.substring(0, 3) : g.uitslag.substring(4, 7));
+                const score_against_team_in_game = (guid, g) => Number(g.tUGUID === guid ? g.uitslag.substring(0, 3) : g.uitslag.substring(4, 7));
+
+                const scores_for = team_played_games.map(g => score_for_team_in_game(team_guid, g));
+                const scores_against = team_played_games.map(g => score_against_team_in_game(team_guid, g));
+
+                const sum_score_for  = scores_for.reduce(sum, 0);
+                const sum_score_against = scores_against.reduce(sum, 0);
+
+                const plus_minus = sum_score_for - sum_score_against;
+
+                const all_gebdats = (
+                    played_games_rosters
+                    .flat()
+                    .map(p => p.GebDat)
+                    .map(s => `${s.substr(6, 4)}-${s.substr(3, 2)}-${s.substr(0, 2)}`)
+                    .map(s => new Date(s))
+                );
+                const all_ages_in_years = all_gebdats.map(gd => (now - gd) / (1000 * 60 * 60 * 24 * 356.2425));
+
+                const avg_number_of_players = played_games_rosters.flat().length / team_played_games.length;
+
+                const n_forfaits = (
+                    home_played_games.filter(g => g.uitslag === '  0- 20  BFOR').length +
+                    away_played_games.filter(g => g.uitslag === ' 20-  0  BFOR').length
+                );
+                const vbl_points = W * 3 + L * 1 - n_forfaits * 1;
+
+                const player_relguids_of_team = new Set(played_games_rosters.flat().map(p=>p.RelGUID));
+                // const gebs_by_team = gebeurtenis_data.flatMap((d, i) => 
+                //     (played_games[i].tTGUID !== team_guid && played_games[i].tUGUID !== team_guid) ? [] :
+                //     d.GebNis
+                //     .filter(geb => geb.GebStatus === 10)
+                //     .filter(geb => geb.TofU === (is_home_game_for_team(played_games[i], team_guid) ? "T" : "U"))
+                //     // .filter(g => g.RelGUID.)
+                // );
+                const gebs_by_team = gebeurtenis_data.flatMap((d, i) => 
+                    played_games[i].tTGUID === team_guid ? d.GebNis.filter(geb => geb.TofU === 'T') : 
+                    played_games[i].tUGUID === team_guid ? d.GebNis.filter(geb => geb.TofU === 'U') : 
+                    []
+                ).filter(geb => geb.GebStatus === 10);
+                // const geb_player_relguids_of_team = new Set(gebs_by_team.map(p=>p.RelGUID)); // used for checking the above
+                const team_scores = gebs_by_team.filter(geb => geb.GebType === 10);
+                const team_fouls = gebs_by_team.filter(geb => geb.GebType === 30);
+
+                const n_fouls = team_fouls.length;
+                const avg_fouls = n_fouls / team_played_games.length;
+                const n_non_personal_fouls = team_fouls.filter(geb => geb.Text[0] !== "P").length;
+                const avg_non_personal_fouls = n_non_personal_fouls / team_played_games.length;
+
+                const gebs_by_opponents = gebeurtenis_data.flatMap((d, i) => 
+                    played_games[i].tTGUID === team_guid ? d.GebNis.filter(geb => geb.TofU === 'U') : 
+                    played_games[i].tUGUID === team_guid ? d.GebNis.filter(geb => geb.TofU === 'T') : 
+                    []
+                ).filter(geb => geb.GebStatus === 10);
+                const opponent_fouls = gebs_by_opponents.filter(geb => geb.GebType === 30);
+                
+                const free_throws_made = team_scores.filter(geb => geb.Text[0] === '1').length;
+                const free_throws_attempted = opponent_fouls.map(geb => Number.parseInt(geb.Text[1]) || 0).reduce(sum, 0);
+                const avg_free_throws_made = free_throws_made / Math.max(team_played_games.length, 1);
+                const avg_free_throws_attempted = free_throws_attempted / Math.max(team_played_games.length, 1);
+                const free_throws_pct = 100 * free_throws_made / Math.max(free_throws_attempted, 1);
+                
+                const three_pointers = team_scores.filter(geb => geb.Text[0] === '3').length;
+                const avg_three_pointers = three_pointers / Math.max(team_played_games.length, 1);
+
+
+                // p/m avg per quarter
+
+                // biggest win 
+                // smallest win 
+                // smallest loss 
+                // biggest loss 
+
+                // home/away record 
+                // home/away pct 
+
+                return {
+                    team_guid: team_guid,
+                    name: team_guid_to_name[team_guid],
+                    team_games: team_games,
+                    n_games: team_games.length,
+                    W: W,
+                    L: L,
+                    n_forfaits: n_forfaits,
+                    vbl: vbl_points,
+                    pct: percentage_of_team(team_played_games, team_guid),
+                    played_games: team_played_games,
+                    next_game: next_game,
+                    played_games_are_wins: team_played_games_are_wins,
+                    played_games_are_home: played_games_are_home,
+                    home_played_games: home_played_games,
+                    away_played_games: away_played_games,
+                    scores_for: scores_for,
+                    scores_against: scores_against,
+                    sum_score_for: sum_score_for,
+                    sum_score_against: sum_score_against,
+                    plus_minus: plus_minus,
+                    plus_minus_pg: plus_minus / team_games.length,
+                    average_score_for: average(scores_for),
+                    average_score_against: average(scores_against),
+
+                    min_score_for: scores_for ? Math.min(...scores_for) : 0,
+                    min_score_against: scores_against ? Math.min(...scores_against) : 0,
+                    max_score_for: scores_for ? Math.max(...scores_for) : 0,
+                    max_score_against: scores_against ? Math.max(...scores_against) : 0,
+
+                    n_fouls: n_fouls,
+                    avg_fouls: avg_fouls,
+                    n_non_personal_fouls: n_non_personal_fouls,
+                    avg_non_personal_fouls: avg_non_personal_fouls,
+
+                    free_throws_made: free_throws_made,
+                    free_throws_attempted: free_throws_attempted,
+                    avg_free_throws_made: avg_free_throws_made,
+                    avg_free_throws_attempted: avg_free_throws_attempted,
+                    free_throws_pct: free_throws_pct,
+
+                    three_pointers: three_pointers,
+                    avg_three_pointers: avg_three_pointers,
+
+                    average_age: average(all_ages_in_years),
+                    min_age: all_ages_in_years ? Math.min(...all_ages_in_years) : 0,
+                    max_age: all_ages_in_years ? Math.max(...all_ages_in_years) : 0,
+                    avg_number_of_players: avg_number_of_players,
+                };
+            });
+        }
+
+        function make_team_table(teams_data) {
+            // sort by percentage: 
+            // const all_team_guids = [...new Set(games.map(g => g.tTGUID))];
+            // const all_team_guids_sorted = all_team_guids.sort((a, b) => percentage_of_team(games, b) - percentage_of_team(games, a));
+            
+            // const team_guid_to_i = Object.fromEntries(all_team_guids_sorted.map((guid, i) => [guid, i]));
+            // 
+
+            const table_innerhtml = [];
+
+            table_innerhtml.push(
+                "<thead>",
+                "<tr>",
+                '<th>Name</th>',
+                '<th>P</th>',
+                '<th>W</th>',
+                '<th>L</th>',
+                "<th>Pct</th>",
+                '<th>FOR</th>',
+                "<th>VBL</th>",
+                "<th>Streak</th>",
+                "<th>For</th>",
+                "<th>Against</th>",
+                "<th>Plus minus</th>",
+                "<th>Plus minus pg</th>",
+                "<th>Avg for</th>",
+                "<th>Avg against</th>",
+                "<th>Min for</th>",
+                "<th>Min against</th>",
+                "<th>Max for</th>",
+                "<th>Max against</th>",
+
+                "<th>Fouls</th>",
+                "<th>Fouls pg</th>",
+                "<th>Non-personal fouls</th>",
+                "<th>Non-personals pg</th>",
+
+                "<th>FTM</th>",
+                "<th>FTA</th>",
+                "<th>FT%</th>",
+                "<th>FTApg</th>",
+
+                "<th>3PT</th>",
+                "<th>3PTpg</th>",
+
+                "<th>Average age</th>",
+                "<th>Min age</th>",
+                "<th>Max age</th>",
+                "<th>Avg # players</th>",
+                "</tr>",
+                "</thead>",
+                "<tbody>",
+            );
+
+            [...teams_data].sort((a, b) => b.pct - a.pct).forEach(team => {
+                let streak_string = '';
+                if (team.played_games) {
+                    const last_result_is_win = team.played_games_are_wins.at(-1);
+                    let streak_length = [...team.played_games_are_wins].reverse().findIndex(b => b != last_result_is_win);
+                    if (streak_length === -1) {
+                        streak_length = team.played_games.length;
+                    }
+                    streak_string = streak_length + (last_result_is_win ? 'W' : 'L');
+                }
+
+
+                // Rij maken
+                table_innerhtml.push(
+                    "<tr>",
+                    td(a(`team.html?team=${team.team_guid}`, shorten_teamname(team.name).replaceAll(' ', '&nbsp;'))),
+                    td(team.W + team.L, 'right'),
+                    td(team.W, 'right'),
+                    td(team.L, 'right'),
+                    td(team.pct.toFixed(3), 'right'),
+                    td(team.n_forfaits, 'right'),
+                    td(team.vbl, 'right'),
+                    td(streak_string, 'center'),
+                    td(team.sum_score_for, 'right'),
+                    td(team.sum_score_against, 'right'),
+                    td(team.plus_minus, 'right'),
+                    td(team.plus_minus_pg.toFixed(2), 'right'),
+                    td(team.average_score_for.toFixed(1), 'right'),
+                    td(team.average_score_against.toFixed(1), 'right'),
+                    td(team.min_score_for, 'right'),
+                    td(team.min_score_against, 'right'),
+                    td(team.max_score_for, 'right'),
+                    td(team.max_score_against, 'right'),
+
+                    td(team.n_fouls, "right"),
+                    td(team.avg_fouls.toFixed(1), "right"),
+                    td(team.n_non_personal_fouls, "right"),
+                    td(team.avg_non_personal_fouls.toFixed(2), "right"),
+
+                    td(team.free_throws_made, "right"),
+                    td(team.free_throws_attempted, "right"),
+                    td(team.free_throws_pct.toFixed(1), "right"),
+                    td(team.avg_free_throws_attempted.toFixed(1), "right"),
+                    td(team.three_pointers, "right"),
+                    td(team.avg_three_pointers.toFixed(1), "right"),
+
+                    td(team.average_age.toFixed(2), 'right'),
+                    td(team.min_age.toFixed(1), 'right'),
+                    td(team.max_age.toFixed(1), 'right'),
+                    td(team.avg_number_of_players.toFixed(1), 'right'),
+                    "</tr>",
+                );
+            })
+
+            table_innerhtml.push(
+                "</tbody>",
+            );
+            // all_team_guids_sorted.forEach((team_guid, i) => {
+            //     const team_games = games.filter(g => g.tTGUID === team_guid || g.tUGUID === team_guid);
+            //     const [W, L] = record_of_team(team_games, team_guid);
+            //     const team_played_games = team_games.filter(g => g.uitslag).sort((a, b) => a.jsDTCode - b.jsDTCode);
+            //     const played_games_are_wins = team_played_games.map(g => (g.tTGUID === team_guid) === (game_is_home_win(g)));
+
+            //     const home_played_games = team_played_games.filter(g => is_home_game_for_team(g, team_guid));
+            //     const away_played_games = team_played_games.filter(g =>!is_home_game_for_team(g, team_guid));
+
+            // });
+
+            document.getElementById('team_table').innerHTML = table_innerhtml.join('');
+
+            window.player_table = new DataTable("#team_table", {
+                paging: false,
+                // fixedHeader: true,
+                scrollX: true,
+                fixedColumns: true,
+                order: [],
+            });
+        }
+
+        function marker_size_for_team(team) {
+            return 30;
+        }
+
+        function hover_text_for_team(team, more_lines) {
+            return [
+                shorten_teamname(team.name),
+                ...more_lines ? more_lines : [],
+            ].join('<br>');
+        }
+
+        function short_teamnames_on_data(trace_function) {
+            const traces = teams_data.map(trace_function);
+            return teams_data.map((team, i) => ({
+                x: traces[i].x,
+                y: traces[i].y,
+                mode: 'text',
+                text: shorten_teamname_more(team.name),
+                hoverinfo: 'none',
+
+                textfont: {
+                    color: 'white',
+                },
+            }));
+        }
+
+        function make_percentage_plot() {
+            // pct / time
+            const trace_for_team = (team) => {
+                const n_wins_so_far = team.played_games_are_wins.map(x => x ? 1 : 0).reduce(cumsum, []);
+                const pct_so_far = n_wins_so_far.map((x, i) => x / (i + 1));
+
+                return {
+                    x: team.played_games.map(g => new Date(g.jsDTCode).toISOString()),
+                    y: pct_so_far, // winning percentage
+                    type: 'scatter',
+                    marker: {
+                        symbol: ['circle'],
+                        // size: marker_size_for_team(team),
+                        color: team_guid_to_colour[team.team_guid],
+                        // opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
+                    },
+                    hoverinfo: "text",
+                    text: hover_text_for_team(team),
+                    line: {shape: 'spline'},
+                }
+            };
+
+            const traces = teams_data.map(trace_for_team);
+            const annotations = [];
+
+            layout = {
+                title: 'Winning percentage through time',
+                xaxis: {
+                    title: "Time",
+                },
+                yaxis: {
+                    title: "Winning percentage",
+                },
+                showlegend: false,
+            }
+
+            window.percentage_plot = Plotly.newPlot('percentage_plot', traces, layout, {scrollZoom: true});
+        }
+
+        function make_games_above_500_plot() {
+            // pct / time
+            const traces_for_team = (team) => {
+                const n_wins_so_far = team.played_games_are_wins.map(x => x ? 1 : 0).reduce(cumsum, []);
+                const games_above_500 = n_wins_so_far.map((W, G_1) => (2 * W - G_1 - 1)); // games above 500
+                // todo: at dotted line from <next game win>  to <last game> to <next game loss>
+
+                const previous_games_trace = {
+                    x: team.played_games.map(g => new Date(g.jsDTCode).toISOString()),
+                    y: games_above_500,
+                    type: 'scatter',
+                    marker: {
+                        symbol: ['circle'],
+                        // size: marker_size_for_team(team),
+                        color: team_guid_to_colour[team.team_guid],
+                        // opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
+                    },
+                    hoverinfo: "text",
+                    text: hover_text_for_team(team),
+                    line: {shape: 'spline'},
+                    name: shorten_teamname(team.name),
+                    // mode: "line+markers+text",
+                };
+
+                // Return already; disable dotted lines of next game
+                return [previous_games_trace];
+
+
+                if (!team.next_game || !team.played_games) {
+                    return [previous_games_trace];
+                }
+
+                const last_x = previous_games_trace.x.at(-1);
+                const last_y = previous_games_trace.y.at(-1);
+                const next_game_trace = {
+                    x: [new Date(team.next_game.jsDTCode).toISOString(), last_x, new Date(team.next_game.jsDTCode).toISOString()],
+                    y: [last_y + 1, last_y, last_y - 1],
+                    type: 'scatter',
+                    marker: {
+                        symbol: ['circle', 'none', 'circle'],
+                        // size: marker_size_for_team(team),
+                        color: team_guid_to_colour[team.team_guid],
+                    },
+                    hoverinfo: ["text", 'none', "text"],
+                    text: [hover_text_for_team(team), "", hover_text_for_team(team)],
+                    line: {
+                        dash: "dash",
+                        width: .5,
+                    },
+                }
+
+                return [next_game_trace, previous_games_trace];
+            };
+
+            const traces = teams_data.flatMap(traces_for_team);
+
+            const now_line = {
+                type: 'line',
+                x: [new Date(now).toISOString(), new Date(now).toISOString()],
+                y: [0, 1],
+                yref: 'paper',
+                type: 'line',
+                marker: {symbol: 'none'},
+                hoverinfo: 'none',
+                text: 'none',
+                line: {
+                    color: 'grey',
+                    width: 1,
+                },
+            };
+
+            layout = {
+                title: 'Games above .500 through time',
+                xaxis: {
+                    title: "Time",
+                },
+                yaxis: {
+                    title: "Games above .500",
+                },
+                showlegend: true,
+                legend: {
+                    x: 0,
+                    xanchor: 'left',
+                    y: 1,
+                }
+                // shapes: [now_line], // doesn't work
+            }
+
+            window.games_above_500_plot = Plotly.newPlot('games_above_500_plot', traces, layout, {scrollZoom: true});
+        }
+        
+        function make_wl_plot() {
+            // pct / time
+            const trace_for_team = (team) => {
+                const n_wins_so_far = team.played_games_are_wins.map(x => x ? 1 : 0).reduce(cumsum, [0]);
+                const n_losses_so_far = n_wins_so_far.map((x, i) => (i - x));
+
+                return {
+                    x: [...n_losses_so_far],
+                    y: [...n_wins_so_far],
+                    type: 'scatter',
+                    marker: {
+                        symbol: ['circle'],
+                        // size: marker_size_for_team(team),
+                        color: team_guid_to_colour[team.team_guid],
+                        // opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
+                    },
+                    hoverinfo: "text",
+                    text: hover_text_for_team(team),
+                    hovertext: hover_text_for_team(team),
+                    line: {shape: 'spline'},
+                    name: shorten_teamname(team.name),
+                    // mode: "line+markers+text",
+                }
+            };
+
+            const traces = teams_data.sort((a, b) => b.pct - a.pct).map(trace_for_team);
+
+            layout = {
+                title: 'Wins and losses',
+                xaxis: {
+                    title: "Losses",
+                },
+                yaxis: {
+                    title: "Wins",
+                },
+                showlegend: true,
+                legend: {
+                    x: 1,
+                    xanchor: 'right',
+                    y: 1,
+                }
+            }
+
+            window.wl_plot = Plotly.newPlot('wl_plot', traces, layout, {scrollZoom: true});
+        }
+        
+        function make_shooting_plot() {
+            // 3pg / 2pg
+            const trace_for_team = (team) => ({
+                x: [(team.average_score_for - 3 * team.avg_three_pointers - team.avg_free_throws_made) / 2],
+                y: [team.avg_three_pointers],
+                type: 'scatter',
+                marker: {
+                    symbol: ['circle'],
+                    size: marker_size_for_team(team),
+                    color: team_guid_to_colour[team.team_guid],
+                    // opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
+                },
+                hoverinfo: "text",
+                text: hover_text_for_team(team),
+            });
+
+            const traces = teams_data.map(trace_for_team);
+            traces.push(...short_teamnames_on_data(trace_for_team));
+            const annotations = [
+                {
+                    ..._left_annotation,
+                    ..._top_annotation,
+                    text: 'Only score three-pointers',
+                }, {
+                    ..._hmid_annotation,
+                    ..._top_annotation,
+                    text: 'Score many three-pointers',
+                }, {
+                    ..._right_annotation,
+                    ..._top_annotation,
+                    text: 'Score many field goals',
+                }, {
+                    ..._left_annotation,
+                    ..._vmid_annotation,
+                    textangle: -90,
+                    text: 'Score few two-pointers',
+                }, {
+                    ..._right_annotation,
+                    ..._vmid_annotation,
+                    textangle: -90,
+                    text: 'Score many two-pointers',
+                }, {
+                    ..._left_annotation,
+                    ..._bottom_annotation,
+                    text: 'Score few field goals',
+                }, {
+                    ..._hmid_annotation,
+                    ..._bottom_annotation,
+                    text: 'Score few three-pointers',
+                }, {
+                    ..._right_annotation,
+                    ..._bottom_annotation,
+                    text: 'Only score two-pointers',
+                }
+            ].map(x => ({..._absolute_annotation, ...x}));
+
+            layout = {
+                title: 'Shooting teams',
+                xaxis: {
+                    title: "Two-pointers per game",
+                },
+                yaxis: {
+                    title: "Three-pointers per game",
+                },
+                annotations: annotations,
+                showlegend: false,
+            }
+            window.shooting_plot = Plotly.newPlot('shooting_plot', traces, layout, {scrollZoom: true});
+        }
+
+        function make_avg_score_plot() {
+            // home plus minus / away plus minus
+            const trace_for_team = (team) => ({
+                x: [
+                    average(team.home_played_games.map(g => Number.parseInt(g.uitslag.substr(0, 3)))), 
+                    team.average_score_for,
+                    average(team.away_played_games.map(g => Number.parseInt(g.uitslag.substr(4, 3)))), 
+                ],
+                y: [
+                    average(team.away_played_games.map(g => Number.parseInt(g.uitslag.substr(0, 3)))),
+                    team.average_score_against,
+                    average(team.home_played_games.map(g => Number.parseInt(g.uitslag.substr(4, 3)))),
+                ],
+                type: 'scatter',
+                marker: {
+                    symbol: ['none', 'circle', 'none'],
+                    size: [0, marker_size_for_team(team), 0],
+                    color: team_guid_to_colour[team.team_guid],
+                    opacity: 1,
+                },
+                line: {
+                    width: 1,
+                },
+                hoverinfo: "text",
+                text: [
+                    `${shorten_teamname_more(team.name)} at home`,
+                    hover_text_for_team(team),
+                    `${shorten_teamname_more(team.name)} away`,
+                ]
+            });
+
+            const traces = teams_data.map(trace_for_team);
+            traces.push(...short_teamnames_on_data(t => ({x: [t.average_score_for], y: [t.average_score_against]})));
+            const annotations = [
+                {
+                    ..._left_annotation,
+                    ..._top_annotation,
+                    text: '',
+                }, {
+                    ..._hmid_annotation,
+                    ..._top_annotation,
+                    text: 'Good defense',
+                }, {
+                    ..._right_annotation,
+                    ..._top_annotation,
+                    text: 'Good teams',
+                }, {
+                    ..._left_annotation,
+                    ..._vmid_annotation,
+                    textangle: -90,
+                    text: 'Bad offense',
+                }, {
+                    ..._right_annotation,
+                    ..._vmid_annotation,
+                    textangle: -90,
+                    text: 'Good offense',
+                }, {
+                    ..._left_annotation,
+                    ..._bottom_annotation,
+                    text: 'Bad team',
+                }, {
+                    ..._hmid_annotation,
+                    ..._bottom_annotation,
+                    text: 'Bad defense',
+                }, {
+                    ..._right_annotation,
+                    ..._bottom_annotation,
+                    text: '',
+                }
+            ].map(x => ({..._absolute_annotation, ...x}));
+
+            layout = {
+                title: 'Average scores',
+                xaxis: {
+                    title: "average score for",
+                },
+                yaxis: {
+                    title: "average score against",
+                    scaleanchor: "x", 
+                    autorange: 'reversed',
+                },
+                annotations: annotations,
+                showlegend: false,
+            }
+
+            window.avg_score_plot = Plotly.newPlot('avg_score_plot', traces, layout, {scrollZoom: true});
+        }
+
+        function make_free_throws_plot() {
+            const trace_for_team = (team) => ({
+                x: [team.avg_free_throws_attempted],
+                y: [100 * team.avg_free_throws_made / team.avg_free_throws_attempted],
+                type: 'scatter',
+                marker: {
+                    symbol: ['circle'],
+                    size: marker_size_for_team(team),
+                    color: team_guid_to_colour[team.team_guid],
+                    // opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
+                },
+                hoverinfo: "text",
+                text: hover_text_for_team(team),
+            });
+
+            const traces = teams_data.map(trace_for_team);
+            traces.push(...short_teamnames_on_data(trace_for_team));
+            const annotations = [
+                {
+                    ..._left_annotation,
+                    ..._top_annotation,
+                    text: '',
+                }, {
+                    ..._hmid_annotation,
+                    ..._top_annotation,
+                    text: 'High percentage',
+                }, {
+                    ..._right_annotation,
+                    ..._top_annotation,
+                    text: 'Score many',
+                }, {
+                    ..._left_annotation,
+                    ..._vmid_annotation,
+                    textangle: -90,
+                    text: 'Don\'t get to the line',
+                }, {
+                    ..._right_annotation,
+                    ..._vmid_annotation,
+                    textangle: -90,
+                    text: 'Attempt many',
+                }, {
+                    ..._left_annotation,
+                    ..._bottom_annotation,
+                    text: '',
+                }, {
+                    ..._hmid_annotation,
+                    ..._bottom_annotation,
+                    text: 'Low percentage',
+                }, {
+                    ..._right_annotation,
+                    ..._bottom_annotation,
+                    text: 'Miss many',
+                }
+            ].map(x => ({..._absolute_annotation, ...x}));
+
+            layout = {
+                title: 'Team free throws',
+                xaxis: {
+                    title: "Free throws attempted per game",
+                },
+                yaxis: {
+                    title: "Team free throw percentage",
+                },
+                annotations: annotations,
+                showlegend: false,
+            }
+
+            window.free_throws_plot = Plotly.newPlot('free_throws_plot', traces, layout, {scrollZoom: true});
+        }
+
+        function make_all_games_plot() {
+            const trace_for_game = (game) => ({
+                x: [Number.parseInt(game.uitslag.substr(0, 3))],
+                y: [Number.parseInt(game.uitslag.substr(4, 3))],
+                type: 'scatter',
+                marker: {
+                    symbol: ['circle'],
+                    // size: 30,
+                    color: "black", // team_guid_to_colour[team.team_guid],
+                    // opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
+                },
+                hoverinfo: "text",
+                text: [
+                    shorten_teamname(game.tTNaam),
+                    game.uitslag.substr(0, 3),
+                    '-',
+                    game.uitslag.substr(4, 3),
+                    shorten_teamname(game.tUNaam),
+                ].join(' '),
+            });
+
+            const traces = played_games.map(trace_for_game);
+            const annotations = [
+                {
+                    ..._left_annotation,
+                    ..._top_annotation,
+                    text: 'Big away wins',
+                }, {
+                    ..._hmid_annotation,
+                    ..._top_annotation,
+                    text: 'Away score big',
+                }, {
+                    ..._right_annotation,
+                    ..._top_annotation,
+                    text: 'High-scoring games',
+                }, {
+                    ..._left_annotation,
+                    ..._vmid_annotation,
+                    textangle: -90,
+                    text: 'Home score little',
+                }, {
+                    ..._right_annotation,
+                    ..._vmid_annotation,
+                    textangle: -90,
+                    text: 'Home score big',
+                }, {
+                    ..._left_annotation,
+                    ..._bottom_annotation,
+                    text: 'Low-scoring games',
+                }, {
+                    ..._hmid_annotation,
+                    ..._bottom_annotation,
+                    text: 'Away score little',
+                }, {
+                    ..._right_annotation,
+                    ..._bottom_annotation,
+                    text: 'Big home wins',
+                }
+            ].map(x => ({..._absolute_annotation, ...x}));
+
+            layout = {
+                title: 'All games',
+                xaxis: {
+                    title: "Home score",
+                },
+                yaxis: {
+                    title: "Away score",
+                },
+                annotations: annotations,
+                showlegend: false,
+            }
+
+            window.all_games_plot = Plotly.newPlot('all_games_plot', traces, layout, {scrollZoom: true});
+        }
+
+        function make_plots() {
+            make_percentage_plot();
+            make_wl_plot();
+            make_games_above_500_plot();
+            make_shooting_plot();
+            make_avg_score_plot();
+            make_free_throws_plot();
+            make_all_games_plot();
+        }
+
+        addEventListener('load', async () => {
+            const poule_guid = (new URLSearchParams(window.location.search)).get('pouleGUID');
+            document.body.classList.add('loading');
+
+            all_games = fetch_poule_games(poule_guid);
+
+            all_games = await all_games;
+            g = all_games[0];
+
+            played_games = all_games.filter(g => g['uitslag']);
+
+            played_guids = played_games.map(g=> g.guid);
+
+            // team_guid_to_colours = fetch_team_colours_from_games(all_games);
+            const all_team_guids = [...new Set(all_games.map(g => g.tTGUID))];
+            n_teams = all_team_guids.length;
+
+            window.team_guid_to_colour = Object.fromEntries(all_team_guids.map((g, i) => [g, 
+                `hsl(${i * 360 / n_teams}, ${i % 2 ? 0.4 : 0.8}, .4)`,
+                // `${i}`
+            ]));
+
+            rosters = fetch_team_rosters_for_games(played_games);
+            gebeurtenis_data = fetch_gebeurtenis_data_for_games(played_games);
+
+            rosters = await rosters;
+            gebeurtenis_data = await gebeurtenis_data;
+            // team_guid_to_colours = await team_guid_to_colours;
+
+            gebeurtenis_data.forEach(gdi => {
+                gdi.GebNis = add_fake_minute_to_gebnis(gdi.GebNis);
+                gdi.GebNis = add_detailed_minute_to_gebnis(gdi.GebNis);
+            });
+            
+            document.querySelector('h1').innerText = all_games[0]['pouleNaam'];
+
+            window.teams_data = make_team_data(all_games);
+            make_team_table(teams_data);
+
+            make_plots();
+
+            document.body.classList.remove('loading');
+        });
+
+    </script>
+</body>
+</html>

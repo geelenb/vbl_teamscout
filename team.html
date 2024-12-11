@@ -280,7 +280,7 @@
                 next_game_p = `<p>
                     Volgende tegenstander: 
                     <a href="team.html?team=${next_opponent_id_plus}">${data.next_opponent_name}</a>
-                    <a href="match_grafiek.html?game_id=${data.next_game.guid}">(wedstrijdpagina)</a>
+                    (<a href="match_grafiek.html?game_id=${data.next_game.guid}">wedstrijdpagina</a>)
                 </p>`;
             }
 
@@ -294,7 +294,14 @@
             competitions_arr = Object.entries(competitions_arr);
 
             const competitions_p = competitions_arr
-                .map(([pouleGUID, pouleNaam]) => `<p><a href="poule.html?pouleGUID=${pouleGUID}">${pouleNaam}</a></p>`)
+                .map(
+                    ([pouleGUID, pouleNaam]) => `
+                        <p>
+                            <a href="poule.html?pouleGUID=${pouleGUID}">${pouleNaam}</a>
+                            (<a href="poule_teams.html?pouleGUID=${pouleGUID}">Teams</a> -
+                            <a href="players.html?pouleGUID=${pouleGUID}&search=${data.team_id_plus}">Spelers</a>)
+                        </p>`
+                )
                 .join('');
 
             document.title = data.team_name;
