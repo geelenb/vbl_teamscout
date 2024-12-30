@@ -111,7 +111,7 @@ function add_detailed_minute_to_gebnis(gebnis) {
 		geb.index_this_minute = 1 + prev.index_this_minute;
 	})
 
-	copy.forEach((geb, i) => {
+	copy.forEach((geb) => {
 		const this_quarter = geb.Periode;
 		const this_minute = geb.Minuut;
 		const gebs_this_minute = copy.filter(geb => (geb.Periode == this_quarter) && (geb.Minuut == this_minute));
@@ -133,6 +133,7 @@ function add_detailed_minute_to_gebnis(gebnis) {
 
 function add_fake_minute_to_gebnis(gebnis) {
 	const copy = [].concat(gebnis.map(geb => ({...geb})));
+
 	copy.forEach((geb, i) => {
 		if (i === 0) {
 			geb.index_this_quarter = 0;
@@ -169,13 +170,18 @@ function add_fake_minute_to_gebnis(gebnis) {
 	copy.forEach((geb, i) => {
 		const this_quarter = geb.Periode;
 		const periode_length_in_minutes = this_quarter <= 4 ? 10 : 5;
-		const gebs_this_quarter = copy.filter(geb => (geb.Periode === this_quarter));
-		const len_this_quarter = Math.max(...gebs_this_quarter.map(geb => geb.index_this_quarter))
+		let gebs_this_quarter = copy.filter(geb => (geb.Periode === this_quarter));
+		if (geb.Periode === 2) {
+			// If in second quarter, only consider gebeurtenis that are not timeout
+			gebs_this_quarter = gebs_this_quarter.filter(geb => geb.GebType !== 20);
+		}
+		const len_this_quarter = gebs_this_quarter.at(-1).index_this_quarter;
 		geb.fake_minute = (
 			(geb.Periode - 1) * 10 +
 			(geb.index_this_quarter / len_this_quarter || 0) * periode_length_in_minutes
 		);
 		if (geb.GebType === 60) {
+			// Einde van de wedstrijd: neem de vorige
 			geb.fake_minute = copy[i-1].fake_minute
 		}
 	})
