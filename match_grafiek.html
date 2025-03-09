@@ -68,7 +68,7 @@
 
 <div id=figures_container>
 	<div id='home_advantage_fig'></div>
-	<div id='stints_fig' style="height: 80vh"></div>
+	<div id='stints_fig'></div>
 </div>
 
 <div class="other_links">
@@ -354,6 +354,7 @@
 			}
 		};
 
+        document.getElementById('stints_fig').style.height = '80vh';
 		window.stints_fig = await Plotly.newPlot('stints_fig', [...stint_traces, fouls_trace, score_trace], layout, config);
 	}
 
@@ -766,7 +767,7 @@
 		make_title();
 		make_quarters_table();
 
-		if (window.gebeurtenis_data) {
+		if (window.gebeurtenis_data && gebeurtenis_data.length > 0) {
 			make_graph_promise = make_graph();
 			make_sheets_promise = make_team_tables();
 			make_stints_promise = make_stints();
