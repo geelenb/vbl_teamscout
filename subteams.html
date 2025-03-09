@@ -152,7 +152,7 @@
                 if (!gebdata) {
                     return;
                 }
-                
+
                 const homegame = team_data.games[game_i].tTGUID === team_data.team_id_plus;
                 const tofu = homegame ? 'T' : 'U';
 
@@ -184,10 +184,6 @@
                             currently_in.push(geb.RelGUID);
                         } else if (geb.Text === 'uit') {
                             currently_in = currently_in.filter(x => x !== geb.RelGUID)
-                            // const index = currently_in.findIndex(x => x === geb.RelGUID);
-                            // currently_in.splice(index, 1);
-                            // if(geb.RelGUID === "BVBL606358")
-                                // debugger;
 
                             all_subsets(currently_in)
                                 .map(sl => [geb.RelGUID, ...sl])
@@ -235,7 +231,7 @@
                     }
                 });
 
-                if (currently_in){
+                if (currently_in.length > 0){
                     const last_geb = [...gebdata.GebNis].reverse().find(geb => geb.Periode < 99);
                     all_subsets(currently_in)
                         .map(relguids_to_key)
