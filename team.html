@@ -272,8 +272,6 @@
 
             const h = `<h1>${data.team_name}</h1>`;
 
-            const subteams = `<p><a href="subteams.html?team=${data.team_id_plus}">Subteam analysis</a></p>`
-
 			let next_game_p = '';
 			if (data.next_game) {
                 const next_opponent_id_plus = data.next_opponent_id_plus.replace(/\+/g, ' ');
@@ -300,15 +298,13 @@
                         <p>
                             ${pouleNaam}
                             <br>
-                            (
-                                <a href="poule.html?pouleGUID=${pouleGUID}">Reeks</a>
+                                (<a href="poule.html?pouleGUID=${pouleGUID}">Reeks</a>
                                 &horbar;
                                 <a href="poule_teams.html?pouleGUID=${pouleGUID}">Teams</a>
                                 &horbar;
                                 <a href="players.html?pouleGUID=${pouleGUID}&search=${data.team_id_plus}">Spelers van ${shorten_teamname(data.team_name)}</a>
                                 &horbar;
-                                <a href="players.html?pouleGUID=${pouleGUID}">Spelers</a>
-                            )
+                                <a href="players.html?pouleGUID=${pouleGUID}">Spelers</a>)
                         </p>`
                 )
                 .join('');
@@ -319,12 +315,41 @@
                 h,
                 competitions_p,
                 next_game_p,
-                subteams,
             ].join('');
 
             div.innerHTML = innerHTML;
 
             return innerHTML;
+        }
+
+        function make_calendar(data) {
+            const tr = x => `<tr>${x}</tr>`;
+            const td = x => `<td>${x}</td>`;
+
+            const toprow = tr([
+                'Datum',
+                'Uur',
+                '',
+                'Tegenstander',
+                '',
+                'Uitslag',
+            ].map(td).join(''));
+
+            const clean_uitslag_text = x => x ? x.slice(0, 7).replaceAll(' ', '') : '';
+            const uitslag_link = game => `<a href="match_grafiek.html?game_id=${game.guid}">${clean_uitslag_text(game.uitslag)}</a>`;
+
+            const row_for_game = game => tr([
+                game.datumString.slice(6, 10) + '-' + game.datumString.slice(3, 5) + '-' + game.datumString.slice(0, 2),
+                game.beginTijd.replace('.', ':'),
+                is_home_game_for_team(game, data.team_id_plus) ? 'vs' : '@',
+                shorten_teamname(get_opponent_from_game(game, data.team_id_plus).naam),
+                game.uitslag === '' ? '' : (is_home_game_for_team(game, data.team_id_plus) === eval(game.uitslag.slice(0, 7)) > 0) ? 'W' : 'L',
+                uitslag_link(game),
+            ].map(td).join(''));
+
+            const tablerows = data.games.sort((a, b) => a.jsDTCode - b.jsDTCode).map(row_for_game).join('');
+
+            return `<table id="calendar"><thead>${toprow}</thead><tbody>${tablerows}</tbody></table>`
         }
 
         function make_div_with_tables(data) {
@@ -385,7 +410,21 @@
             const team_id = await team_id_from_get_params();
             data = await get_all_data_of_team(team_id);
 
-            to_fill.innerHTML = make_title(data) + make_div_with_tables(data);
+
+            const make_expando = (title, contents) => `
+                <details class="expando">
+                    <summary>${title}</summary>
+                    ${contents}
+                </details>`;
+
+            const subteams = `<p><a href="subteams.html?team=${data.team_id_plus}">Subteam analysis</a></p>`
+
+            to_fill.innerHTML = (
+                make_title(data)
+                + make_expando('Kalender', make_calendar(data))
+                + make_expando('Spelersdata', make_div_with_tables(data))
+                + subteams
+            );
         })
     </script>
 

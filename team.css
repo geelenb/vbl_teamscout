@@ -75,13 +75,20 @@ input#extended_data:checked ~ * .extended_only {
 body input {
     margin: 12px;
 }
-
-body {
+table#calendar {
+    border-top: solid 3px black;
+    border-bottom: solid 3px black;
+}
+table#calendar td {
+    padding: 4px 8px;
+}
+table#calendar td:nth-child(6) {
+    text-align: center;
+}
+table#calendar thead td {
+    border-bottom: solid 1px black;
+}
+table#calendar thead td {
+    font-weight: bold;
 }
 
-@media print
-{
-    table{
-        page-break-inside: avoid;
-    }
-}
