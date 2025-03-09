@@ -392,44 +392,51 @@
 		document.querySelector('p#date').innerHTML = [
 			Number.parseInt(game.datumString.substring(0, 2)),
 			months[Number.parseInt(game.datumString.substring(3, 5))],
-			' ' + Number.parseInt(game.datumString.substring(6, 10)),
+			Number.parseInt(game.datumString.substring(6, 10)),
+            game.beginTijd.replace('.', ':'),
             '<br>',
 			game.accNaam
         ].join(' ');
 	}
 
 	function make_quarters_table() {
+        if (!gebeurtenis_data || gebeurtenis_data.length === 0) {
+            return;
+        }
 		let quarters = document.querySelector('table#quarters');
 
-		let periodenames = [];
-		let td_points_in_periode = {}
+        const periodenames = (
+            gebeurtenis_data
+                .filter(geb => geb.GebStatus === 10)
+                .filter(geb => geb.GebType === 40)
+                .filter(geb => !geb.Text.includes('Balbezit'))
+                .map(geb => geb.Text.split(' ').pop())
+        );
+        const periode_points = (periode, T_OR_U) => (
+            gebeurtenis_data
+                .filter(geb => geb.GebStatus === 10)
+                .filter(geb => geb.Periode == periode)
+                .filter(geb => geb.TofU === T_OR_U)
+                .filter(geb => geb.GebType === 10)
+                .map(geb => Number(geb.Text.split(' ')[0]))
+                .reduce(sum, 0)
+        )
+        const home_periode_points = periodenames.map(p => periode_points(p, 'T'));
+        const away_periode_points = periodenames.map(p => periode_points(p, 'U'));
 
-		if (gebeurtenis_data) {
-			periodenames = (
-				gebeurtenis_data
-					.filter(geb => geb.GebStatus === 10)
-					.filter(geb => geb.GebType === 40)
-					.filter(geb => !geb.Text.includes('Balbezit'))
-					.map(geb => geb.Text.split(' ').pop())
-			);
+        const last_geb = gebeurtenis_data.at(-1);
+        const last_score = gebeurtenis_data.filter(geb => geb.GebStatus === 10 && geb.GebType === 10).at(-1);
+        const final_time = game_is_finished() ? 'FT' : `Q${last_geb.Periode} ${last_geb.Minuut}'`;
 
-			td_points_in_periode = (periode, T_OR_U) => td(
-				gebeurtenis_data
-					.filter(geb => geb.GebStatus === 10)
-					.filter(geb => geb.Periode == periode)
-					.filter(geb => geb.TofU === T_OR_U)
-					.filter(geb => geb.GebType === 10)
-					.map(geb => Number(geb.Text.split(' ')[0]))
-					.reduce(((x, acc) => acc + Number(x)), 0)
-			)
-		}
+        const home_total = game_is_finished() ? game.uitslag.split('-')[0] : last_score.Text.slice(3, 5);
+        const away_total = game_is_finished() ? game.uitslag.split('-')[1] : last_score.Text.slice(6, 8);
 
-		quarters.innerHTML = (
-			`<tr><td></td>${periodenames.map(td).join('')}<td>FT</td></tr>` +
-			`<tr><td><a href='team.html?team=${game.tTGUID}'>${game.tTNaam}</a></td>` + periodenames.map(p => td_points_in_periode(p, 'T')).join('') + td(game.uitslag.split('-')[0]) + `</tr>` +
-			`<tr><td><a href='team.html?team=${game.tUGUID}'>${game.tUNaam}</a></td>` + periodenames.map(p => td_points_in_periode(p, 'U')).join('') + td(game.uitslag.split('-')[1]) + `</tr>`
-		);
-	}
+        quarters.innerHTML = (
+            `<tr><td></td>${periodenames.map(td).join('')}<td>${final_time}</td></tr>` +
+            `<tr><td><a href='team.html?team=${game.tTGUID}'>${game.tTNaam}</a></td>` + home_periode_points.map(td).join('') + td(home_total) + `</tr>` +
+            `<tr><td><a href='team.html?team=${game.tUGUID}'>${game.tUNaam}</a></td>` + away_periode_points.map(td).join('') + td(away_total) + `</tr>`
+        );
+    }
 
 	async function make_team_tables() {
 		const pm = gebeurtenis_data_to_plus_minus(gebeurtenis_data);
@@ -497,6 +504,7 @@
 				}
 
 				const on_court_class = relguid_to_in_uit[player.RelGUID] === 'in' ? 'class="on_court"' : '';
+                const add_plus = x => x > 0 ? `+${x}` : x;
 
 				new_innerhtml += tr([
 					player.RugNr,
@@ -508,7 +516,7 @@
 					fouls_str,
 					// pm[player.RelGUID] || '0',
 					// pm[player.RelGUID] || '0',
-					pm[player.RelGUID] || '0',
+					add_plus(pm[player.RelGUID]) || '0',
 					minutes_str
 				].map(td).join(''));
 

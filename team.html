@@ -299,12 +299,16 @@
                     ([pouleGUID, pouleNaam]) => `
                         <p>
                             ${pouleNaam}
-
                             <br>
-                            (<a href="poule.html?pouleGUID=${pouleGUID}">Reeks</a> &horbar;
-                            <a href="poule_teams.html?pouleGUID=${pouleGUID}">Teams</a> &horbar;
-                            <a href="players.html?pouleGUID=${pouleGUID}">Spelers</a> &horbar;
-                            <a href="players.html?pouleGUID=${pouleGUID}&search=${data.team_id_plus}">Spelers van ${shorten_teamname(data.team_name)}</a>)
+                            (
+                                <a href="poule.html?pouleGUID=${pouleGUID}">Reeks</a>
+                                &horbar;
+                                <a href="poule_teams.html?pouleGUID=${pouleGUID}">Teams</a>
+                                &horbar;
+                                <a href="players.html?pouleGUID=${pouleGUID}&search=${data.team_id_plus}">Spelers van ${shorten_teamname(data.team_name)}</a>
+                                &horbar;
+                                <a href="players.html?pouleGUID=${pouleGUID}">Spelers</a>
+                            )
                         </p>`
                 )
                 .join('');
