@@ -1,6 +1,10 @@
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 body {
     margin: 0;
-    /*font-family: Geneva, Arial, sans-serif;*/
     font-family: Georgia, Palatino, serif;
 }
 
@@ -13,8 +17,13 @@ a {
     color: black;
 }
 
+.fadein {
+    opacity: 0;
+    transition: opacity ease 1s;
+    animation: fade-in 1.0s ease-in forwards;
+}
+
 body table {
-    /*margin: 12px;*/
     border-collapse: collapse;
 }
 
@@ -31,6 +40,33 @@ table td {
     text-align: right;
 }
 
+
+@keyframes increase-height {
+  from { max-height: 0; }
+  to { max-height: 150px; }
+}
+
+#live_events {
+    overflow-y: scroll;
+    margin: 16px 0;
+    background: #fAf7f7;
+    box-shadow: inset 0 0 10px 0 rgba(0, 0, 0, 0.2);
+    max-height: 0px;
+    animation: increase-height 1.0s forwards;
+}
+
+#live_events > table {
+    margin: 0 auto;
+}
+
+#live_events > table td {
+    text-align: left;
+}
+
+#live_events > table td:first-child {
+    white-space: nowrap;
+}
+
 div#box_scores, div#general_stats {
     text-align: center;
 }
@@ -42,6 +78,7 @@ table.stats td:nth-child(2) {
 
 body #box_scores table {
     display: inline;
+    margin: 0 4px;
 }
 body.pm #box_scores table.stats {
     display: none;

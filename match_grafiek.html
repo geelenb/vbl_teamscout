@@ -21,10 +21,7 @@
     <link href="match_grafiek.css?v=1" rel="stylesheet" type="text/css">
 </head>
 <body>
-<!-- <div id='calendar'>
-	<select></select>
-	<select></select>
-</div> -->
+
 <h1>Laden...</h1>
 <h2 id="reeks"></h2>
 <p id="date"></p>
@@ -33,8 +30,12 @@
     <table id='quarters'></table>
 </div>
 
+<div id="live_events" class="fadein" >
+    <table>
+    </table>
+</div>
 
-<div id='box_scores' onclick='document.body.classList.toggle("pm")'>
+<div id='box_scores' onclick='document.body.classList.toggle("pm")' class="fadein" >
     <table class='stats home booktabs w_totals'></table>
     <table class='stats away booktabs w_totals'></table>
     <table class='pmstats home booktabs w_totals'></table>
@@ -42,7 +43,7 @@
 </div>
 
 <div>
-    <div id="other_stats" style="display: none;">
+    <div id="other_stats" style="display: none;" class="fadein" >
         <img class="h" src="">
         <img class="a" src="">
         <div class="largest_lead h"></div>
@@ -60,21 +61,17 @@
         <div class="time_led h"></div>
         <div class="time_led name" style="visibility: hidden">Tijd aan de leiding</div>
         <div class="time_led a"></div>
-<!--        <div class="both">Gelijkstanden</div>-->
-<!--    <tr id="leader_changes">-->
-<!--    <div colspan="3">Lead changes</div>-->
     </div>
 </div>
 
-<div id=figures_container>
+<div id="figures_container" class="fadein" >
 	<div id='home_advantage_fig'></div>
 	<div id='stints_fig'></div>
 </div>
 
 <div class="other_links">
-	<a id="vblweblink" href="" >VBL web</a>
-	<a id="overlaylink" href="" style="display: none;">Overlay</a>
-	<a id="tabellink" href="" style="">Gebeurtenissen</a>
+	<a id="vblweblink" href="">VBL web</a>
+	<a id="tabellink" href="">Gebeurtenissen</a>
 </div>
 </body>
 
@@ -744,7 +741,6 @@
 		document.getElementById('other_stats').style.display = '';
 	}
 
-
 	function redirect_if_team_unspecified() {
 		const params = new URLSearchParams(window.location.search.substr(1));
 		if (params.get('game_id')) {
@@ -761,7 +757,36 @@
 			.length > 0;
 	}
 
-	async function main_loop() {
+    function update_live_events() {
+        const live_events_table = document.querySelector('#live_events > table');
+
+        const row_for_gebeurtenis = geb =>
+            geb.GebStatus !== 10 ? '' :
+                geb.GebType === 10 ? row_for_score(geb) :
+                    geb.GebType === 20 ? row_for_timeout(geb) :
+                        geb.GebType === 30 ? row_for_foul(geb) :
+                            '';
+
+		const both_rosters = roster.TuDeel.concat(roster.TtDeel)
+        const name = geb => both_rosters.find(player => player.RelGUID == geb.RelGUID).Naam;
+        const no = geb => both_rosters.find(player => player.RelGUID == geb.RelGUID).RugNr;
+
+        const team = geb => shorten_teamname_more(geb.TofU === 'T' ? game.tTNaam : game.tUNaam);
+        const time = geb => `Q${geb.Periode} ${geb.Minuut}'`;
+
+        const row_for_score = geb => `<tr><td>${time(geb)}</td><td>${no(geb)}. ${name(geb)} (${team(geb)})</td><td>scoort ${geb.Text}</td></tr>`;
+        const row_for_foul = geb =>  `<tr><td>${time(geb)}</td><td>${no(geb)}. ${name(geb)} (${team(geb)})</td><td>begaat een fout (${geb.Text})</td></tr>`;
+        const row_for_timeout = geb => `<tr><td>${time(geb)}</td><td colspan="2" style="text-align: center">Time out ${team(geb)}</td></tr>`;
+
+        live_events_table.innerHTML = "";
+
+        gebeurtenis_data.forEach((geb) => {
+            live_events_table.insertAdjacentHTML("afterbegin", row_for_gebeurtenis(geb));
+        });
+        // debugger;
+    }
+
+    async function main_loop() {
 		await load_data();
 
 		make_title();
@@ -776,10 +801,18 @@
 			document.getElementById("tabellink").href = "gebeurtenis_tabel.html?game_id=" + window.game_id;
 
 			make_other_stats();
+            update_live_events();
 
 			await make_graph_promise;
 			await make_stints_promise;
-		} else {
+
+            document.getElementById('home_advantage_fig').style.opacity = "1.0";
+            document.getElementById('box_scores').style.opacity = "1.0";
+            document.getElementById('other_stats').style.opacity = "1.0";
+
+            document.getElementById("tabellink").style.opacity = "1.0";
+            document.getElementById("live_events").style.opacity = "1.0";
+        } else {
 			document.querySelectorAll('#home_advantage_fig, #box_scores, #other_stats').forEach(e => e.remove());
 			document.getElementById("tabellink").style.display = 'none'
 		}
@@ -788,6 +821,7 @@
 		const game_should_have_started = Number(d - d.getTimezoneOffset() * 60 * 1000) > game['jsDTCode'];
 
 		if (window.gebeurtenis_data && game_should_have_started && !game_is_finished()) {
+            // refresh every 10 seconds
 			window.setTimeout(main_loop, 10000);
 		}
 	}
