@@ -70,8 +70,8 @@
 </div>
 
 <div class="other_links">
-	<a id="vblweblink" href="">VBL web</a>
-	<a id="tabellink" href="">Gebeurtenissen</a>
+	<a id="vblweblink">VBL web</a>
+	<a id="tabellink">Gebeurtenissen</a>
 </div>
 </body>
 
@@ -760,6 +760,8 @@
     function update_live_events() {
         const live_events_table = document.querySelector('#live_events > table');
 
+        // TODO: if GebStatus === 10, then show it strikethrough
+        // TODO wissels; if only last two were in & out, then show it as a wissel
         const row_for_gebeurtenis = geb =>
             geb.GebStatus !== 10 ? '' :
                 geb.GebType === 10 ? row_for_score(geb) :
@@ -813,8 +815,8 @@
             document.getElementById("tabellink").style.opacity = "1.0";
             document.getElementById("live_events").style.opacity = "1.0";
         } else {
-			document.querySelectorAll('#home_advantage_fig, #box_scores, #other_stats').forEach(e => e.remove());
-			document.getElementById("tabellink").style.display = 'none'
+			// document.querySelectorAll('#home_advantage_fig, #box_scores, #other_stats').forEach(e => e.remove());
+			// document.getElementById("tabellink").style.display = 'none'
 		}
 
 		const d = new Date();
