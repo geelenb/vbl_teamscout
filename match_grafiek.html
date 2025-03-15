@@ -772,12 +772,13 @@
 		const both_rosters = roster.TuDeel.concat(roster.TtDeel)
         const name = geb => both_rosters.find(player => player.RelGUID == geb.RelGUID).Naam;
         const no = geb => both_rosters.find(player => player.RelGUID == geb.RelGUID).RugNr;
+        const nth_foul = geb => gebeurtenis_data.filter(g => g.GebStatus === 10 && g.GebType === 30 && g.RelGUID === geb.RelGUID && g.Index <= geb.Index).length;
 
         const team = geb => shorten_teamname_more(geb.TofU === 'T' ? game.tTNaam : game.tUNaam);
         const time = geb => `Q${geb.Periode} ${geb.Minuut}'`;
 
         const row_for_score = geb => `<tr><td>${time(geb)}</td><td>${no(geb)}. ${name(geb)} (${team(geb)})</td><td>scoort ${geb.Text}</td></tr>`;
-        const row_for_foul = geb =>  `<tr><td>${time(geb)}</td><td>${no(geb)}. ${name(geb)} (${team(geb)})</td><td>begaat een fout (${geb.Text})</td></tr>`;
+        const row_for_foul = geb =>  `<tr><td>${time(geb)}</td><td>${no(geb)}. ${name(geb)} (${team(geb)})</td><td>${nth_foul(geb)}<sup>e</sup> fout (${geb.Text})</td></tr>`;
         const row_for_timeout = geb => `<tr><td>${time(geb)}</td><td colspan="2" style="text-align: center">Time out ${team(geb)}</td></tr>`;
 
         live_events_table.innerHTML = "";

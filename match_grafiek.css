@@ -90,7 +90,7 @@ body.pm #box_scores table.pmstats {
     display: inline;
 }
 
-table sup {
+table.stats sup {
     vertical-align: middle;
     font-size: xx-small;
 }
