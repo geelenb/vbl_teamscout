@@ -92,3 +92,7 @@ table#calendar thead td {
     font-weight: bold;
 }
 
+
+details summary{
+    padding: 8px;
+}

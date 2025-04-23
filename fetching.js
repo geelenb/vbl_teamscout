@@ -44,7 +44,7 @@ async function fetch_games(team_guid_plus) {
         try {
             await cache_save(localStorage_key, json);
         } catch {
-            console.err(`cache_save ${localStorage_key} failed!`);
+            console.error(`cache_save ${localStorage_key} failed!`);
         }
 
         return json
@@ -53,7 +53,7 @@ async function fetch_games(team_guid_plus) {
             result = await cache_load(localStorage_key);
             return result;
         } catch {
-            console.err(`cache_save ${localStorage_key} failed!`)
+            console.error(`cache_save ${localStorage_key} failed!`)
         }
     }
 }

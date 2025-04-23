@@ -3,9 +3,6 @@
 <head>
     <title>Laden...</title>
     <meta charset='utf-8'>
-    <meta http-equiv='cache-control' content='no-cache'>
-    <meta http-equiv='expires' content='0'>
-    <meta http-equiv='pragma' content='no-cache'>
 
     <link rel="stylesheet" href="team.css">
 
@@ -118,10 +115,7 @@
             return row.join('')
         }
 
-        function make_data_table(data, attribute_to_display_and_extended_details) {
-            const attribute_to_display = attribute_to_display_and_extended_details[0];
-            const extended_details_mode = attribute_to_display_and_extended_details[1];
-
+        function make_data_table(data, attribute_to_display) {
             const relguid_to_number = data.relguid_to_most_common_number;
             let relguid_to_name = data.rosters.flat().reduce((acc, player) => {
                 if (player['Naam']) {
@@ -141,11 +135,15 @@
                 acc[player['RelGUID']] = player['GebDat'];
                 return acc
             }, {});
-            const data_per_player_per_game = data[attribute_to_display];
+            const game_is_forfait = game => [' 20-  0  BFOR', '  0- 20  AFOR'].includes(game['uitslag']);
 
-            const game_is_at_home = data.previous_games.map(game => is_home_game_for_team(game, data.team_id_plus));
+            const played_games = data.previous_games.filter(game => !game_is_forfait(game));
+            const played_game_indices = played_games.map(pg => data.previous_games.findIndex(g => g.guid === pg.guid));
+            const data_per_player_per_game = played_game_indices.map(i => data[attribute_to_display][i]);
 
-            const uitslagen = data.previous_games.map(game => game["uitslag"].substring(0, 7));
+            const game_is_at_home = played_games.map(game => is_home_game_for_team(game, data.team_id_plus));
+
+            const uitslagen = played_games.map(game => game["uitslag"].substring(0, 7));
             const own_points = uitslagen.map((uitslag, i) => game_is_at_home[i] ? uitslag.substring(0, 3) : uitslag.substring(4, 7)).map(Number);
             const opp_points = uitslagen.map((uitslag, i) => game_is_at_home[i] ? uitslag.substring(4, 7) : uitslag.substring(0, 3)).map(Number);
             const verschillen = uitslagen.map(eval).map((v, i) => game_is_at_home[i] ? v : -v).map(v => v > 0 ? '+' + v : v);
@@ -183,7 +181,7 @@
             let innerhtml = [// list of strings we will join at the end
                 `<tr class="teamnaam">`,
                 th(attribute_str),
-                ...data.previous_games
+                ...played_games
                     .map(game =>
                         `<th><div><p><a href="match_grafiek.html?game_id=${game.guid}">`+
                         shorten_teamname(get_opponent_from_game(game, data.team_id_plus).naam) +
@@ -194,13 +192,13 @@
 
                 `<tr class="maand ${tr_class_only_on_extended_data}">`,
                 th('Maand'),
-                ...data.previous_games.map(game => game['datumString'].substring(3, 5)).map(Number).map(td_data),
+                ...played_games.map(game => game['datumString'].substring(3, 5)).map(Number).map(td_data),
                 '<td></td>'.repeat(3),
                 '</tr>',
 
                 `<tr class="dag ${tr_class_only_on_extended_data}">`,
                 th('Dag'),
-                ...data.previous_games.map(game => game['datumString'].substring(0, 2)).map(Number).map(td_data),
+                ...played_games.map(game => game['datumString'].substring(0, 2)).map(Number).map(td_data),
                 '<td></td>'.repeat(3),
                 '</tr>',
 
@@ -224,7 +222,7 @@
 
                 `<tr class="thuis ${tr_class_only_on_extended_data}">`,
                 th('Thuis'),
-                ...data.previous_games.map(g => is_home_game_for_team(g, data.team_id_plus))
+                ...played_games.map(g => is_home_game_for_team(g, data.team_id_plus))
                     .map(home_away_char)
                     .map(td_data),
                 '<td></td>'.repeat(3),
@@ -255,10 +253,6 @@
 
             const table = document.createElement('table');
             table.innerHTML = innerhtml.join('');
-            table.classList.add(extended_details_mode);
-            if (extended_details_mode == 'ONLY_WHEN_EXTENDED') {
-                table.classList.add('ONLY_WHEN_EXTENDED')
-            }
 
             return table
         }
@@ -292,11 +286,21 @@
             competitions_arr = Object.fromEntries(competitions_arr);
             competitions_arr = Object.entries(competitions_arr);
 
+            const n_wins = (pouleGUID) => (
+                data.previous_games
+                .filter(g => g.pouleGUID === pouleGUID)
+                .map(g => game_is_home_win(g) === is_home_game_for_team(g, data.team_id_plus) ? 1 : 0)
+                .reduce((a, b) => a + b, 0)
+            );
+            const n_losses = (pouleGUID) => data.previous_games.filter(g => g.pouleGUID === pouleGUID).length - n_wins(pouleGUID);
+
+            const wl = (pouleGUID) => `${n_wins(pouleGUID)}-${n_losses(pouleGUID)}`;
+
             const competitions_p = competitions_arr
                 .map(
                     ([pouleGUID, pouleNaam]) => `
                         <p>
-                            ${pouleNaam}
+                            ${pouleNaam} : ${wl(pouleGUID)}
                             <br>
                                 (<a href="poule.html?pouleGUID=${pouleGUID}">Reeks</a>
                                 &horbar;
@@ -335,7 +339,7 @@
                 'Uitslag',
             ].map(td).join(''));
 
-            const clean_uitslag_text = x => x ? x.slice(0, 7).replaceAll(' ', '') : '';
+            const clean_uitslag_text = x => x ? x.slice(0, 7).replaceAll(' ', '') : 'tbd';
             const uitslag_link = game => `<a href="match_grafiek.html?game_id=${game.guid}">${clean_uitslag_text(game.uitslag)}</a>`;
 
             const row_for_game = game => tr([
@@ -353,16 +357,15 @@
         }
 
         function make_div_with_tables(data) {
-            const table_keys_and_extended_only = [
-                ['points', 'ALWAYS_FULL'],
-                ['three_pt', 'DATA_ROWS'],
-                ['free_throws', 'ONLY_WHEN_EXTENDED'],
-                ['fouls', 'DATA_ROWS'],
-                ['plus_minus', 'ONLY_WHEN_EXTENDED'],
-                ['minutes', 'ONLY_WHEN_EXTENDED'],
+            const tables = [
+                make_data_table(data, 'points'),
+                make_data_table(data, 'three_pt'),
+                make_data_table(data, 'free_throws'),
+                make_data_table(data, 'fouls'),
+                make_data_table(data, 'plus_minus'),
+                make_data_table(data, 'minutes'),
             ];
 
-            const tables = table_keys_and_extended_only.map(t => make_data_table(data, t));
             const div = document.createElement('div');
 
             const extended_data_checkbox = document.createElement('input');
@@ -375,7 +378,6 @@
 
             tables.forEach((table, i) => {
                 table.style.position = 'relative';
-                table.dataset.t = table_keys_and_extended_only[i][0];
                 div.appendChild(table)
             });
 
@@ -433,14 +435,3 @@
     Javascript staat uit!
 </body>
 </html>
-
-
-<!--
-TODO:
-- +/- duo's, ...
-- Vrijworpen som, %
-- Wedstrijd / box score
-- laat rijen tussen tegenstander en tabel weg
-- pagina per match
-- link naar basketbal.vlaanderen
--->
