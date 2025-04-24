@@ -196,6 +196,7 @@
                     "Improvement in defense per 40' (on-off)",
                     "Improvement in +/- per 40' (on-off)",
                     "Team ID",
+                    "Player ID",
                 ].map(s => `<th>${s}</th>`).join('');
 
                 return `<thead><tr>${cells}</tr></thead>`;
@@ -352,6 +353,7 @@
                     td(data.defensive_improvement.toFixed(2), 'right'),
                     td(data.netto_improvement.toFixed(2), 'right'),
                     td(encodeURIComponent(data.team_relguid), 'teamid'),
+                    td(encodeURIComponent(data.relguid), 'relguid'),
                ];
 
                 const joined_string = [
