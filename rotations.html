@@ -24,6 +24,18 @@
 
 <div id="stints_figure" style="width: 90vw; height: 90vh;"></div>
 <script>
+    function remove_middle_elements(x_coords, y_coords) {
+        for (let i = 1; i < x_coords.length - 1; i++) {
+            if ((x_coords[i - 1] === x_coords[i] && x_coords[i] === x_coords[i + 1]) ||
+                (y_coords[i - 1] === y_coords[i] && y_coords[i] === y_coords[i + 1])) {
+                x_coords.splice(i, 1);
+                y_coords.splice(i, 1);
+                i--; // Adjust index after removal
+            }
+        }
+        return {x_coords, y_coords};
+    }
+
     function trace_for_player(data, relguid) {
         const substitutions = data.gebeurtenis_data.flatMap(geb_data =>
             geb_data.GebNis.filter(geb =>
@@ -37,8 +49,8 @@
         substitutions.sort((a, b) => a.fake_minute - b.fake_minute);
 
         let y = 0;
-        const x_coords = [0];
-        const y_coords = [0];
+        let x_coords = [0];
+        let y_coords = [0];
 
         substitutions.forEach((sub, index) => {
             x_coords.push(sub.fake_minute); // Add the x-coordinate
@@ -51,38 +63,26 @@
             y_coords.push(y); // Add the updated y-value
         });
 
-        // Remove middle elements when three subsequent x_coords are the same
-        for (let i = 1; i < x_coords.length - 1; i++) {
-            if ((x_coords[i - 1] === x_coords[i] && x_coords[i] === x_coords[i + 1])
-                || y_coords[i - 1] === y_coords[i] && y_coords[i] === y_coords[i + 1]) {
-                x_coords.splice(i, 1);
-                y_coords.splice(i, 1);
-                i--; // Adjust index after removal
-            }
-        }
-        // Remove middle elements when three subsequent x_coords are the same
-        for (let i = 1; i < x_coords.length - 1; i++) {
-            if ((x_coords[i - 1] === x_coords[i] && x_coords[i] === x_coords[i + 1])
-                || y_coords[i - 1] === y_coords[i] && y_coords[i] === y_coords[i + 1]) {
-                x_coords.splice(i, 1);
-                y_coords.splice(i, 1);
-                i--; // Adjust index after removal
-            }
-        }
+
+        let cleanedCoords = remove_middle_elements(x_coords, y_coords);
+        cleanedCoords = remove_middle_elements(cleanedCoords.x_coords, cleanedCoords.y_coords);
 
         // Retrieve the player's name
         const playerName = data.rosters.flatMap(r => r).find(p => p.RelGUID === relguid)?.Naam || 'Unknown Player';
 
         // Create the Plotly line chart
         const trace = {
-            x: x_coords,
-            y: y_coords,
+            x: cleanedCoords.x_coords,
+            y: cleanedCoords.y_coords,
             mode: 'lines',
             type: 'scatter',
             name: playerName, // Use the player's name as the label
+
+            // fill: 'toself',
         };
         return trace;
     }
+
 
     function sum_traces(trace1, trace2) {
         const summedX = [];
@@ -93,20 +93,23 @@
             if (i < trace1.x.length && (j >= trace2.x.length || trace1.x[i] <= trace2.x[j])) {
                 // Add point from trace1
                 summedX.push(trace1.x[i]);
-                summedY.push(trace1.y[i] + trace2.y[j]);
+                summedY.push(trace1.y[i] + (j < trace2.y.length ? trace2.y[j] : 0));
                 i++;
             }
             if (j < trace2.x.length && (i >= trace1.x.length || trace2.x[j] <= trace1.x[i])) {
                 // Add point from trace2
                 summedX.push(trace2.x[j]);
-                summedY.push(trace1.y[i] + trace2.y[j]);
+                summedY.push((i < trace1.y.length ? trace1.y[i] : 0) + trace2.y[j]);
                 j++;
             }
         }
 
+        // Remove redundant points
+        const cleanedCoords = remove_middle_elements(summedX, summedY);
+
         return {
-            x: summedX,
-            y: summedY,
+            x: cleanedCoords.x_coords,
+            y: cleanedCoords.y_coords,
             mode: 'lines',
             type: 'scatter',
         };
@@ -147,24 +150,37 @@
 
             return {relguid, playingTime};
         }).sort((a, b) => b.playingTime - a.playingTime)
-            .map(player => player.relguid)
-            .splice(0, 2);
+            .map(player => player.relguid);
 
         // Create a trace for each unique RelGUID
         const traces = sortedRelguids.map(relguid => trace_for_player(data, relguid));
 
+        const max_x = Math.max(...traces.flatMap(t => t.x));
+        traces.forEach(trace => {
+            trace.x.push(max_x);
+            trace.y.push(trace.y.at(-1));
+        })
+
+        // Stack traces vertically
+        let cumulativeTrace = {x: [], y: []};
+        const stackedTraces = traces.map((trace, index) => {
+            cumulativeTrace = sum_traces(cumulativeTrace, trace);
+            return {
+                ...cumulativeTrace,
+                name: traces[index].name, // Reuse the player's name as the label
+            };
+        });
+
         // Define layout
         const layout = {
-            title: {text: 'Player Usage Over Time'},
+            title: {text: 'Stacked Player Usage Over Time'},
             xaxis: {title: 'Minute'},
-            yaxis: {title: 'On Field Count'},
-            showlegend: true
+            yaxis: {title: 'Cumulative On Field Count'},
+            showlegend: true,
         };
 
         // Plot the figure
-        Plotly.newPlot('stints_figure',
-            [...traces, sum_traces(traces[0], traces[1])],
-            layout, {responsive: true});
+        Plotly.newPlot('stints_figure', stackedTraces, layout, {responsive: true});
     }
 </script>
 </body>
