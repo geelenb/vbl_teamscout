@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Rotations</title>
+    <script src="libs/dexie.js"></script>
+
+    <script src="libs/plotly-2.9.0.min.js"></script>
+
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.css">
+    <script type="text/javascript" charset="utf8"
+            src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"></script>
+
+    <script src="itertools.js?v=3"></script>
+    <script src="gebeurtenis_data.js?v=3"></script>
+    <script src="fetching.js?v=3"></script>
+    <script src="vis.js?v=3"></script>
+    <script src="common.js?v=3"></script>
+
+</head>
+<body>
+<h1 id="player_name_title">Rotaties <span>Dynamo Bertem HSE A</span></h1>
+
+<div id="stints_figure" style="width: 90vw; height: 90vh;"></div>
+<script>
+    function trace_for_player(data, relguid) {
+        const substitutions = data.gebeurtenis_data.flatMap(geb_data =>
+            geb_data.GebNis.filter(geb =>
+                geb.RelGUID == relguid &&
+                geb.GebType == 50 && // Wissel
+                (geb.Text == 'in' || geb.Text == 'uit')
+                && geb.GebStatus == 10  // valid
+            )
+        );
+
+        substitutions.sort((a, b) => a.fake_minute - b.fake_minute);
+
+        let y = 0;
+        const x_coords = [0];
+        const y_coords = [0];
+
+        substitutions.forEach((sub, index) => {
+            x_coords.push(sub.fake_minute); // Add the x-coordinate
+            y_coords.push(y); // Add the current y-value
+
+            // Update y based on the substitution type
+            y += (sub.Text === 'in' ? +1 : -1);
+
+            x_coords.push(sub.fake_minute); // Add the x-coordinate again for the step
+            y_coords.push(y); // Add the updated y-value
+        });
+
+        // Remove middle elements when three subsequent x_coords are the same
+        for (let i = 1; i < x_coords.length - 1; i++) {
+            if (x_coords[i - 1] === x_coords[i] && x_coords[i] === x_coords[i + 1]) {
+                x_coords.splice(i, 1);
+                y_coords.splice(i, 1);
+                i--; // Adjust index after removal
+            }
+        }
+
+        // Retrieve the player's name
+        const playerName = data.rosters.flatMap(r => r).find(p => p.RelGUID === relguid)?.Naam || 'Unknown Player';
+
+        // Create the Plotly line chart
+        const trace = {
+            x: x_coords,
+            y: y_coords,
+            mode: 'lines',
+            type: 'scatter',
+            name: playerName, // Use the player's name as the label
+        };
+        return trace;
+    }
+
+    function make_stints_figure(data) {
+        // Filter players with role 'S' who played in at least one game
+        const players_with_role_S = data.rosters.flatMap(r =>
+            r.filter(p => p.Functie === 'S' &&
+                data.gebeurtenis_data.some(geb_data =>
+                    geb_data.GebNis.some(geb =>
+                        geb.RelGUID === p.RelGUID &&
+                        geb.Text === 'in' &&
+                        geb.GebType === 50 &&
+                        geb.GebStatus === 10
+                    )
+                )
+            )
+        );
+
+        // Get a set of unique RelGUIDs
+        const relguidsSet = new Set(players_with_role_S.map(player => player.RelGUID));
+
+        // Create a trace for each unique RelGUID
+        const traces = [...relguidsSet].map(relguid => trace_for_player(data, relguid));
+
+        // Define layout
+        const layout = {
+            title: {text: 'Player Usage Over Time'},
+            xaxis: {title: 'Minute'},
+            yaxis: {title: 'On Field Count'},
+            showlegend: true
+        };
+
+        // Plot the figure
+        Plotly.newPlot('stints_figure', traces, layout, {responsive: true});
+    }
+</script>
+</body>
+<script>
+    async function get_all_data_of_team(team_id) {
+        const games = await fetch_games(team_id);
+
+        let team_name = is_home_game_for_team(games[0], team_id) ? games[0]['tTNaam'] : games[0]['tUNaam'];
+
+        const previous_games = games
+            .filter(game => (game['uitslag'] !== ""))
+            .filter(game => game.pouleNaam.indexOf('OEFEN') === -1) // geen oefenmatchen
+            .sort((a, b) => a['jsDTCode'] - b['jsDTCode']);
+
+        let rosters = fetch_relevant_team_rosters_for_games(previous_games, team_id);
+        let gebeurtenis_data = fetch_gebeurtenis_data_for_games(previous_games);
+
+        rosters = await rosters;
+        gebeurtenis_data = await gebeurtenis_data;
+
+        gebeurtenis_data.forEach(gdi => {
+            gdi.GebNis = add_fake_minute_to_gebnis(gdi.GebNis);
+            gdi.GebNis = add_detailed_minute_to_gebnis(gdi.GebNis);
+        });
+
+        return {
+            team_id_plus: team_id,
+            team_name: team_name,
+            previous_games: previous_games,
+            games: games,
+            relguid_to_most_common_number: get_most_common_number_per_player(rosters),
+            points: gebeurtenis_data.map(gebeurtenis_data_to_points),
+            plus_minus: gebeurtenis_data.map(gebeurtenis_data_to_plus_minus),
+            fouls: gebeurtenis_data.map(gebeurtenis_data_to_fouls),
+            minutes: gebeurtenis_data.map(gebeurtenis_data_to_minutes),
+            free_throws: gebeurtenis_data.map(gebeurtenis_data_to_free_throws),
+            free_throws_attempted: gebeurtenis_data.map(gebeurtenis_data_to_free_throws_attempted),
+            three_pt: gebeurtenis_data.map(gebeurtenis_data_to_three_pt),
+
+            rosters: rosters,
+            gebeurtenis_data: gebeurtenis_data,
+        };
+    }
+
+    function player_relguid_from_get_params() {
+        const params = new URLSearchParams(window.location.search.substring(1));
+        let player_relguid = params.get('RelGUID');
+        if (player_relguid) {
+            return player_relguid
+        }
+        return "BVBL606358"
+    }
+
+    function team_id_from_get_params() {
+        const params = new URLSearchParams(window.location.search.substring(1));
+        let team_id = params.get('team');
+        if (team_id) {
+            return team_id
+        }
+        return "BVBL1196HSE  1";
+    }
+
+    function pouleGUID_from_get_params() {
+        const params = new URLSearchParams(window.location.search.substring(1));
+        let pouleguid = params.get('pouleGUID');
+        if (pouleguid) {
+            return pouleguid
+        }
+        return "BVBL1196HSE  1";
+    }
+
+
+    addEventListener('load', async () => {
+        // redirect_if_team_unspecified();
+        window.team_id = team_id_from_get_params();
+
+        data = await get_all_data_of_team(team_id);
+
+        window.player = data.rosters.flatMap(roster => roster).filter(p => p.RelGUID === window.player_relguid)[0];
+
+        document.title = `Subteams ${shorten_teamname(data.team_name)}`;
+
+        make_stints_figure(data)
+
+    });
+
+</script>
+</html>
