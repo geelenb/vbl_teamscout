@@ -152,30 +152,46 @@
         }).sort((a, b) => b.playingTime - a.playingTime)
             .map(player => player.relguid);
 
+
         // Create a trace for each unique RelGUID
         const traces = sortedRelguids.map(relguid => trace_for_player(data, relguid));
 
-        const max_x = Math.max(...traces.flatMap(t => t.x));
+        const max_x = Math.max(...traces.flatMap(t => t.x)); // todo check if overtime works
         traces.forEach(trace => {
             trace.x.push(max_x);
             trace.y.push(trace.y.at(-1));
         })
 
         // Stack traces vertically
-        let cumulativeTrace = {x: [], y: []};
-        const stackedTraces = traces.map((trace, index) => {
+        let cumulativeTrace = {x: [0, max_x], y: [0, 0]};
+        const stackedTraces = traces.map(trace => {
+            // Append the previous cumulativeTrace in reverse order
+            const reversedX = [...cumulativeTrace.x].reverse();
+            const reversedY = [...cumulativeTrace.y].reverse();
+
             cumulativeTrace = sum_traces(cumulativeTrace, trace);
+
+            let x = [...cumulativeTrace.x, ...reversedX];
+            let y = [...cumulativeTrace.y, ...reversedY];
+            const cleanedCoords = remove_middle_elements(x, y);
             return {
-                ...cumulativeTrace,
-                name: traces[index].name, // Reuse the player's name as the label
+                x: cleanedCoords.x_coords,
+                y: cleanedCoords.y_coords,
+                mode: 'lines',
+                type: 'scatter',
+                fill: 'toself', // Enable filling
+                line: {width: 0}, // Remove the line
+                name: trace.name, // Reuse the player's name as the label
             };
         });
 
-        // Define layout
         const layout = {
             title: {text: 'Stacked Player Usage Over Time'},
             xaxis: {title: 'Minute'},
-            yaxis: {title: 'Cumulative On Field Count'},
+            yaxis: {
+                title: 'Cumulative On Field Count',
+                autorange: 'reversed', // Invert the y-axis
+            },
             showlegend: true,
         };
 
