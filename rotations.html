@@ -53,7 +53,17 @@
 
         // Remove middle elements when three subsequent x_coords are the same
         for (let i = 1; i < x_coords.length - 1; i++) {
-            if (x_coords[i - 1] === x_coords[i] && x_coords[i] === x_coords[i + 1]) {
+            if ((x_coords[i - 1] === x_coords[i] && x_coords[i] === x_coords[i + 1])
+                || y_coords[i - 1] === y_coords[i] && y_coords[i] === y_coords[i + 1]) {
+                x_coords.splice(i, 1);
+                y_coords.splice(i, 1);
+                i--; // Adjust index after removal
+            }
+        }
+        // Remove middle elements when three subsequent x_coords are the same
+        for (let i = 1; i < x_coords.length - 1; i++) {
+            if ((x_coords[i - 1] === x_coords[i] && x_coords[i] === x_coords[i + 1])
+                || y_coords[i - 1] === y_coords[i] && y_coords[i] === y_coords[i + 1]) {
                 x_coords.splice(i, 1);
                 y_coords.splice(i, 1);
                 i--; // Adjust index after removal
@@ -74,6 +84,34 @@
         return trace;
     }
 
+    function sum_traces(trace1, trace2) {
+        const summedX = [];
+        const summedY = [];
+        let i = 0, j = 0;
+
+        while (i < trace1.x.length || j < trace2.x.length) {
+            if (i < trace1.x.length && (j >= trace2.x.length || trace1.x[i] <= trace2.x[j])) {
+                // Add point from trace1
+                summedX.push(trace1.x[i]);
+                summedY.push(trace1.y[i] + trace2.y[j]);
+                i++;
+            }
+            if (j < trace2.x.length && (i >= trace1.x.length || trace2.x[j] <= trace1.x[i])) {
+                // Add point from trace2
+                summedX.push(trace2.x[j]);
+                summedY.push(trace1.y[i] + trace2.y[j]);
+                j++;
+            }
+        }
+
+        return {
+            x: summedX,
+            y: summedY,
+            mode: 'lines',
+            type: 'scatter',
+        };
+    }
+
     function make_stints_figure(data) {
         // Filter players with role 'S' who played in at least one game
         const players_with_role_S = data.rosters.flatMap(r =>
@@ -92,8 +130,28 @@
         // Get a set of unique RelGUIDs
         const relguidsSet = new Set(players_with_role_S.map(player => player.RelGUID));
 
+        // Calculate total playing time for each player and sort the RelGUIDs
+        const sortedRelguids = [...relguidsSet].map(relguid => {
+            const playingTime = data.gebeurtenis_data.flatMap(geb_data =>
+                geb_data.GebNis.filter(geb =>
+                    geb.RelGUID === relguid &&
+                    geb.GebType === 50 && // Wissel
+                    geb.GebStatus === 10
+                )
+            ).reduce((total, sub, index, subs) => {
+                if (sub.Text === 'in' && index + 1 < subs.length && subs[index + 1].Text === 'uit') {
+                    return total + (subs[index + 1].fake_minute - sub.fake_minute);
+                }
+                return total;
+            }, 0);
+
+            return {relguid, playingTime};
+        }).sort((a, b) => b.playingTime - a.playingTime)
+            .map(player => player.relguid)
+            .splice(0, 2);
+
         // Create a trace for each unique RelGUID
-        const traces = [...relguidsSet].map(relguid => trace_for_player(data, relguid));
+        const traces = sortedRelguids.map(relguid => trace_for_player(data, relguid));
 
         // Define layout
         const layout = {
@@ -104,7 +162,9 @@
         };
 
         // Plot the figure
-        Plotly.newPlot('stints_figure', traces, layout, {responsive: true});
+        Plotly.newPlot('stints_figure',
+            [...traces, sum_traces(traces[0], traces[1])],
+            layout, {responsive: true});
     }
 </script>
 </body>
