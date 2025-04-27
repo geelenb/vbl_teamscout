@@ -27,8 +27,9 @@
         }
     </style>
 </head>
-<h1 id="player_name_title">Rotaties <span>Dynamo Bertem HSE A</span></h1>
+<h1 id="player_name_title">Rotaties <span id="teamname"></span></h1>
 
+<div id="heatmap_stints_figure"></div>
 <div id="stacked_stints_figure"></div>
 <script>
     function remove_middle_elements(x_coords, y_coords) {
@@ -243,10 +244,6 @@
         // Plot the figure
         Plotly.newPlot('stacked_stints_figure', stackedTraces, layout, {responsive: true});
     }
-</script>
-
-<div id="heatmap_stints_figure"></div>
-<script>
 
     function make_heatmap_stints_figure(data) {
         // Get all unique substitution times to create x-axis divisions
@@ -366,7 +363,7 @@
         };
 
         const layout = {
-            title: 'Player Presence Heatmap',
+            title: `Player Presence Heatmap: ${data.team_name}`,
             xaxis: {
                 title: 'Minutes',
                 // Let Plotly handle ticks and labels automatically
@@ -377,12 +374,12 @@
                 ticklabelposition: 'outside', // Position labels outside
                 ticklabelpadding: 30, // Add padding for long names
             },
-    margin: {
-        l: 150, // Increase left margin to accommodate long labels
-        r: 20,
-        t: 50,
-        b: 50,
-    },
+            margin: {
+                l: 150, // Increase left margin to accommodate long labels
+                r: 20,
+                t: 50,
+                b: 50,
+            },
             height: 800,
         };
 
@@ -431,15 +428,6 @@
         };
     }
 
-    function player_relguid_from_get_params() {
-        const params = new URLSearchParams(window.location.search.substring(1));
-        let player_relguid = params.get('RelGUID');
-        if (player_relguid) {
-            return player_relguid
-        }
-        return "BVBL606358"
-    }
-
     function team_id_from_get_params() {
         const params = new URLSearchParams(window.location.search.substring(1));
         let team_id = params.get('team');
@@ -449,25 +437,15 @@
         return "BVBL1196HSE  1";
     }
 
-    function pouleGUID_from_get_params() {
-        const params = new URLSearchParams(window.location.search.substring(1));
-        let pouleguid = params.get('pouleGUID');
-        if (pouleguid) {
-            return pouleguid
-        }
-        return "BVBL1196HSE  1";
-    }
-
-
     addEventListener('load', async () => {
-        // redirect_if_team_unspecified();
         window.team_id = team_id_from_get_params();
 
         data = await get_all_data_of_team(team_id);
 
         window.player = data.rosters.flatMap(roster => roster).filter(p => p.RelGUID === window.player_relguid)[0];
 
-        document.title = `Subteams ${shorten_teamname(data.team_name)}`;
+        document.title = `Rotaties ${shorten_teamname(data.team_name)}`;
+        document.getElementById('teamname').innerText = data.team_name;
 
         make_stacked_stints_figure(data);
         make_heatmap_stints_figure(data);
