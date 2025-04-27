@@ -18,7 +18,7 @@
     <script src="vis.js?v=3"></script>
     <script src="common.js?v=3"></script>
     <style>
-        #stints_figure {
+        #stacked_stints_figure {
             width: 90vw;
             height: 90vh;
             position: relative;
@@ -27,10 +27,9 @@
         }
     </style>
 </head>
-<body>
 <h1 id="player_name_title">Rotaties <span>Dynamo Bertem HSE A</span></h1>
 
-<div id="stints_figure"></div>
+<div id="stacked_stints_figure"></div>
 <script>
     function remove_middle_elements(x_coords, y_coords) {
         for (let i = 1; i < x_coords.length - 1; i++) {
@@ -88,7 +87,6 @@
         return trace;
     }
 
-
     function sum_traces(trace1, trace2) {
         const summedX = [];
         const summedY = [];
@@ -137,9 +135,7 @@
                 const meanY = testCumulativeTrace.y.reduce((sum, y) => sum + y, 0) / testCumulativeTrace.y.length;
 
                 // Calculate the standard deviation of y values
-                const stdDev = Math.sqrt(
-                    testCumulativeTrace.y.reduce((sum, y) => sum + Math.pow(y - meanY, 2), 0) / testCumulativeTrace.y.length
-                );
+                const stdDev = testCumulativeTrace.y.reduce((sum, y) => sum + Math.pow(y - meanY, 2), 0);
 
                 if (stdDev < bestFlatness) {
                     bestFlatness = stdDev;
@@ -177,7 +173,7 @@
         return sortedRelguids;
     }
 
-    function make_stints_figure(data) {
+    function make_stacked_stints_figure(data) {
         // Filter players with role 'S' who played in at least one game
         const players_with_role_S = data.rosters.flatMap(r =>
             r.filter(p => p.Functie === 'S' &&
@@ -196,7 +192,9 @@
         const sortedRelguids = sort_relguids_by_playing_time(relguidsSet, data);
         let traces = sortedRelguids.map(relguid => trace_for_player(data, relguid));
 
-        const max_x = Math.max(...traces.flatMap(t => t.x)); // todo check if overtime works
+        // todo check if overtime works
+        // overtime is a problem see http://localhost:8000/rotations.html?team=BVBL1125HSE%20%205
+        const max_x = Math.max(...traces.flatMap(t => t.x));
         traces.forEach(trace => {
             trace.x.push(max_x);
             trace.y.push(trace.y.at(-1));
@@ -243,7 +241,152 @@
         };
 
         // Plot the figure
-        Plotly.newPlot('stints_figure', stackedTraces, layout, {responsive: true});
+        Plotly.newPlot('stacked_stints_figure', stackedTraces, layout, {responsive: true});
+    }
+</script>
+
+<div id="heatmap_stints_figure"></div>
+<script>
+
+    function make_heatmap_stints_figure(data) {
+        // Get all unique substitution times to create x-axis divisions
+        const allSubTimes = data.gebeurtenis_data.flatMap(geb_data =>
+            geb_data.GebNis.filter(geb =>
+                geb.GebType === 50 && // Wissel
+                (geb.Text === 'in' || geb.Text === 'uit') &&
+                geb.GebStatus === 10
+            ).map(geb => geb.fake_minute)
+        );
+
+        // Add 0 and max time to ensure we cover the full game
+        const max_time = Math.max(...allSubTimes);
+        const timePoints = [...new Set(allSubTimes), max_time].sort((a, b) => a - b);
+
+        // Get sorted player list by total minutes played
+        const players_with_role_S = data.rosters.flatMap(r =>
+            r.filter(p => p.Functie === 'S' &&
+                data.gebeurtenis_data.some(geb_data =>
+                    geb_data.GebNis.some(geb =>
+                        geb.RelGUID === p.RelGUID &&
+                        geb.Text === 'in' &&
+                        geb.GebType === 50 &&
+                        geb.GebStatus === 10
+                    )
+                )
+            )
+        );
+
+        const relguidsSet = new Set(players_with_role_S.map(player => player.RelGUID));
+        const sortedRelguids = [...relguidsSet].map(relguid => {
+            const totalMinutes = data.gebeurtenis_data.flatMap(geb_data =>
+                geb_data.GebNis.filter(geb =>
+                    geb.RelGUID === relguid &&
+                    geb.GebType === 50 &&
+                    geb.GebStatus === 10
+                )
+            ).reduce((total, sub, index, subs) => {
+                if (sub.Text === 'in' && index + 1 < subs.length && subs[index + 1].Text === 'uit') {
+                    return total + (subs[index + 1].fake_minute - sub.fake_minute);
+                }
+                return total;
+            }, 0);
+
+            return {relguid, totalMinutes};
+        }).sort((a, b) => b.totalMinutes - a.totalMinutes)
+            .map(player => player.relguid);
+
+        // Player names for y-axis
+        const playerNames = sortedRelguids.map(relguid =>
+            data.rosters.flatMap(r => r).find(p => p.RelGUID === relguid)?.Naam || 'Unknown Player'
+        );
+
+        // Calculate playing status matrix
+        const statusMatrix = [];
+        let maxCount = 0;
+
+        sortedRelguids.forEach(relguid => {
+            const playerStatus = Array(timePoints.length - 1).fill(0);
+
+            data.gebeurtenis_data.forEach(geb_data => {
+                const subs = geb_data.GebNis.filter(geb =>
+                    geb.RelGUID === relguid &&
+                    geb.GebType === 50 &&
+                    (geb.Text === 'in' || geb.Text === 'uit') &&
+                    geb.GebStatus === 10
+                ).sort((a, b) => a.fake_minute - b.fake_minute);
+
+                if (subs.length === 0) return;
+
+                let isPlaying = 0;
+
+                for (let i = 0; i < timePoints.length - 1; i++) {
+                    const startTime = timePoints[i];
+                    const endTime = timePoints[i + 1];
+
+                    subs.forEach(sub => {
+                        if (sub.fake_minute < startTime) {
+                            isPlaying = sub.Text === 'in' ? 1 : 0;
+                        }
+                    });
+
+                    const segmentSubs = subs.filter(sub =>
+                        sub.fake_minute >= startTime && sub.fake_minute < endTime
+                    );
+                    if (segmentSubs.length > 0) {
+                        const lastSub = segmentSubs[segmentSubs.length - 1];
+                        isPlaying = lastSub.Text === 'in' ? 1 : 0;
+                    }
+
+                    playerStatus[i] += isPlaying;
+                }
+            });
+
+            maxCount = Math.max(maxCount, ...playerStatus);
+            statusMatrix.push(playerStatus);
+        });
+
+        // Create the heatmap trace
+        const trace = {
+            type: 'heatmap',
+            z: statusMatrix,
+            x: timePoints.slice(0, -1).map((start, i) => (start + timePoints[i + 1]) / 2),
+            y: playerNames,
+            colorscale: 'orRD',
+            showscale: true,
+            colorbar: {
+                title: 'Games played',
+                tickvals: [...Array(maxCount + 1).keys()].filter(i => i % Math.max(1, Math.floor(maxCount / 5)) === 0 || i === maxCount),
+            },
+            hoverinfo: 'text',
+            text: statusMatrix.map((row, playerIdx) =>
+                row.map((count, timeIdx) =>
+                    `${playerNames[playerIdx]}<br>Minutes: ${timePoints[timeIdx].toFixed(1)}-${timePoints[timeIdx + 1].toFixed(1)}<br>Games playing: ${count}`
+                )
+            )
+        };
+
+        const layout = {
+            title: 'Player Presence Heatmap',
+            xaxis: {
+                title: 'Minutes',
+                // Let Plotly handle ticks and labels automatically
+            },
+            yaxis: {
+                title: 'Players',
+                autorange: 'reversed',
+                ticklabelposition: 'outside', // Position labels outside
+                ticklabelpadding: 30, // Add padding for long names
+            },
+    margin: {
+        l: 150, // Increase left margin to accommodate long labels
+        r: 20,
+        t: 50,
+        b: 50,
+    },
+            height: 800,
+        };
+
+        Plotly.newPlot('heatmap_stints_figure', [trace], layout, {responsive: true});
     }
 </script>
 </body>
@@ -326,7 +469,8 @@
 
         document.title = `Subteams ${shorten_teamname(data.team_name)}`;
 
-        make_stints_figure(data)
+        make_stacked_stints_figure(data);
+        make_heatmap_stints_figure(data);
 
     });
 
