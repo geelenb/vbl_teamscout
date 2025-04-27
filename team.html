@@ -516,7 +516,10 @@
                     ${contents}
                 </details>`;
 
-            const subteams = `<p><a href="subteams.html?team=${data.team_id_plus}">Subteam analysis</a></p>`
+            const subteams = `<p>
+                <a href="subteams.html?team=${data.team_id_plus}">Subteams</a>
+                <a href="rotations.html?team=${data.team_id_plus}">Rotations</a>
+            </p>`
 
             to_fill.innerHTML = (
                 make_title(data)
