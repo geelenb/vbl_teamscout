@@ -17,12 +17,20 @@
     <script src="fetching.js?v=3"></script>
     <script src="vis.js?v=3"></script>
     <script src="common.js?v=3"></script>
-
+    <style>
+        #stints_figure {
+            width: 90vw;
+            height: 90vh;
+            position: relative;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+    </style>
 </head>
 <body>
 <h1 id="player_name_title">Rotaties <span>Dynamo Bertem HSE A</span></h1>
 
-<div id="stints_figure" style="width: 90vw; height: 90vh;"></div>
+<div id="stints_figure"></div>
 <script>
     function remove_middle_elements(x_coords, y_coords) {
         for (let i = 1; i < x_coords.length - 1; i++) {
@@ -70,15 +78,12 @@
         // Retrieve the player's name
         const playerName = data.rosters.flatMap(r => r).find(p => p.RelGUID === relguid)?.Naam || 'Unknown Player';
 
-        // Create the Plotly line chart
         const trace = {
             x: cleanedCoords.x_coords,
             y: cleanedCoords.y_coords,
             mode: 'lines',
             type: 'scatter',
             name: playerName, // Use the player's name as the label
-
-            // fill: 'toself',
         };
         return trace;
     }
@@ -115,25 +120,43 @@
         };
     }
 
-    function make_stints_figure(data) {
-        // Filter players with role 'S' who played in at least one game
-        const players_with_role_S = data.rosters.flatMap(r =>
-            r.filter(p => p.Functie === 'S' &&
-                data.gebeurtenis_data.some(geb_data =>
-                    geb_data.GebNis.some(geb =>
-                        geb.RelGUID === p.RelGUID &&
-                        geb.Text === 'in' &&
-                        geb.GebType === 50 &&
-                        geb.GebStatus === 10
-                    )
-                )
-            )
-        );
+    function reorder_traces_for_flatness(traces) {
+        const reorderedTraces = [];
+        let cumulativeTrace = traces.shift(); // Start with the first trace in the list
+        reorderedTraces.push(cumulativeTrace);
 
-        // Get a set of unique RelGUIDs
-        const relguidsSet = new Set(players_with_role_S.map(player => player.RelGUID));
+        while (traces.length > 0) {
+            let bestTraceIndex = -1;
+            let bestFlatness = Infinity;
 
-        // Calculate total playing time for each player and sort the RelGUIDs
+            // Evaluate each trace to find the one that minimizes flatness
+            traces.forEach((trace, index) => {
+                const testCumulativeTrace = sum_traces(cumulativeTrace, trace);
+
+                // Calculate the mean of y values
+                const meanY = testCumulativeTrace.y.reduce((sum, y) => sum + y, 0) / testCumulativeTrace.y.length;
+
+                // Calculate the standard deviation of y values
+                const stdDev = Math.sqrt(
+                    testCumulativeTrace.y.reduce((sum, y) => sum + Math.pow(y - meanY, 2), 0) / testCumulativeTrace.y.length
+                );
+
+                if (stdDev < bestFlatness) {
+                    bestFlatness = stdDev;
+                    bestTraceIndex = index;
+                }
+            });
+
+            // Add the best trace to the reordered list and update the cumulative trace
+            const bestTrace = traces.splice(bestTraceIndex, 1)[0];
+            cumulativeTrace = sum_traces(cumulativeTrace, bestTrace);
+            reorderedTraces.push(bestTrace);
+        }
+
+        return reorderedTraces;
+    }
+
+    function sort_relguids_by_playing_time(relguidsSet, data) {
         const sortedRelguids = [...relguidsSet].map(relguid => {
             const playingTime = data.gebeurtenis_data.flatMap(geb_data =>
                 geb_data.GebNis.filter(geb =>
@@ -151,29 +174,53 @@
             return {relguid, playingTime};
         }).sort((a, b) => b.playingTime - a.playingTime)
             .map(player => player.relguid);
+        return sortedRelguids;
+    }
 
+    function make_stints_figure(data) {
+        // Filter players with role 'S' who played in at least one game
+        const players_with_role_S = data.rosters.flatMap(r =>
+            r.filter(p => p.Functie === 'S' &&
+                data.gebeurtenis_data.some(geb_data =>
+                    geb_data.GebNis.some(geb =>
+                        geb.RelGUID === p.RelGUID &&
+                        geb.Text === 'in' &&
+                        geb.GebType === 50 &&
+                        geb.GebStatus === 10
+                    )
+                )
+            )
+        );
 
-        // Create a trace for each unique RelGUID
-        const traces = sortedRelguids.map(relguid => trace_for_player(data, relguid));
+        const relguidsSet = new Set(players_with_role_S.map(player => player.RelGUID));
+        const sortedRelguids = sort_relguids_by_playing_time(relguidsSet, data);
+        let traces = sortedRelguids.map(relguid => trace_for_player(data, relguid));
 
         const max_x = Math.max(...traces.flatMap(t => t.x)); // todo check if overtime works
         traces.forEach(trace => {
             trace.x.push(max_x);
             trace.y.push(trace.y.at(-1));
-        })
+        });
+
+        traces = reorder_traces_for_flatness(traces);
 
         // Stack traces vertically
         let cumulativeTrace = {x: [0, max_x], y: [0, 0]};
         const stackedTraces = traces.map(trace => {
-            // Append the previous cumulativeTrace in reverse order
-            const reversedX = [...cumulativeTrace.x].reverse();
-            const reversedY = [...cumulativeTrace.y].reverse();
+            // Reverse the cumulative trace coordinates
+            const reversedCoords = {
+                x: [...cumulativeTrace.x].reverse(),
+                y: [...cumulativeTrace.y].reverse(),
+            };
 
+            // Update the cumulative trace
             cumulativeTrace = sum_traces(cumulativeTrace, trace);
 
-            let x = [...cumulativeTrace.x, ...reversedX];
-            let y = [...cumulativeTrace.y, ...reversedY];
-            const cleanedCoords = remove_middle_elements(x, y);
+            // Combine and clean the coordinates
+            const cleanedCoords = remove_middle_elements(
+                [...cumulativeTrace.x, ...reversedCoords.x],
+                [...cumulativeTrace.y, ...reversedCoords.y]
+            );
             return {
                 x: cleanedCoords.x_coords,
                 y: cleanedCoords.y_coords,
