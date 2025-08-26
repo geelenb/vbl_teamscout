@@ -144,14 +144,14 @@ async function fetch_gebeurtenis_data(game_uid, use_cache) {
             "headers": {
                 // "accept": "*/*",
                 // "accept-language": "en-US,en;q=0.9,nl;q=0.8,en-GB;q=0.7,fr;q=0.6",
-                "authorization": "na",
+                "authorization": `${authorization_str()}`,
                 "content-type": "application/json; charset=UTF-8",
                 // "sec-fetch-mode": "cors",
                 // "sec-fetch-site": "same-site"
             },
             "referrer": referrer,
             // "referrerPolicy": "no-referrer-when-downgrade",
-            "body": `{"AuthHeader":"na","WQVer":"ddc1.0","WedGUID":"${game_uid}","CRUD":"R"}`,
+            "body": `{"AuthHeader":"${authorization_str()}","WQVer":"ddc1.0","WedGUID":"${game_uid}","CRUD":"R"}`,
             "method": "PUT",
             // "mode": "cors"
         })).json();
