@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="nl-be">
+<head>
+    <title>Laden...</title>
+    <meta charset='utf-8'>
+
+    <style>
+        html, body {
+            margin: 0;
+            /*font-family: Geneva, Arial, sans-serif;*/
+            font-family: Georgia, Palatino, serif;
+            text-align: center;
+
+            height: 100%;
+            padding: 0;
+        }
+
+        #grafiek {
+            width: 100%;
+            height: 85vh;          /* ← most popular choice */
+            /* or: height: 600px;  */
+            /* or: min-height: 500px; */
+        }
+
+    </style>
+
+    <script src="libs/dexie.js"></script>
+    <script src="libs/plotly-2.9.0.min.js"></script>
+
+    <script src="vis.js?v=3"></script>
+    <script src="itertools.js?v=3"></script>
+    <script src="gebeurtenis_data.js?v=3"></script>
+    <script src="fetching.js?v=4"></script>
+    <script src="authorization.js?v=4"></script>
+    <script src="common.js?v=3"></script>
+
+
+    <script type="text/javascript">
+        my_fav_team = "BVBL1049HSE++1"; // Orly A
+
+        const get_next_game_from_games = games => (
+            games
+                .filter(v => v['jsDTCode'] > new Date().getTime())
+                .sort((a, b) => a['jsDTCode'] - b['jsDTCode'])
+        )[0];
+
+        async function get_all_data_of_team(team_id) {
+            const games = await fetch_games(team_id);
+            const next_game = get_next_game_from_games(games);
+
+            let team_name = is_home_game_for_team(games[0], team_id) ? games[0]['tTNaam'] : games[0]['tUNaam'];
+
+            const previous_games = games
+                    .filter(game => (game['uitslag'] !== ""))
+                    .filter(game => game.pouleNaam.indexOf('OEFEN') === -1) // geen oefenmatchen
+                    .sort((a, b) => a['jsDTCode'] - b['jsDTCode']);
+
+            let rosters = fetch_relevant_team_rosters_for_games(previous_games, team_id);
+            let gebeurtenis_data = fetch_gebeurtenis_data_for_games(previous_games);
+
+            rosters = await rosters;
+            gebeurtenis_data = await gebeurtenis_data;
+
+            gebeurtenis_data.forEach(gdi => {
+                gdi.GebNis = add_fake_minute_to_gebnis(gdi.GebNis);
+                gdi.GebNis = add_detailed_minute_to_gebnis(gdi.GebNis);
+            });
+
+            data = {
+                team_id_plus: team_id,
+                team_name: team_name,
+                previous_games: previous_games,
+                games: games,
+
+                rosters: rosters,
+                gebeurtenis_data: gebeurtenis_data,
+                next_game: next_game
+            };
+
+            return data;
+        }
+
+
+        function points_trace_for_single_game(my_team_id, game, single_game_geb_data) {
+            const opponent_name = game.tTGUID == my_team_id ? game.tTNaam : game.tUNaam;
+            const flip = game.tUGUID == my_team_id;
+
+            let points_trace = {
+                x: [0],
+                y: [0],
+                text: ['Start'],
+                type: 'scatter',
+                hoverinfo: 'text',
+                showlegend: false,
+                name: 'Home advantage'
+            };
+
+            let geb_index_x = [];
+            let last_y;
+
+            single_game_geb_data.GebNis.forEach((geb, i) => {
+                if (geb.GebStatus !== 10) {
+                    return;
+                }
+
+                const x = geb.fake_minute;
+                last_y = points_trace.y[points_trace.y.length - 1]
+
+                if (geb.GebType === 10) {
+                    // score
+                    const split = geb.Text.split(/\b/);
+                    const newdiff = split[2] - split[4];
+                    const text = "";
+
+                    points_trace.x.push(x, x);
+                    points_trace.y.push(last_y, flip ? -newdiff : newdiff);
+                    points_trace.text.push(text, text);
+                }
+
+                geb_index_x.push({
+                    geb_index: geb.Index,
+                    x: x
+                });
+            })
+            return points_trace;
+        }
+
+        async function make_graph(data) {
+            const gebeurtenis_data = data.gebeurtenis_data;
+            const previous_games = data.previous_games;
+            const teamname = shorten_teamname(data.team_name);
+
+            let points_traces = gebeurtenis_data.map(
+                (gebdata, i) => points_trace_for_single_game(data.team_id_plus, previous_games[i], gebdata));
+
+            let layout = {
+                xaxis: {
+                    title: 'Minuut',
+                    fixedrange: true,
+                },
+                yaxis: {
+                    title: `Voorsprong ${teamname}`,
+                    fixedrange: true,
+                },
+                margin: {
+                    r: 10,
+                    t: 10,
+                },
+                dragmode: false,
+                font: {
+                    family: 'Georgia, Palatino, serif',
+                }
+            };
+            const config = {
+                responsive: true,
+                displaylogo: false,
+                scrollZoom: true,
+            }
+
+            window.grafiek = await Plotly.newPlot('grafiek', points_traces, layout, config);
+        }
+
+        async function team_id_from_get_params() {
+            const params = new URLSearchParams(window.location.search.substring(1));
+            return params.get('team');
+        }
+
+        addEventListener('load', async () => {
+            document.getElementById("grafiek").innerHTML = 'Laden...';
+            const team_id = await team_id_from_get_params();
+            data = await get_all_data_of_team(team_id);
+            document.getElementById("grafiek").innerHTML = '';
+            make_graph(data);
+        })
+    </script>
+
+</head>
+<body>
+    <div id="grafiek">check if Javascript is enabled</div>
+</body>
+</html>

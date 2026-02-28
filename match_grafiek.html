@@ -1011,32 +1011,6 @@
 		}
 	}
 
-	function make_calendar() {
-		const game_to_url = (game) => 'match_grafiek.html?game_id=' + game.guid
-		const fill_select = (select, team_guid) => {
-        	const games = poule_games.filter(g => g.tTGUID === team_guid || g.tUGUID === team_guid);
-			const game_to_option = (g) => {
-				// const w_or_l = (g.tTGUID === team_guid) === (homegame)
-				const text = (
-					g.tTGUID === team_guid 
-					? `vs. ` + shorten_teamname_more(g.tUNaam) 
-					: '@ ' + shorten_teamname_more(g.tTNaam) 
-				)
-
-				return `<option>${text}</option>`
-			}
-			select.innerHTML = [
-
-				...games.map(game_to_option)
-			].join('');
-		}
-
-		const selects = document.querySelectorAll('div#calendar > select');
-		fill_select(selects[0], game.tTGUID);
-		fill_select(selects[1], game.tUGUID);
-
-    }
-
 	(async () => {
 		window.game_id = redirect_if_team_unspecified();
 
