@@ -17,9 +17,11 @@
 
         #grafiek {
             width: 100%;
-            height: 85vh;          /* ← most popular choice */
-            /* or: height: 600px;  */
-            /* or: min-height: 500px; */
+            height: 85vh;
+            transform: translate(-50%, -50%);
+            position: absolute;
+            left: 50%;
+            top: 50%;
         }
 
     </style>
@@ -82,8 +84,8 @@
 
 
         function points_trace_for_single_game(my_team_id, game, single_game_geb_data) {
-            const opponent_name = game.tTGUID == my_team_id ? game.tTNaam : game.tUNaam;
-            const flip = game.tUGUID == my_team_id;
+            const home = game.tTGUID == my_team_id;
+            const opponent_name = home ? game.tUNaam : game.tTNaam;
 
             let points_trace = {
                 x: [0],
@@ -92,7 +94,12 @@
                 type: 'scatter',
                 hoverinfo: 'text',
                 showlegend: false,
-                name: 'Home advantage'
+                name: '',
+                hovertemplate: (home ? "v " : "@ ") + opponent_name,
+                line: {
+                    width: 1,
+                },
+                game_id: game.guid,
             };
 
             let geb_index_x = [];
@@ -113,7 +120,7 @@
                     const text = "";
 
                     points_trace.x.push(x, x);
-                    points_trace.y.push(last_y, flip ? -newdiff : newdiff);
+                    points_trace.y.push(last_y, home ? newdiff : -newdiff);
                     points_trace.text.push(text, text);
                 }
 
@@ -142,6 +149,7 @@
                     title: `Voorsprong ${teamname}`,
                     fixedrange: true,
                 },
+                hovermode: 'closest',
                 margin: {
                     r: 10,
                     t: 10,
@@ -158,6 +166,21 @@
             }
 
             window.grafiek = await Plotly.newPlot('grafiek', points_traces, layout, config);
+
+            window.grafiek.on('plotly_click', function(eventData) {
+                if (!eventData || !eventData.points || eventData.points.length === 0) {
+                    return;
+                }
+
+                // Get the clicked trace index
+                const point = eventData.points[0];
+                const traceIndex = point.curveNumber;  // = i in your map()
+                const trace = points_traces[traceIndex];
+
+                if (trace.game_id) {
+                    window.location.href = `match_grafiek.html?game_id=${trace.game_id}`;
+                }
+            });
         }
 
         async function team_id_from_get_params() {
