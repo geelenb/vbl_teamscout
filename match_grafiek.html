@@ -180,8 +180,13 @@
             border-bottom: black 1px solid;
         }
 
+        table.booktabs tr:nth-child(7) td {
+            padding-top: 12px;
+        }
+
         table.booktabs tr:last-child td {
             border-bottom: black 3px solid;
+            padding-top: initial;
         }
 
         table.booktabs.w_totals tr:last-child td {
@@ -629,12 +634,22 @@
 			console.log(game_is_finished)
 			relguid_to_in_uit = {}; // niemand in
 		}
-		
+
+        const is_incoming_sub = geb => (geb.GebStatus === 10 && geb.GebType === 50 && geb.Text === 'in');
+        const is_home_geb = geb => geb.TofU === 'T';
+        const is_away_geb = geb => geb.TofU === 'U';
+        const home_incoming_subs = gebeurtenis_data.filter(is_incoming_sub).filter(is_home_geb).map(geb => geb.RelGUID);
+        const away_incoming_subs = gebeurtenis_data.filter(is_incoming_sub).filter(is_away_geb).map(geb => geb.RelGUID);
+        const home_starting_five = [...new Set(home_incoming_subs)].slice(0, 5);
+        const away_starting_five = [...new Set(away_incoming_subs)].slice(0, 5);
+        const starting_lineups = [...home_starting_five, ...away_starting_five];
+        const is_in_starting_5 = relguid => starting_lineups.includes(relguid) ? -100 : 100;
+        const roster_sort = (a, b) => (is_in_starting_5(a.RelGUID) + parseInt(a.RugNr)) - (is_in_starting_5(b.RelGUID) + parseInt(b.RugNr));
+
 		// make the normal table
 		[["home", roster.TtDeel], ["away", roster.TuDeel]].forEach(([c, teamroster]) => {
 			const table = document.querySelector('table.stats.' + c);
 			let new_innerhtml = '';
-			// table.innerHTML = '';
 
 			let sum_pts = 0;
 			let sum_ft = 0;
@@ -654,7 +669,7 @@
 							'min',
 						].map(td).join(''));
 
-			teamroster.sort((a, b) => a.RugNr - b.RugNr).forEach(player => {
+			teamroster.sort(roster_sort).forEach(player => {
 				if (!player.Naam) {
 					return
 				}
