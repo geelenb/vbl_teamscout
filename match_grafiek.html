@@ -796,7 +796,7 @@
 							'+-/min',
 						].map(td).join(''));
 
-			teamroster.sort((a, b) => a.RugNr - b.RugNr).forEach(player => {
+			teamroster.sort(roster_sort).forEach(player => {
 				if (!player.Naam) {
 					return
 				}
