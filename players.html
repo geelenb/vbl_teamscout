@@ -179,6 +179,8 @@
                     "FTs per game",
                     "Fouls",
                     "Fouls per game",
+                    "Technical fouls",
+                    "Unsportsmanlike fouls",
                     "Non personal fouls",
                     "Plus",
                     "Minus",
@@ -248,6 +250,8 @@
 
                 const n_fouls = player_fouten.length;
                 const n_fouls_per_game = n_fouls / n_games;
+                const n_technical_fouls = player_fouten.filter(g => g.Text[0] === 'T').length;
+                const n_unsportsmanlike_fouls = player_fouten.filter(g => g.Text[0] === 'U').length;
                 const n_non_personal_fouls = player_fouten.filter(g => g.Text[0] !== 'P').length;
 
                 const plus = on_court_plus[relguid];
@@ -292,6 +296,8 @@
                     "n_fts_per_game": n_fts_per_game,
                     "n_fouls": n_fouls,
                     "n_fouls_per_game": n_fouls_per_game,
+                    "n_technical_fouls": n_technical_fouls,
+                    "n_unsportsmanlike_fouls": n_unsportsmanlike_fouls,
                     "n_non_personal_fouls": n_non_personal_fouls,
                     "plus": plus,
                     "minus": minus,
@@ -336,6 +342,8 @@
                     td(data.n_fts_per_game.toFixed(1), 'right'),
                     td(data.n_fouls, 'right'),
                     td(data.n_fouls_per_game.toFixed(1), 'right'),
+                    td(data.n_technical_fouls, 'right'),
+                    td(data.n_unsportsmanlike_fouls, 'right'),
                     td(data.n_non_personal_fouls, 'right'),
                     td(data.plus, 'right'),
                     td(data.minus, 'right'),
@@ -399,7 +407,7 @@
         }
 
         function fix_marker_sizes(traces) {
-            const total = traces.flatMap(trace => trace.marker.size).reduce(sum, 0);
+            const total = traces.flatMap(trace => trace?.marker?.size[0] ?? 0).reduce(sum, 0);
             const n = traces.filter(trace=>trace.opacity > 0.1).length + 1;
             const meansize = total / n;
             // console.log(total, n, meansize)
@@ -439,7 +447,7 @@
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
 
-            const traces = player_datas.map(trace_for_player);
+            const traces = player_datas.filter(p=>Number.isFinite(p.minutes)).map(trace_for_player);
             fix_marker_sizes(traces);
             if (filtered_data_is_of_one_team(selected_player_datas)){
                 traces.push(...initials_on_data(selected_player_datas, trace_for_player));
@@ -485,7 +493,7 @@
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
             
-            const traces = player_datas.map(trace_for_player);
+            const traces = player_datas.filter(p=>Number.isFinite(p.minutes)).map(trace_for_player);
             fix_marker_sizes(traces);
 
             if (filtered_data_is_of_one_team(selected_player_datas)){
@@ -570,7 +578,7 @@
                 },
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
-            const player_dots = player_datas.map(trace_for_player);
+            const player_dots = player_datas.filter(p=>Number.isFinite(p.minutes)).map(trace_for_player);
             fix_marker_sizes(player_dots);
 
             const max_x = Math.max(...player_dots.map(t => t.x[0])) * 1.1;
@@ -686,7 +694,7 @@
                 },
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
-            const traces = player_datas.map(trace_for_player);
+            const traces = player_datas.filter(p=>Number.isFinite(p.minutes)).map(trace_for_player);
             fix_marker_sizes(traces);
 
             if (filtered_data_is_of_one_team(selected_player_datas)){
@@ -776,7 +784,7 @@
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
             
-            const traces = player_datas.map(trace_for_player);
+            const traces = player_datas.filter(p=>Number.isFinite(p.minutes)).map(trace_for_player);
             fix_marker_sizes(traces);
 
             if (filtered_data_is_of_one_team(selected_player_datas)){
