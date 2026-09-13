@@ -14,201 +14,17 @@
     
     <script src="itertools.js?v=3"></script>
     <script src="gebeurtenis_data.js?v=3"></script>
-    <script src="fetching.js?v=4"></script>
-    <script src="authorization.js?v=4"></script>
+    <script src="fetching.js?v=3"></script>
     <script src="vis.js?v=3"></script>
     <script src="common.js?v=3"></script>
 
-    <style>
-        @keyframes fade-in {
-            from {
-                opacity: 0;
-            }
-            to {
-                opacity: 1;
-            }
-        }
-
-        body {
-            margin: 0;
-            font-family: Georgia, Palatino, serif;
-        }
-
-        body > * {
-            text-align: center;
-        }
-
-        a {
-            text-decoration: none;
-            color: midnightblue;
-        }
-        a:visited {
-            color: indigo;
-        }
-
-        .fadein {
-            opacity: 0;
-            transition: opacity ease 1s;
-            animation: fade-in 1.0s ease-in forwards;
-        }
-
-        body table {
-            border-collapse: collapse;
-        }
-
-        table#quarters {
-            margin: 12px auto;
-        }
-
-        table#quarters tr:not(:first-child) td:last-child {
-            font-weight: bold;
-        }
-
-        table td {
-            padding: 5px;
-            text-align: right;
-        }
-
-
-        @keyframes increase-height {
-            from {
-                max-height: 0;
-            }
-            to {
-                max-height: 150px;
-            }
-        }
-
-        #live_events {
-            overflow-y: scroll;
-            margin: 16px 0;
-            background: #fAf7f7;
-            box-shadow: inset 0 0 10px 0 rgba(0, 0, 0, 0.2);
-            max-height: 0px;
-            animation: increase-height 1.0s forwards;
-        }
-
-        #live_events > table {
-            margin: 0 auto;
-        }
-
-        #live_events > table td {
-            text-align: left;
-        }
-
-        #live_events > table td:first-child {
-            white-space: nowrap;
-        }
-
-        div#box_scores, div#general_stats {
-            text-align: center;
-        }
-
-        table.stats td:nth-child(2) {
-            text-align: left;
-        }
-
-
-        body #box_scores table {
-            display: inline;
-            margin: 0 4px;
-        }
-
-        body.pm #box_scores table.stats {
-            display: none;
-        }
-
-        body #box_scores table.pmstats {
-            display: none;
-        }
-
-        body.pm #box_scores table.pmstats {
-            display: inline;
-        }
-
-        table.stats sup {
-            vertical-align: middle;
-            font-size: xx-small;
-        }
-
-        table#quarters tr td:first-child {
-            text-align: left;
-        }
-
-        #other_stats {
-            display: inline-grid;
-            margin: 0 auto;
-            grid-template-columns: [L] 1fr [CL] auto [M] auto [CR] 1fr [R];
-            grid-gap: 1vw;
-        }
-
-        #other_stats div.h {
-            grid-column: L/CL;
-            text-align: left;
-        }
-
-        #other_stats div.name {
-            grid-column: CL/CR;
-            text-align: center;
-        }
-
-        #other_stats div.a {
-            grid-column: CR/R;
-            text-align: right;
-        }
-
-        #other_stats img {
-            padding-top: 12px;
-            place-self: center;
-            max-height: 100px;
-            max-width: 100px;
-        }
-
-        #other_stats img.h {
-            grid-column: L/M;
-            justify-self: left;
-        }
-
-        #other_stats img.a {
-            grid-column: M/R;
-            justify-self: right;
-        }
-
-
-        table.booktabs tr:first-child td {
-            border-top: black 3px solid;
-            border-bottom: black 1px solid;
-        }
-
-        table.booktabs tr:nth-child(7) td {
-            padding-top: 12px;
-        }
-
-        table.booktabs tr:last-child td {
-            border-bottom: black 3px solid;
-            padding-top: initial;
-        }
-
-        table.booktabs.w_totals tr:last-child td {
-            border-top: black 1px solid;
-        }
-
-        table td span.on_court {
-            text-decoration: underline;
-        }
-
-        #figures_container {
-            width: 100%;
-            overflow-x: scroll;
-        }
-
-        .js-plotly-plot {
-            min-width: 1000px;
-        }
-    </style>
+    <link href="match_grafiek.css" rel="stylesheet" type="text/css">
 </head>
 <body>
-
+<!-- <div id='calendar'>
+	<select></select>
+	<select></select>
+</div> -->
 <h1>Laden...</h1>
 <h2 id="reeks"></h2>
 <p id="date"></p>
@@ -217,20 +33,14 @@
     <table id='quarters'></table>
 </div>
 
-<div id="live_events" class="fadein" >
-    <table>
-    </table>
-</div>
 
-<div id='box_scores' onclick='document.body.classList.toggle("pm")' class="fadein" >
+<div id='box_scores'>
     <table class='stats home booktabs w_totals'></table>
     <table class='stats away booktabs w_totals'></table>
-    <table class='pmstats home booktabs w_totals'></table>
-    <table class='pmstats away booktabs w_totals'></table>
 </div>
 
 <div>
-    <div id="other_stats" style="display: none;" class="fadein" >
+    <div id="other_stats" style="display: none;">
         <img class="h" src="">
         <img class="a" src="">
         <div class="largest_lead h"></div>
@@ -248,17 +58,21 @@
         <div class="time_led h"></div>
         <div class="time_led name" style="visibility: hidden">Tijd aan de leiding</div>
         <div class="time_led a"></div>
+<!--        <div class="both">Gelijkstanden</div>-->
+<!--    <tr id="leader_changes">-->
+<!--    <div colspan="3">Lead changes</div>-->
     </div>
 </div>
 
-<div id="figures_container" class="fadein" >
+<div id=figures_container>
 	<div id='home_advantage_fig'></div>
-	<div id='stints_fig'></div>
+	<div id='stints_fig' style="height: 80vh"></div>
 </div>
 
 <div class="other_links">
-	<a id="vblweblink">VBL web</a>
-	<a id="tabellink">Gebeurtenissen</a>
+	<a id="vblweblink" href="" >VBL web</a>
+	<a id="overlaylink" href="" style="display: none;">Overlay</a>
+	<a id="tabellink" href="" style="">Gebeurtenissen</a>
 </div>
 </body>
 
@@ -415,8 +229,8 @@
 
 	async function make_stints() {
 		let relguid_to_y = Object.fromEntries([
-			...window.roster.TtDeel.sort(p=> p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, i + 1]),
-			...window.roster.TuDeel.sort(p=>-p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, -(i + 1)])
+			...window.roster.TtDeel.sort(p=>-p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, i + 1]),
+			...window.roster.TuDeel.sort(p=> p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, -(i + 1)])
 		]);
 
 		const score_gebs = window.gebeurtenis_data.filter(g=> (g.GebStatus === 10 && g.GebType === 10));
@@ -538,7 +352,6 @@
 			}
 		};
 
-        document.getElementById('stints_fig').style.height = '80vh';
 		window.stints_fig = await Plotly.newPlot('stints_fig', [...stint_traces, fouls_trace, score_trace], layout, config);
 	}
 
@@ -577,51 +390,44 @@
 		document.querySelector('p#date').innerHTML = [
 			Number.parseInt(game.datumString.substring(0, 2)),
 			months[Number.parseInt(game.datumString.substring(3, 5))],
-			Number.parseInt(game.datumString.substring(6, 10)),
-            game.beginTijd.replace('.', ':'),
+			' ' + Number.parseInt(game.datumString.substring(6, 10)),
             '<br>',
 			game.accNaam
         ].join(' ');
 	}
 
 	function make_quarters_table() {
-        if (!gebeurtenis_data || gebeurtenis_data.length === 0) {
-            return;
-        }
 		let quarters = document.querySelector('table#quarters');
 
-        const periodenames = (
-            gebeurtenis_data
-                .filter(geb => geb.GebStatus === 10)
-                .filter(geb => geb.GebType === 40)
-                .filter(geb => !geb.Text.includes('Balbezit'))
-                .map(geb => geb.Text.split(' ').pop())
-        );
-        const periode_points = (periode, T_OR_U) => (
-            gebeurtenis_data
-                .filter(geb => geb.GebStatus === 10)
-                .filter(geb => geb.Periode == periode)
-                .filter(geb => geb.TofU === T_OR_U)
-                .filter(geb => geb.GebType === 10)
-                .map(geb => Number(geb.Text.split(' ')[0]))
-                .reduce(sum, 0)
-        )
-        const home_periode_points = periodenames.map(p => periode_points(p, 'T'));
-        const away_periode_points = periodenames.map(p => periode_points(p, 'U'));
+		let periodenames = [];
+		let td_points_in_periode = {}
 
-        const last_geb = gebeurtenis_data.at(-1);
-        const last_score = gebeurtenis_data.filter(geb => geb.GebStatus === 10 && geb.GebType === 10).at(-1);
-        const final_time = game_is_finished() ? 'FT' : `Q${last_geb.Periode} ${last_geb.Minuut}'`;
+		if (gebeurtenis_data) {
+			periodenames = (
+				gebeurtenis_data
+					.filter(geb => geb.GebStatus === 10)
+					.filter(geb => geb.GebType === 40)
+					.filter(geb => !geb.Text.includes('Balbezit'))
+					.map(geb => geb.Text.split(' ').pop())
+			);
 
-        const home_total = game_is_finished() ? game.uitslag.split('-')[0] : last_score.Text.slice(3, 5);
-        const away_total = game_is_finished() ? game.uitslag.split('-')[1] : last_score.Text.slice(6, 8);
+			td_points_in_periode = (periode, T_OR_U) => td(
+				gebeurtenis_data
+					.filter(geb => geb.GebStatus === 10)
+					.filter(geb => geb.Periode == periode)
+					.filter(geb => geb.TofU === T_OR_U)
+					.filter(geb => geb.GebType === 10)
+					.map(geb => Number(geb.Text.split(' ')[0]))
+					.reduce(((x, acc) => acc + Number(x)), 0)
+			)
+		}
 
-        quarters.innerHTML = (
-            `<tr><td></td>${periodenames.map(td).join('')}<td>${final_time}</td></tr>` +
-            `<tr><td><a href='team.html?team=${game.tTGUID}'>${game.tTNaam}</a></td>` + home_periode_points.map(td).join('') + td(home_total) + `</tr>` +
-            `<tr><td><a href='team.html?team=${game.tUGUID}'>${game.tUNaam}</a></td>` + away_periode_points.map(td).join('') + td(away_total) + `</tr>`
-        );
-    }
+		quarters.innerHTML = (
+			`<tr><td></td>${periodenames.map(td).join('')}<td>FT</td></tr>` +
+			`<tr><td><a href='team.html?team=${game.tTGUID}'>${game.tTNaam}</a></td>` + periodenames.map(p => td_points_in_periode(p, 'T')).join('') + td(game.uitslag.split('-')[0]) + `</tr>` +
+			`<tr><td><a href='team.html?team=${game.tUGUID}'>${game.tUNaam}</a></td>` + periodenames.map(p => td_points_in_periode(p, 'U')).join('') + td(game.uitslag.split('-')[1]) + `</tr>`
+		);
+	}
 
 	async function make_team_tables() {
 		const pm = gebeurtenis_data_to_plus_minus(gebeurtenis_data);
@@ -635,21 +441,10 @@
 			relguid_to_in_uit = {}; // niemand in
 		}
 
-        const is_incoming_sub = geb => (geb.GebStatus === 10 && geb.GebType === 50 && geb.Text === 'in');
-        const is_home_geb = geb => geb.TofU === 'T';
-        const is_away_geb = geb => geb.TofU === 'U';
-        const home_incoming_subs = gebeurtenis_data.filter(is_incoming_sub).filter(is_home_geb).map(geb => geb.RelGUID);
-        const away_incoming_subs = gebeurtenis_data.filter(is_incoming_sub).filter(is_away_geb).map(geb => geb.RelGUID);
-        const home_starting_five = [...new Set(home_incoming_subs)].slice(0, 5);
-        const away_starting_five = [...new Set(away_incoming_subs)].slice(0, 5);
-        const starting_lineups = [...home_starting_five, ...away_starting_five];
-        const is_in_starting_5 = relguid => starting_lineups.includes(relguid) ? -100 : 100;
-        const roster_sort = (a, b) => (is_in_starting_5(a.RelGUID) + parseInt(a.RugNr)) - (is_in_starting_5(b.RelGUID) + parseInt(b.RugNr));
-
-		// make the normal table
 		[["home", roster.TtDeel], ["away", roster.TuDeel]].forEach(([c, teamroster]) => {
 			const table = document.querySelector('table.stats.' + c);
 			let new_innerhtml = '';
+			// table.innerHTML = '';
 
 			let sum_pts = 0;
 			let sum_ft = 0;
@@ -657,6 +452,8 @@
 			let sum_F = 0;
 			let sum_pm = 0;
 			let sum_min = 0;
+
+			// const row = document.createElement('tr');
 			
 			new_innerhtml += tr([
 							'', 
@@ -668,8 +465,11 @@
 							'+/-',
 							'min',
 						].map(td).join(''));
+			// table.appendChild(row)
 
-			teamroster.sort(roster_sort).forEach(player => {
+			// sort by number?
+			// console.log(teamroster.map(p => p.RugNr));
+			teamroster.sort((a, b) => a.RugNr - b.RugNr).forEach(player => {
 				if (!player.Naam) {
 					return
 				}
@@ -699,8 +499,7 @@
 				}
 
 				const on_court_class = relguid_to_in_uit[player.RelGUID] === 'in' ? 'class="on_court"' : '';
-                const add_plus = x => x > 0 ? `+${x}` : x;
-
+				
 				new_innerhtml += tr([
 					player.RugNr,
 					`<span ${on_court_class}>${player.Naam}</span>`,
@@ -711,7 +510,7 @@
 					fouls_str,
 					// pm[player.RelGUID] || '0',
 					// pm[player.RelGUID] || '0',
-					add_plus(pm[player.RelGUID]) || '0',
+					pm[player.RelGUID] || '0',
 					minutes_str
 				].map(td).join(''));
 
@@ -727,6 +526,7 @@
 			new_innerhtml += tr([
 				'',
 				'',
+				// '\'' + player.GebDat.substring(8, 10),
 				sum_pts,
 				sum_ft,
 				sum_3,
@@ -736,115 +536,7 @@
 			].map(td).join(''));
 
 			table.innerHTML = new_innerhtml;
-		});
-
-		// make the plus minus table
-
-        const on_court_plus = Object.fromEntries([...roster.TtDeel, ...roster.TuDeel].map(p => [p.RelGUID, 0]));
-        const on_court_minus = Object.fromEntries([...roster.TtDeel, ...roster.TuDeel].map(p => [p.RelGUID, 0]));
-        const players_on_field = {T: [], U: []};
-        const players_on_bench = {
-            T: roster.TtDeel.filter(player => player['Functie'] === 'S').map(player => player.RelGUID), 
-            U: roster.TuDeel.filter(player => player['Functie'] === 'S').map(player => player.RelGUID)
-        };
-
-        gebeurtenis_data.forEach(geb => {
-            if (geb.GebStatus !== 10) {
-                return;
-            }
-            const tofu = geb.TofU;
-            const opp = tofu === 'T' ? 'U' : 'T';
-
-            if (geb['GebType'] === 50) {
-                // wissel
-                if (geb['Text'] === 'in') {
-                    players_on_field[tofu].push(geb['RelGUID']);
-                    players_on_bench[tofu] = players_on_bench[tofu].filter(v => v !== geb['RelGUID']);
-                } else if (geb['Text'] === 'uit') {
-                    players_on_bench[tofu].push(geb['RelGUID']);
-                    players_on_field[tofu] = players_on_field[tofu].filter(v => v !== geb['RelGUID']);
-                }
-            } else if (geb['GebType'] === 10) {
-                // score
-                const score = Number(geb['Text'].split(' ')[0]);
-                players_on_field[tofu].forEach(relguid => on_court_plus[relguid] += score);
-                players_on_field[opp].forEach(relguid => on_court_minus[relguid] += score);
-            }
-        });
-
-		[["home", roster.TtDeel], ["away", roster.TuDeel]].forEach(([c, teamroster]) => {
-			const table = document.querySelector('table.pmstats.' + c);
-			let new_innerhtml = '';
-			// table.innerHTML = '';
-
-			let sum_plus = 0;
-			let sum_minus = 0;
-			let sum_plus_minus = 0;
-			let sum_minutes = 0;
-			let sum_plus_per_min = 0;
-			let sum_minus_per_min = 0;
-			let sum_plus_minus_per_min = 0;
-			
-			new_innerhtml += tr([
-							'', 
-							'+', 
-							'-',
-							'+-',
-							'min',
-							'+/min',
-							'-/min',
-							'+-/min',
-						].map(td).join(''));
-
-			teamroster.sort(roster_sort).forEach(player => {
-				if (!player.Naam) {
-					return
-				}
-				if (player["Functie"] !== "S") {
-					return
-				}
-
-				const plus = on_court_plus[player.RelGUID];
-				const minus = on_court_minus[player.RelGUID];
-				const plus_minus = plus - minus;
-				const minutes = minutes_for_player(gebeurtenis_data,  player.RelGUID);
-				const plus_per_min = plus / minutes;
-				const minus_per_min = minus / minutes;
-				const plus_minus_per_min = plus_minus / minutes;
-
-				sum_plus += plus || 0;
-				sum_minus += minus || 0;
-				sum_plus_minus += plus_minus || 0;
-				sum_minutes += minutes || 0;
-				sum_plus_per_min += plus_per_min || 0;
-				sum_minus_per_min += minus_per_min || 0;
-				sum_plus_minus_per_min += plus_minus_per_min || 0;
-
-				new_innerhtml += tr([
-					player.RugNr,
-					plus,
-					minus,
-					plus_minus,
-					minutes.toFixed(1),
-					(plus_per_min || plus_per_min === 0.0) ? plus_per_min.toFixed(2) : '',
-					(minus_per_min || minus_per_min === 0.0) ? minus_per_min.toFixed(2) : '',
-					(plus_minus_per_min || plus_minus_per_min === 0.0) ? plus_minus_per_min.toFixed(2) : '',
-				].map(td).join(''));
-			});
-
-			const n_players = teamroster.filter(p => (p.Naam) && (p.Functie === "S")).length;
-			new_innerhtml += tr([
-				'Avg',
-				(sum_plus / n_players).toFixed(1),
-				(sum_minus / n_players).toFixed(1),
-				(sum_plus_minus / n_players).toFixed(1),
-				(sum_minutes / n_players).toFixed(1),
-				(sum_plus_per_min / n_players).toFixed(2),
-				(sum_minus_per_min / n_players).toFixed(2),
-				(sum_plus_minus_per_min / n_players).toFixed(2),
-			].map(td).join(''));
-
-			table.innerHTML = new_innerhtml;
+			table.style.display = 'inline';
 		});
 	}
 
@@ -938,6 +630,7 @@
 		document.getElementById('other_stats').style.display = '';
 	}
 
+
 	function redirect_if_team_unspecified() {
 		const params = new URLSearchParams(window.location.search.substr(1));
 		if (params.get('game_id')) {
@@ -954,45 +647,13 @@
 			.length > 0;
 	}
 
-    function update_live_events() {
-        const live_events_table = document.querySelector('#live_events > table');
-
-        // TODO: if GebStatus === 10, then show it strikethrough
-        // TODO wissels; if only last two were in & out, then show it as a wissel
-        const row_for_gebeurtenis = geb =>
-            geb.GebStatus !== 10 ? '' :
-                geb.GebType === 10 ? row_for_score(geb) :
-                    geb.GebType === 20 ? row_for_timeout(geb) :
-                        geb.GebType === 30 ? row_for_foul(geb) :
-                            '';
-
-		const both_rosters = roster.TuDeel.concat(roster.TtDeel)
-        const name = geb => both_rosters.find(player => player.RelGUID == geb.RelGUID).Naam;
-        const no = geb => both_rosters.find(player => player.RelGUID == geb.RelGUID).RugNr;
-        const nth_foul = geb => gebeurtenis_data.filter(g => g.GebStatus === 10 && g.GebType === 30 && g.RelGUID === geb.RelGUID && g.Index <= geb.Index).length;
-
-        const team = geb => shorten_teamname_more(geb.TofU === 'T' ? game.tTNaam : game.tUNaam);
-        const time = geb => `Q${geb.Periode} ${geb.Minuut}'`;
-
-        const row_for_score = geb => `<tr><td>${time(geb)}</td><td>${no(geb)}. ${name(geb)} (${team(geb)})</td><td>scoort ${geb.Text}</td></tr>`;
-        const row_for_foul = geb =>  `<tr><td>${time(geb)}</td><td>${no(geb)}. ${name(geb)} (${team(geb)})</td><td>${nth_foul(geb)}<sup>e</sup> fout (${geb.Text})</td></tr>`;
-        const row_for_timeout = geb => `<tr><td>${time(geb)}</td><td colspan="2" style="text-align: center">Time out ${team(geb)}</td></tr>`;
-
-        live_events_table.innerHTML = "";
-
-        gebeurtenis_data.forEach((geb) => {
-            live_events_table.insertAdjacentHTML("afterbegin", row_for_gebeurtenis(geb));
-        });
-        // debugger;
-    }
-
-    async function main_loop() {
+	async function main_loop() {
 		await load_data();
 
 		make_title();
 		make_quarters_table();
 
-		if (window.gebeurtenis_data && gebeurtenis_data.length > 0) {
+		if (window.gebeurtenis_data) {
 			make_graph_promise = make_graph();
 			make_sheets_promise = make_team_tables();
 			make_stints_promise = make_stints();
@@ -1001,30 +662,48 @@
 			document.getElementById("tabellink").href = "gebeurtenis_tabel.html?game_id=" + window.game_id;
 
 			make_other_stats();
-            update_live_events();
 
 			await make_graph_promise;
 			await make_stints_promise;
-
-            document.getElementById('home_advantage_fig').style.opacity = "1.0";
-            document.getElementById('box_scores').style.opacity = "1.0";
-            document.getElementById('other_stats').style.opacity = "1.0";
-
-            document.getElementById("tabellink").style.opacity = "1.0";
-            document.getElementById("live_events").style.opacity = "1.0";
-        } else {
-			// document.querySelectorAll('#home_advantage_fig, #box_scores, #other_stats').forEach(e => e.remove());
-			// document.getElementById("tabellink").style.display = 'none'
+		} else {
+			document.querySelectorAll('#home_advantage_fig, #box_scores, #other_stats').forEach(e => e.remove());
+			document.getElementById("tabellink").style.display = 'none'
 		}
 
 		const d = new Date();
 		const game_should_have_started = Number(d - d.getTimezoneOffset() * 60 * 1000) > game['jsDTCode'];
 
 		if (window.gebeurtenis_data && game_should_have_started && !game_is_finished()) {
-            // refresh every 10 seconds
 			window.setTimeout(main_loop, 10000);
 		}
 	}
+
+	function make_calendar() {
+		const game_to_url = (game) => 'match_grafiek.html?game_id=' + game.guid
+		const fill_select = (select, team_guid) => {
+        	const games = poule_games.filter(g => g.tTGUID === team_guid || g.tUGUID === team_guid);
+			const game_to_option = (g) => {
+				// const w_or_l = (g.tTGUID === team_guid) === (homegame)
+				const text = (
+					g.tTGUID === team_guid 
+					? `vs. ` + shorten_teamname_more(g.tUNaam) 
+					: '@ ' + shorten_teamname_more(g.tTNaam) 
+				)
+
+				return `<option>${text}</option>`
+			}
+			select.innerHTML = [
+
+				...games.map(game_to_option)
+			].join('');
+        	// debugger;
+		}
+
+		const selects = document.querySelectorAll('div#calendar > select');
+		fill_select(selects[0], game.tTGUID);
+		fill_select(selects[1], game.tUGUID);
+
+    }
 
 	(async () => {
 		window.game_id = redirect_if_team_unspecified();

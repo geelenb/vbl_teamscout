@@ -1,0 +1,87 @@
+body {
+    margin: 0;
+    /*font-family: Geneva, Arial, sans-serif;*/
+    font-family: Georgia, Palatino, serif;
+    text-align: center;
+}
+
+
+.teamnaam > th + th div {
+    transform: rotate(180deg);
+    float: right;
+}
+
+.teamnaam > th + th div p {
+    margin: 0;
+    text-align: left;
+    writing-mode: tb;
+    -webkit-writing-mode: tb;
+    white-space: pre;
+}
+
+.teamnaam > th > div > span {
+    padding: 5px 10px;
+}
+
+td.data {
+    text-align: right;
+    font-family: monospace;
+    padding-left: 1ch;
+}
+
+table {
+    text-align: initial;
+    border-collapse: collapse;
+    margin: 12px auto;
+}
+
+table .borderleft {
+    border-left: 1px black solid
+}
+
+table .borderbottom {
+    border-bottom: 1px solid black;
+}
+
+table .borderright {
+    border-right: 1px solid black;
+}
+
+th a {
+    /*color:black;*/
+    text-decoration: none;
+}
+
+table tr.totals td {
+    border-top: 1px solid black;
+}
+
+table tr.totals td,
+table tr.pct td,
+table tr.fta td {
+    border-right: none;
+    border-left: none;
+}
+
+input#extended_data ~ * .extended_only {
+    display: none;
+}
+
+input#extended_data:checked ~ * .extended_only {
+    display: revert;
+    height: auto;
+}
+
+body input {
+    margin: 12px;
+}
+
+body {
+}
+
+@media print
+{
+    table{
+        page-break-inside: avoid;
+    }
+}

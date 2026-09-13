@@ -1,0 +1,86 @@
+body {
+    margin: 0;
+}
+
+#header {
+    min-height: 128px;
+    display: grid;
+    grid-template-areas: "img title" "img desc";
+    grid-template-columns: 150px auto;
+}
+
+#header img {
+    height: 100px;
+    margin: 14px;
+    grid-area: img;
+}
+
+#header h1 {
+    grid-area: title;
+}
+#header p {
+    grid-area: desc;
+}
+
+
+.teamnaam > th + th div {
+    transform: rotate(180deg);
+    float: right;
+}
+
+.teamnaam > th + th div p {
+    margin: 0;
+    text-align: left;
+
+    writing-mode: tb;
+}
+
+.teamnaam > th > div > span {
+    padding: 5px 10px;
+}
+
+td.data {
+    text-align: right;
+    font-family: monospace;
+    padding-left: 1ch;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+table .borderleft {
+    border-left: 1px black solid
+}
+
+table .borderbottom {
+    border-bottom: 1px solid black;
+}
+
+table .borderright {
+    border-right: 1px solid black;
+}
+
+th a {
+    color:black;
+    text-decoration: none;
+}
+
+table tr.totals td {
+    border-top: 1px solid black;
+}
+
+table tr.totals td,
+table tr.pct td,
+table tr.fta td {
+    border-right: none;
+    border-left: none;
+}
+
+input#extended_data ~ * .extended_only {
+    visibility: collapse;
+}
+
+input#extended_data:checked ~ * .extended_only {
+    visibility: inherit;
+}

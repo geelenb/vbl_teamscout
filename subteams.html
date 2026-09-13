@@ -14,8 +14,7 @@
 
     <script src="itertools.js?v=3"></script>
     <script src="gebeurtenis_data.js?v=3"></script>
-    <script src="fetching.js?v=4"></script>
-    <script src="authorization.js?v=4"></script>
+    <script src="fetching.js?v=3"></script>
     <script src="vis.js?v=3"></script>
     <script src="common.js?v=3"></script>
 
@@ -153,7 +152,7 @@
                 if (!gebdata) {
                     return;
                 }
-
+                
                 const homegame = team_data.games[game_i].tTGUID === team_data.team_id_plus;
                 const tofu = homegame ? 'T' : 'U';
 
@@ -185,6 +184,10 @@
                             currently_in.push(geb.RelGUID);
                         } else if (geb.Text === 'uit') {
                             currently_in = currently_in.filter(x => x !== geb.RelGUID)
+                            // const index = currently_in.findIndex(x => x === geb.RelGUID);
+                            // currently_in.splice(index, 1);
+                            // if(geb.RelGUID === "BVBL606358")
+                                // debugger;
 
                             all_subsets(currently_in)
                                 .map(sl => [geb.RelGUID, ...sl])
@@ -232,7 +235,7 @@
                     }
                 });
 
-                if (currently_in.length > 0){
+                if (currently_in){
                     const last_geb = [...gebdata.GebNis].reverse().find(geb => geb.Periode < 99);
                     all_subsets(currently_in)
                         .map(relguids_to_key)

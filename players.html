@@ -11,9 +11,8 @@
     <script src="libs/dexie.js"></script>
     <script src="libs/plotly-2.9.0.min.js"></script>
     
-    <script src="fetching.js?v=4"></script>
-    <script src="authorization.js?v=4"></script>
-    <script src="vis.js?v=4"></script>
+    <script src="fetching.js?v=3"></script>
+    <script src="vis.js?v=3"></script>
     <script src="gebeurtenis_data.js?v=3"></script>
     <script src="itertools.js?v=3"></script>
     <script src="common.js?v=3"></script>
@@ -27,8 +26,35 @@
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/fixedheader/3.3.1/css/fixedHeader.dataTables.min.css">
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/fixedheader/3.3.1/js/dataTables.fixedHeader.min.js"></script>
 
-    <style>
+    <style type="text/css">
+        body {
+        }
+        .colhead, .rowhead {
+            font-weight: bold;
+        }
+        .colhead, .diagonal {
+            text-align: center;
+        }
+        .rowhead {
+            text-align: right;
+        }
+        .home_win, .away_win {
+            font-family: monospace;
+            text-align: center;
+            color: unset;
+            text-decoration: unset;
+        }
+        .home_win {
+            background: lightblue;
+        }
+        .away_win {
+            background: mistyrose;
+        }
+        .js-plotly-plot {
+            margin-top: 5vmin;
+        }
         g.textpoint text {
+            stroke: black;
             font-weight: bold;
         }
         body.loading #js {
@@ -44,35 +70,26 @@
             height: 98vmin;
             width: 98vmin;
         }
-        .teamid {
-            font-size: small;
-            font-family: monospace;
+        .recent_or_soon {
+            text-decoration: underline;
+        }
+        .right {
+            text-align: right;
         }
     </style>
 </head>
 <body>
     <h1 id="js">Javascript staat uit!</h1>
-
-    <h1 id="loading_msg">Spelers laden...</h1>
-    <p>
-        <a id="poule_link">Reeksoverzicht</a>
-        <a id="poule_teams_link">Ploegen in deze reeks</a>
-    </p>
-    <script type="text/javascript">
-        document.getElementById('poule_link').href = 'poule.html' + window.location.search;
-        document.getElementById('poule_teams_link').href = 'poule_teams.html' + window.location.search;
-    </script>
+    <h1 id="loading_msg">Laden...</h1>
 
     <table id="players_table" class="compact"></table>
 
     <br>
-    <p>Use the search field of the table to filter the figures below.</p>
-
-    <div id="offense_defense_plot" class="figure" ></div>
-    <div id="offense_defense_difference_plot" class="figure" ></div>
     <div id="netto_improvement_plot" class="figure" ></div>
+    <div id="offense_defense_difference_plot" class="figure" ></div>
     <div id="shooting_plot" class="figure" ></div>
     <div id="usage_plot" class="figure" ></div>
+    <div id="offense_defense_plot" class="figure" ></div>
 
     <script type="text/javascript">
         function td(contents, classes) {
@@ -110,19 +127,9 @@
                     ([relguid, entries]) => [relguid, most_common_value(entries.map(p => p.RugNr))])
                 );
 
-            const relguid_to_n_starts = Object.fromEntries(all_players_with_duplicates.map(p => [p.RelGUID, 0]));
-
-
             previous_games.forEach((game, i) => {
                 const roster = rosters[i];
-                const game_gebeurtenissen = gebeurtenis_data[i].GebNis;
-
-                // count 5 starters
-                const in_wissels = game_gebeurtenissen.filter(geb => geb.GebStatus === 10 && geb.GebType === 50 && geb.Text === 'in');
-                const home_starters = in_wissels.filter(geb => geb.TofU === 'T').slice(0, 5).map(geb => geb.RelGUID);
-                const away_starters = in_wissels.filter(geb => geb.TofU === 'U').slice(0, 5).map(geb => geb.RelGUID);
-                home_starters.forEach(relguid => relguid_to_n_starts[relguid] += 1);
-                away_starters.forEach(relguid => relguid_to_n_starts[relguid] += 1);
+                const game_gebeurtenissen = gebeurtenis_data[i];
 
                 const players_on_field = {T: [], U: []};
                 const players_on_bench = {
@@ -130,7 +137,7 @@
                     U: roster.TuDeel.filter(player => player['Functie'] === 'S').map(player => player.RelGUID)
                 };
 
-                game_gebeurtenissen.forEach(geb => {
+                game_gebeurtenissen.GebNis.forEach(geb => {
                     if (geb.GebStatus !== 10) {
                         return;
                     }
@@ -166,7 +173,6 @@
                     "Birthdate",
                     "Team",
                     "Games",
-                    "Starts",
                     "Minutes",
                     "Minutes per game",
                     "Points",
@@ -179,27 +185,23 @@
                     "FTs per game",
                     "Fouls",
                     "Fouls per game",
-                    "Technical fouls",
-                    "Unsportsmanlike fouls",
                     "Non personal fouls",
                     "Plus",
                     "Minus",
                     "Plus minus",
-                    "Plus per 40'",
-                    "Minus per 40'",
-                    "Plus minus per 40'",
-                    "Team plus when benched",
-                    "Team minus when benched",
-                    "Team plus minus when benched",
-                    "Team minutes when benched",
-                    "Team plus per 40' when benched",
-                    "Team minus per 40' when benched",
-                    "Team plus minus per 40' when benched",
-                    "Improvement in offense per 40' (on-off)",
-                    "Improvement in defense per 40' (on-off)",
-                    "Improvement in +/- per 40' (on-off)",
-                    "Team ID",
-                    "Player ID",
+                    "Plus per minute",
+                    "Minus per minute",
+                    "Plus minus per minute",
+                    "Benched plus",
+                    "Benched minus",
+                    "Benched plus minus",
+                    "Benched minutes",
+                    "Benched plus per minute",
+                    "Benched minus per minute",
+                    "Benched plus minus per minute",
+                    "Offensive improvement",
+                    "Defensive improvement",
+                    "Netto improvement",
                 ].map(s => `<th>${s}</th>`).join('');
 
                 return `<thead><tr>${cells}</tr></thead>`;
@@ -250,30 +252,28 @@
 
                 const n_fouls = player_fouten.length;
                 const n_fouls_per_game = n_fouls / n_games;
-                const n_technical_fouls = player_fouten.filter(g => g.Text[0] === 'T').length;
-                const n_unsportsmanlike_fouls = player_fouten.filter(g => g.Text[0] === 'U').length;
                 const n_non_personal_fouls = player_fouten.filter(g => g.Text[0] !== 'P').length;
 
                 const plus = on_court_plus[relguid];
                 const minus = on_court_minus[relguid];
                 const plus_minus = on_court_plus[relguid] - on_court_minus[relguid];
 
-                const plus_per_40 = 40 * (plus / minutes || 0.0);
-                const minus_per_40 = 40 * (minus / minutes || 0.0);
-                const plus_minus_per_40 = 40 * (plus_minus / minutes || 0.0);
+                const plus_per_minute = plus / minutes || 0.0;
+                const minus_per_minute = minus / minutes || 0.0;
+                const plus_minus_per_minute = plus_minus / minutes || 0.0;
 
                 const benched_plus = on_bench_plus[relguid];
                 const benched_minus = on_bench_minus[relguid];
                 const benched_plus_minus = on_bench_plus[relguid] - on_bench_minus[relguid];
 
                 const benched_minutes = 40 * n_games - minutes;
-                const benched_plus_per_40 = 40 * (benched_plus / benched_minutes || 0.0);
-                const benched_minus_per_40 = 40 * (benched_minus / benched_minutes || 0.0);
-                const benched_plus_minus_per_40 = 40 * (benched_plus_minus / benched_minutes || 0.0);
+                const benched_plus_per_minute = benched_plus / benched_minutes || 0.0;
+                const benched_minus_per_minute = benched_minus / benched_minutes || 0.0;
+                const benched_plus_minus_per_minute = benched_plus_minus / benched_minutes || 0.0;
 
-                const offensive_improvement = plus_per_40 - benched_plus_per_40;
-                const defensive_improvement = -(minus_per_40 - benched_minus_per_40);
-                const netto_improvement = plus_minus_per_40 - benched_plus_minus_per_40;
+                const offensive_improvement = plus_per_minute - benched_plus_per_minute;
+                const defensive_improvement = -(minus_per_minute - benched_minus_per_minute);
+                const netto_improvement = plus_minus_per_minute - benched_plus_minus_per_minute;
 
                 const data = {
                     "Nr": relguid_to_most_common_number[relguid], // todo: most common number
@@ -283,7 +283,6 @@
                     "team_relguid": relguid_to_teamid[relguid],
                     "teamnaam": relguid_to_teamnaam[relguid],
                     "n_games": n_games,
-                    "n_starts": relguid_to_n_starts[relguid],
                     "minutes": minutes,
                     "minutes_per_game": minutes_per_game,
                     "points": points,
@@ -296,22 +295,20 @@
                     "n_fts_per_game": n_fts_per_game,
                     "n_fouls": n_fouls,
                     "n_fouls_per_game": n_fouls_per_game,
-                    "n_technical_fouls": n_technical_fouls,
-                    "n_unsportsmanlike_fouls": n_unsportsmanlike_fouls,
                     "n_non_personal_fouls": n_non_personal_fouls,
                     "plus": plus,
                     "minus": minus,
                     "plus_minus": plus_minus,
-                    "plus_per_40": plus_per_40,
-                    "minus_per_40": minus_per_40,
-                    "plus_minus_per_40": plus_minus_per_40,
+                    "plus_per_minute": plus_per_minute,
+                    "minus_per_minute": minus_per_minute,
+                    "plus_minus_per_minute": plus_minus_per_minute,
                     "benched_plus": benched_plus,
                     "benched_minus": benched_minus,
                     "benched_plus_minus": benched_plus_minus,
                     "benched_minutes": benched_minutes,
-                    "benched_plus_per_40": benched_plus_per_40,
-                    "benched_minus_per_40": benched_minus_per_40,
-                    "benched_plus_minus_per_40": benched_plus_minus_per_40,
+                    "benched_plus_per_minute": benched_plus_per_minute,
+                    "benched_minus_per_minute": benched_minus_per_minute,
+                    "benched_plus_minus_per_minute": benched_plus_minus_per_minute,
                     "offensive_improvement": offensive_improvement,
                     "defensive_improvement": defensive_improvement,
                     "netto_improvement": netto_improvement,
@@ -329,7 +326,6 @@
                     td(data.birthdate),
                     td(a(`team.html?team=${data.team_relguid}`, teamname)),
                     td(data.n_games, 'right'),
-                    td(data.n_starts, 'right'),
                     td(data.minutes.toFixed(1), 'right'),
                     td(data.minutes_per_game.toFixed(1), 'right'),
                     td(data.points, 'right'),
@@ -342,27 +338,23 @@
                     td(data.n_fts_per_game.toFixed(1), 'right'),
                     td(data.n_fouls, 'right'),
                     td(data.n_fouls_per_game.toFixed(1), 'right'),
-                    td(data.n_technical_fouls, 'right'),
-                    td(data.n_unsportsmanlike_fouls, 'right'),
                     td(data.n_non_personal_fouls, 'right'),
                     td(data.plus, 'right'),
                     td(data.minus, 'right'),
                     td(data.plus_minus, 'right'),
-                    td(data.plus_per_40.toFixed(1), 'right'),
-                    td(data.minus_per_40.toFixed(1), 'right'),
-                    td(data.plus_minus_per_40.toFixed(1), 'right'),
+                    td(data.plus_per_minute.toFixed(2), 'right'),
+                    td(data.minus_per_minute.toFixed(2), 'right'),
+                    td(data.plus_minus_per_minute.toFixed(2), 'right'),
                     td(data.benched_plus, 'right'),
                     td(data.benched_minus, 'right'),
                     td(data.benched_plus_minus, 'right'),
                     td(data.benched_minutes.toFixed(1), 'right'),
-                    td(data.benched_plus_per_40.toFixed(1), 'right'),
-                    td(data.benched_minus_per_40.toFixed(1), 'right'),
-                    td(data.benched_plus_minus_per_40.toFixed(1), 'right'),
+                    td(data.benched_plus_per_minute.toFixed(2), 'right'),
+                    td(data.benched_minus_per_minute.toFixed(2), 'right'),
+                    td(data.benched_plus_minus_per_minute.toFixed(2), 'right'),
                     td(data.offensive_improvement.toFixed(2), 'right'),
                     td(data.defensive_improvement.toFixed(2), 'right'),
                     td(data.netto_improvement.toFixed(2), 'right'),
-                    td(encodeURIComponent(data.team_relguid), 'teamid'),
-                    td(encodeURIComponent(data.relguid), 'relguid'),
                ];
 
                 const joined_string = [
@@ -397,44 +389,30 @@
             return [
                 `${player.Nr} ${player.player}`, 
                 shorten_teamname_more(player.teamnaam),
-                `${player.minutes.toFixed(1)}' in ${player.n_games} games (${player.minutes_per_game.toFixed(1)}mpg)`,
+                `${player.minutes_per_game.toFixed(1)}mpg in ${player.n_games} games`,
                 ...more_lines ? more_lines : [],
             ].join('<br>');
         }
 
         function marker_size_for_player(player) {
-            return 5 * Math.sqrt(player.minutes)
-        }
-
-        function fix_marker_sizes(traces) {
-            const total = traces.flatMap(trace => trace?.marker?.size[0] ?? 0).reduce(sum, 0);
-            const n = traces.filter(trace=>trace.opacity > 0.1).length + 1;
-            const meansize = total / n;
-            // console.log(total, n, meansize)
-            // debugger;
-            traces.forEach(trace => trace.marker.size = trace.marker.size.map(s => s * 5000 / total));
+            // 5 * Math.sqrt(player.minutes_per_game)
+            return player.minutes_per_game
         }
 
         function make_offense_defense_plot(selected_player_datas) {
             const selected_relguids = new Set(selected_player_datas.map(p => p.relguid));
 
             const trace_for_player = (player) => ({
-                x: player.minutes ? [/* player.benched_plus_per_40 , */ player.plus_per_40] : [],
-                y: player.minutes ? [/* player.benched_minus_per_40, */ player.minus_per_40] : [],
+                x: player.minutes ? [player.benched_plus_per_minute, player.plus_per_minute] : [],
+                y: player.minutes ? [player.benched_minus_per_minute, player.minus_per_minute] : [],
                 type: 'scatter',
-                text: hover_text_for_player(player, [
-                    `${shorten_teamname_more(player.teamnaam)} scored ${player.plus_per_40.toFixed(1)} points per 40' when ${player.player.split(/\b/)[0]} was playing`,
-                    `${shorten_teamname_more(player.teamnaam)} conceded ${player.minus_per_40.toFixed(1)} points per 40' when ${player.player.split(/\b/)[0]} was playing`,
-                ]),
+                text: [
+                    `${shorten_teamname_more(player.teamnaam)} when ${player.player} is benched`,
+                    `${shorten_teamname_more(player.teamnaam)} when ${player.player} is on court`,
+                ],
                 marker: {
-                    symbol: [
-                        // "none", 
-                        'circle'
-                    ],
-                    size: [
-                        // 0, 
-                        marker_size_for_player(player)
-                    ],
+                    symbol: ["none", 'circle'],
+                    size: [0, marker_size_for_player(player)],
                     color: team_guid_to_colour[player.team_relguid],
                     opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
                 },
@@ -447,19 +425,14 @@
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
 
-            const traces = player_datas.filter(p=>Number.isFinite(p.minutes)).map(trace_for_player);
-            fix_marker_sizes(traces);
-            if (filtered_data_is_of_one_team(selected_player_datas)){
-                traces.push(...initials_on_data(selected_player_datas, trace_for_player));
-            }
-
+            const traces = player_datas.map(trace_for_player);
             const layout = {
-                title: "Plus &amp; minus per 40 minutes",
+                title: "Plus &amp; minus per minute of teams when players are on and off court",
                 xaxis: {
-                    title: "Plus per 40 minutes played",
+                    title: "Plus per Minute",
                 },
                 yaxis: {
-                    title: "Minus per 40 minutes played",
+                    title: "Minus per Minute",
                     scaleanchor: "x", 
                     autorange: 'reversed',
                 },
@@ -474,16 +447,13 @@
             const selected_relguids = new Set(selected_player_datas.map(p => p.relguid));
 
             const trace_for_player = (player) => ({
-                x: player.minutes ? [player.plus_minus_per_40] : [],
-                y: player.minutes ? [player.benched_plus_minus_per_40] : [],
+                x: player.minutes ? [player.plus_minus_per_minute] : [],
+                y: player.minutes ? [player.benched_plus_minus_per_minute] : [],
                 type: 'scatter',
-                text: hover_text_for_player(player, [
-                    `${shorten_teamname_more(player.teamnaam)} is ${plus_sign(player.plus_minus)}${player.plus_minus} in the ${(player.minutes || 0.0).toFixed(1)}' when ${player.player.split(/\b/)[0]} was playing`,
-                    `${shorten_teamname_more(player.teamnaam)} is ${plus_sign(player.benched_plus_minus)}${player.benched_plus_minus} in the ${(player.benched_minutes || 0.0).toFixed(1)}' when ${player.player.split(/\b/)[0]} was benched`,
-                ]),
+                text: hover_text_for_player(player),
                 marker: {
                     symbol: ["none", 'circle'],
-                    size: [marker_size_for_player(player)],
+                    size: marker_size_for_player(player),
                     color: team_guid_to_colour[player.team_relguid],
                     opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
                 },
@@ -493,11 +463,10 @@
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
             
-            const traces = player_datas.filter(p=>Number.isFinite(p.minutes)).map(trace_for_player);
-            fix_marker_sizes(traces);
+            const traces = player_datas.map(trace_for_player);
 
             if (filtered_data_is_of_one_team(selected_player_datas)){
-                traces.push(...initials_on_data(selected_player_datas, trace_for_player));
+                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
             }
 
             const annotations = [
@@ -539,12 +508,12 @@
             ].map(x => ({..._absolute_annotation, ...x}));
 
             const layout = {
-                title: "Difference in +/- per 40' between when player is benched and when playing",
+                title: "Difference in +/- per minute between when player is benched and when playing",
                 xaxis: {
-                    title: "+/- per 40 minutes on court",
+                    title: "+/- per Minute on court",
                 },
                 yaxis: {
-                    title: "Team +/- per 40 minutes when benched",
+                    title: "Team +/- per Minute when benched",
                     scaleanchor: "x", 
                     autorange: 'reversed',
                 },
@@ -559,17 +528,13 @@
             const selected_relguids = new Set(selected_player_datas.map(p => p.relguid));
 
             const trace_for_player = (player) => ({
-                x: [player.plus_per_40],
-                y: [player.points_per_40],
+                x: [player.plus_per_minute],
+                y: [player.points_per_40 / 40],
                 type: 'scatter',
-                text: hover_text_for_player(player, [
-                    `${player.player.split(/\b/)[0]} scored ${player.points} points in ${player.minutes.toFixed(1)} minutes (= ${player.points_per_40.toFixed(1)} / 40')`,
-                    `${shorten_teamname_more(player.teamnaam)} scored ${player.plus} points when ${player.player.split(/\b/)[0]} was playing`,
-                    `${player.player.split(/\b/)[0]} scored ${(player.points_per_40 / player.plus_per_40 * 100).toFixed(1)}% of ${shorten_teamname_more(player.teamnaam)}'s points when playing`,
-                ]),
+                text: hover_text_for_player(player, [(player.points_per_40 / 40 / player.plus_per_minute * 100).toFixed(1) + '%']),
                 marker: {
-                    symbol: 'circle',
-                    size: [marker_size_for_player(player)],
+                    symbol: ["none", 'circle'],
+                    size: marker_size_for_player(player),
                     color: team_guid_to_colour[player.team_relguid],
                     opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
                 },
@@ -578,8 +543,7 @@
                 },
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
-            const player_dots = player_datas.filter(p=>Number.isFinite(p.minutes)).map(trace_for_player);
-            fix_marker_sizes(player_dots);
+            const player_dots = player_datas.map(trace_for_player);
 
             const max_x = Math.max(...player_dots.map(t => t.x[0])) * 1.1;
             const max_y = Math.max(...player_dots.map(t => t.y[0])) * 1.1;
@@ -601,7 +565,7 @@
                     },
                     hoverinfo: 'none',
                     textfont: {
-                        color: 'black',
+                        color: 'white',
                     },
                     class: 'diagonals',
                 }))
@@ -610,16 +574,16 @@
             const traces = [...diagonals, ...player_dots,];
 
             if (filtered_data_is_of_one_team(selected_player_datas)){
-                traces.push(...initials_on_data(selected_player_datas, trace_for_player));
+                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
             }
 
             const layout = {
                 title: "Scoring sources: points stake when on court",
                 xaxis: {
-                    title: "Plus per 40 minutes",
+                    title: "Plus per minute",
                 },
                 yaxis: {
-                    title: "Points per 40 minutes",
+                    title: "Points per minute",
                 },
                 annotations: [{
                     x: max_y / (0.5),
@@ -652,17 +616,17 @@
             return true;
         }
 
-        function initials_on_data(selected_player_datas, trace_function) {
+        function numbers_traces_on_data(selected_player_datas, trace_function) {
             const selected_player_traces = selected_player_datas.map(trace_function);
             return selected_player_datas.map((player, i) => ({
                 x: selected_player_traces[i].x,
                 y: selected_player_traces[i].y,
                 mode: 'text',
-                text: player.player.split(/\s/).map(part => part[0]).join(''), // player.Nr,
+                text: player.Nr,
                 hoverinfo: 'none',
 
                 textfont: {
-                    color: 'black',//'white',
+                    color: 'white',
                 },
             }));
         }
@@ -673,19 +637,10 @@
                 x: [player.offensive_improvement],
                 y: [player.defensive_improvement],
                 type: 'scatter',
-                text: hover_text_for_player(player, [
-                    '',
-                    `${shorten_teamname_more(player.teamnaam)} scored ${player.plus_per_40.toFixed(1)} points per 40' when ${player.player.split(/\b/)[0]} was playing (${player.plus} points in ${player.minutes.toFixed(1)}')`,
-                    `${shorten_teamname_more(player.teamnaam)} scored ${player.benched_plus_per_40.toFixed(1)} points per 40' when ${player.player.split(/\b/)[0]} is benched (${player.benched_plus} points in ${player.benched_minutes.toFixed(1)}')`,
-                    `${shorten_teamname_more(player.teamnaam)} scored ${Math.abs(player.offensive_improvement.toFixed(1))} points per 40' <i>${player.offensive_improvement > 0 ? "more" : "less"}</i> when ${player.player.split(/\b/)[0]} was playing`,
-                    '',
-                    `${shorten_teamname_more(player.teamnaam)} conceded ${player.minus_per_40.toFixed(1)} points per 40' when ${player.player.split(/\b/)[0]} was playing (${player.minus} points in ${player.minutes.toFixed(1)}')`,
-                    `${shorten_teamname_more(player.teamnaam)} conceded ${player.benched_minus_per_40.toFixed(1)} points per 40' when ${player.player.split(/\b/)[0]} is benched (${player.benched_minus} points in ${player.benched_minutes.toFixed(1)}')`,
-                    `${shorten_teamname_more(player.teamnaam)} conceded ${Math.abs(player.defensive_improvement.toFixed(1))} points per 40' <i>${player.defensive_improvement < 0 ? "more" : "less"}</i> when ${player.player.split(/\b/)[0]} was playing`,
-                ]),
+                text: hover_text_for_player(player),
                 marker: {
                     symbol: ["none", 'circle'],
-                    size: [marker_size_for_player(player)],
+                    size: marker_size_for_player(player),
                     color: team_guid_to_colour[player.team_relguid],
                     opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
                 },
@@ -694,22 +649,21 @@
                 },
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
-            const traces = player_datas.filter(p=>Number.isFinite(p.minutes)).map(trace_for_player);
-            fix_marker_sizes(traces);
+            const traces = player_datas.map(trace_for_player);
 
             if (filtered_data_is_of_one_team(selected_player_datas)){
-                traces.push(...initials_on_data(selected_player_datas, trace_for_player));
+                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
             }
             
             const annotations = [
                 {
                     ..._left_annotation,
                     ..._top_annotation,
-                    text: '(Nobody scored when they play)',
+                    text: '(Nobody scores when they play)',
                 }, {
                     ..._hmid_annotation,
                     ..._top_annotation,
-                    text: '(Team conceded less when they play)',
+                    text: '(Good defenders)',
                 }, {
                     ..._right_annotation,
                     ..._top_annotation,
@@ -718,12 +672,12 @@
                     ..._left_annotation,
                     ..._vmid_annotation,
                     textangle: -90,
-                    text: '(Team scored less when they play)',
+                    text: '(Bad attackers)',
                 }, {
                     ..._right_annotation,
                     ..._vmid_annotation,
                     textangle: -90,
-                    text: '(Team scored more when they play)',
+                    text: '(Good attackers)',
                 }, {
                     ..._left_annotation,
                     ..._bottom_annotation,
@@ -731,7 +685,7 @@
                 }, {
                     ..._hmid_annotation,
                     ..._bottom_annotation,
-                    text: '(Team conceded more when they play)',
+                    text: '(Bad defenders)',
                 }, {
                     ..._right_annotation,
                     ..._bottom_annotation,
@@ -741,12 +695,12 @@
 
 
             const layout = {
-                title: "Improvement in <i>plus per 40'</i> and <i>minus per 40'</i> of team when player was playing vs. benched",
+                title: "Difference in <i>plus per minute</i> and <i>minus per minute</i> of team when player is playing vs. benched",
                 xaxis: {
-                    title: "Improvement in <i>plus per 40'</i> of team when player was playing vs. benched (\"Offensive improvement\")",
+                    title: "Difference in plus per minute of team when player is playing vs. benched (\"Offensive improvement\")",
                 },
                 yaxis: {
-                    title: "Improvement in <i>minus per 40'</i> of team when player was playing vs. benched (\"Defensive improvement\")",
+                    title: "Difference in minus per minute of team when player is playing vs. benched (\"Defensive improvement\")",
                     scaleanchor: "x", 
                     // autorange: 'reversed',
                 },
@@ -764,17 +718,10 @@
                 x: player.minutes ? [(player.points_per_game - (player.n_threes_per_game * 3) - player.n_fts_per_game) / 2] : [],
                 y: player.minutes ? [player.n_threes_per_game] : [],
                 type: 'scatter',
-                text: hover_text_for_player(
-                    player, [
-                        `${player.n_fts_per_game.toFixed(1)} fts pg`,
-                        `${((player.points_per_game - player.n_threes_per_game * 3 - player.n_fts_per_game) / 2).toFixed(1)} twos pg`,
-                        `${player.n_threes_per_game.toFixed(1)} threes pg`,
-                        `${player.points_per_game.toFixed(1)} ppg`
-                    ]
-                ),
+                text: hover_text_for_player(player),
                 marker: {
-                    symbol: 'circle',
-                    size: [marker_size_for_player(player)],
+                    symbol: ["none", 'circle'],
+                    size: marker_size_for_player(player),
                     color: team_guid_to_colour[player.team_relguid],
                     opacity: selected_relguids.has(player.relguid) ? 1 : 0.1,
                 },
@@ -784,11 +731,10 @@
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
             
-            const traces = player_datas.filter(p=>Number.isFinite(p.minutes)).map(trace_for_player);
-            fix_marker_sizes(traces);
+            const traces = player_datas.map(trace_for_player);
 
             if (filtered_data_is_of_one_team(selected_player_datas)){
-                traces.push(...initials_on_data(selected_player_datas, trace_for_player));
+                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
             }
 
             const annotations = [
@@ -883,12 +829,14 @@
 
             played_guids = played_games.map(g=> g.guid);
 
+            // team_guid_to_colours = fetch_team_colours_from_games(all_games);
             const all_team_guids = [...new Set(all_games.map(g => g.tTGUID))];
             n_teams = all_team_guids.length;
 
             team_guid_to_colour = Object.fromEntries(all_team_guids.map((g, i) => [g, 
-                `hsl(${i * 360 / n_teams}, ${i % 2 ? 0.4 : 0.8}, .5)`,
-            ]));
+                `hsl(${i * 360 / n_teams}, ${i % 2 ? 0.4 : 0.8}, .4)`,
+                // `${i}`
+            ]))
 
             rosters = fetch_team_rosters_for_games(played_games);
             gebeurtenis_data = fetch_gebeurtenis_data_for_games(played_games);
@@ -909,11 +857,6 @@
             make_plots(player_datas);
 
             connect_table_search_to_plots();
-
-            const search_param = new URLSearchParams(window.location.search).get('search');
-            if (search_param) {
-                window.player_table.search(search_param).draw();
-            }
 
             document.body.classList.remove('loading');
         });

@@ -3,113 +3,18 @@
 <head>
     <title>Laden...</title>
     <meta charset='utf-8'>
+    <meta http-equiv='cache-control' content='no-cache'>
+    <meta http-equiv='expires' content='0'>
+    <meta http-equiv='pragma' content='no-cache'>
 
-    <style>
-        body {
-            margin: 0;
-            /*font-family: Geneva, Arial, sans-serif;*/
-            font-family: Georgia, Palatino, serif;
-            text-align: center;
-        }
-
-        .teamnaam > th + th div {
-            transform: rotate(180deg);
-            float: right;
-        }
-
-        .teamnaam > th + th div p {
-            margin: 0;
-            text-align: left;
-            writing-mode: tb;
-            -webkit-writing-mode: tb;
-            white-space: pre;
-        }
-
-        .teamnaam > th > div > span {
-            padding: 5px 10px;
-        }
-
-        td.data {
-            text-align: right;
-            font-family: monospace;
-            padding-left: 1ch;
-        }
-
-        table {
-            text-align: initial;
-            border-collapse: collapse;
-            margin: 12px auto;
-        }
-
-        table .borderleft {
-            border-left: 1px black solid
-        }
-
-        table .borderbottom {
-            border-bottom: 1px solid black;
-        }
-
-        table .borderright {
-            border-right: 1px solid black;
-        }
-
-        th a {
-            /*color:black;*/
-            text-decoration: none;
-        }
-
-        table tr.totals td {
-            border-top: 1px solid black;
-        }
-
-        table tr.totals td,
-        table tr.pct td,
-        table tr.fta td {
-            border-right: none;
-            border-left: none;
-        }
-
-        input#extended_data ~ * .extended_only {
-            display: none;
-        }
-
-        input#extended_data:checked ~ * .extended_only {
-            display: revert;
-            height: auto;
-        }
-
-        body input {
-            margin: 12px;
-        }
-        table#calendar {
-            border-top: solid 3px black;
-            border-bottom: solid 3px black;
-        }
-        table#calendar td {
-            padding: 4px 8px;
-        }
-        table#calendar td:nth-child(6) {
-            text-align: center;
-        }
-        table#calendar thead td {
-            border-bottom: solid 1px black;
-        }
-        table#calendar thead td {
-            font-weight: bold;
-        }
-
-        details summary{
-            padding: 8px;
-        }
-    </style>
+    <link rel="stylesheet" href="team.css">
 
     <script src="libs/dexie.js"></script>    
     
     <script src="vis.js?v=3"></script>
     <script src="itertools.js?v=3"></script>
     <script src="gebeurtenis_data.js?v=3"></script>
-    <script src="fetching.js?v=4"></script>
-    <script src="authorization.js?v=4"></script>
+    <script src="fetching.js?v=3"></script>
     <script src="common.js?v=3"></script>
 
 
@@ -213,7 +118,10 @@
             return row.join('')
         }
 
-        function make_data_table(data, attribute_to_display) {
+        function make_data_table(data, attribute_to_display_and_extended_details) {
+            const attribute_to_display = attribute_to_display_and_extended_details[0];
+            const extended_details_mode = attribute_to_display_and_extended_details[1];
+
             const relguid_to_number = data.relguid_to_most_common_number;
             let relguid_to_name = data.rosters.flat().reduce((acc, player) => {
                 if (player['Naam']) {
@@ -233,15 +141,11 @@
                 acc[player['RelGUID']] = player['GebDat'];
                 return acc
             }, {});
-            const game_is_forfait = game => [' 20-  0  BFOR', '  0- 20  AFOR'].includes(game['uitslag']);
+            const data_per_player_per_game = data[attribute_to_display];
 
-            const played_games = data.previous_games.filter(game => !game_is_forfait(game));
-            const played_game_indices = played_games.map(pg => data.previous_games.findIndex(g => g.guid === pg.guid));
-            const data_per_player_per_game = played_game_indices.map(i => data[attribute_to_display][i]);
+            const game_is_at_home = data.previous_games.map(game => is_home_game_for_team(game, data.team_id_plus));
 
-            const game_is_at_home = played_games.map(game => is_home_game_for_team(game, data.team_id_plus));
-
-            const uitslagen = played_games.map(game => game["uitslag"].substring(0, 7));
+            const uitslagen = data.previous_games.map(game => game["uitslag"].substring(0, 7));
             const own_points = uitslagen.map((uitslag, i) => game_is_at_home[i] ? uitslag.substring(0, 3) : uitslag.substring(4, 7)).map(Number);
             const opp_points = uitslagen.map((uitslag, i) => game_is_at_home[i] ? uitslag.substring(4, 7) : uitslag.substring(0, 3)).map(Number);
             const verschillen = uitslagen.map(eval).map((v, i) => game_is_at_home[i] ? v : -v).map(v => v > 0 ? '+' + v : v);
@@ -279,7 +183,7 @@
             let innerhtml = [// list of strings we will join at the end
                 `<tr class="teamnaam">`,
                 th(attribute_str),
-                ...played_games
+                ...data.previous_games
                     .map(game =>
                         `<th><div><p><a href="match_grafiek.html?game_id=${game.guid}">`+
                         shorten_teamname(get_opponent_from_game(game, data.team_id_plus).naam) +
@@ -290,13 +194,13 @@
 
                 `<tr class="maand ${tr_class_only_on_extended_data}">`,
                 th('Maand'),
-                ...played_games.map(game => game['datumString'].substring(3, 5)).map(Number).map(td_data),
+                ...data.previous_games.map(game => game['datumString'].substring(3, 5)).map(Number).map(td_data),
                 '<td></td>'.repeat(3),
                 '</tr>',
 
                 `<tr class="dag ${tr_class_only_on_extended_data}">`,
                 th('Dag'),
-                ...played_games.map(game => game['datumString'].substring(0, 2)).map(Number).map(td_data),
+                ...data.previous_games.map(game => game['datumString'].substring(0, 2)).map(Number).map(td_data),
                 '<td></td>'.repeat(3),
                 '</tr>',
 
@@ -320,7 +224,7 @@
 
                 `<tr class="thuis ${tr_class_only_on_extended_data}">`,
                 th('Thuis'),
-                ...played_games.map(g => is_home_game_for_team(g, data.team_id_plus))
+                ...data.previous_games.map(g => is_home_game_for_team(g, data.team_id_plus))
                     .map(home_away_char)
                     .map(td_data),
                 '<td></td>'.repeat(3),
@@ -351,6 +255,10 @@
 
             const table = document.createElement('table');
             table.innerHTML = innerhtml.join('');
+            table.classList.add(extended_details_mode);
+            if (extended_details_mode == 'ONLY_WHEN_EXTENDED') {
+                table.classList.add('ONLY_WHEN_EXTENDED')
+            }
 
             return table
         }
@@ -364,52 +272,30 @@
 
             const h = `<h1>${data.team_name}</h1>`;
 
+            const subteams = `<p><a href="subteams.html?team=${data.team_id_plus}">Subteam analysis</a></p>`
+
 			let next_game_p = '';
 			if (data.next_game) {
                 const next_opponent_id_plus = data.next_opponent_id_plus.replace(/\+/g, ' ');
                 next_game_p = `<p>
-                    Volgende tegenstander:<br>
+                    Volgende tegenstander: 
                     <a href="team.html?team=${next_opponent_id_plus}">${data.next_opponent_name}</a>
-                    (<a href="match_grafiek.html?game_id=${data.next_game.guid}">wedstrijdpagina</a>)
+                    <a href="match_grafiek.html?game_id=${data.next_game.guid}">(wedstrijdpagina)</a>
                 </p>`;
             }
 
             let competitions_arr = data.games
-                .filter(g => !g.pouleNaam.includes(" OEFEN")) // remove practice games
-                // .filter(g => !g.pouleNaam.toLowerCase().includes("beker")) // remove cup leagues
-                .sort((a, b) => a.pouleNaam.toLowerCase().includes("beker") - b.pouleNaam.toLowerCase().includes("beker")) // put cups at the bottom
+                .filter(g => !g.pouleNaam.includes(" OEFEN"))
+                .filter(g => !g.pouleNaam.toLowerCase().includes("beker"))
                 .map(g => [g.pouleGUID, g.pouleNaam]);
 
             // remove duplicates
             competitions_arr = Object.fromEntries(competitions_arr);
             competitions_arr = Object.entries(competitions_arr);
 
-            const n_wins = (pouleGUID) => (
-                data.previous_games
-                .filter(g => g.pouleGUID === pouleGUID)
-                .map(g => game_is_home_win(g) === is_home_game_for_team(g, data.team_id_plus) ? 1 : 0)
-                .reduce((a, b) => a + b, 0)
-            );
-            const n_losses = (pouleGUID) => data.previous_games.filter(g => g.pouleGUID === pouleGUID).length - n_wins(pouleGUID);
-
-            const wl = (pouleGUID) => `${n_wins(pouleGUID)}-${n_losses(pouleGUID)}`;
-
             const competitions_p = competitions_arr
-                .map(
-                    ([pouleGUID, pouleNaam]) => `
-                        <p>
-                            ${pouleNaam} : ${wl(pouleGUID)}
-                            <br>
-                                (<a href="poule.html?pouleGUID=${pouleGUID}">Reeks</a>
-                                &horbar;
-                                <a href="poule_teams.html?pouleGUID=${pouleGUID}">Teams</a>
-                                &horbar;
-                                <a href="players.html?pouleGUID=${pouleGUID}&search=${data.team_id_plus}">Spelers van ${shorten_teamname(data.team_name)}</a>
-                                &horbar;
-                                <a href="players.html?pouleGUID=${pouleGUID}">Spelers</a>)
-                        </p>`
-                )
-                .join('');
+                .map(([pouleGUID, pouleNaam]) => `<p><a href="poule.html?pouleGUID=${pouleGUID}">${pouleNaam}</a></p>`)
+                .join('<br>');
 
             document.title = data.team_name;
 
@@ -417,6 +303,7 @@
                 h,
                 competitions_p,
                 next_game_p,
+                subteams,
             ].join('');
 
             div.innerHTML = innerHTML;
@@ -424,46 +311,17 @@
             return innerHTML;
         }
 
-        function make_calendar(data) {
-            const tr = x => `<tr>${x}</tr>`;
-            const td = x => `<td>${x}</td>`;
-
-            const toprow = tr([
-                'Datum',
-                'Uur',
-                '',
-                'Tegenstander',
-                '',
-                'Uitslag',
-            ].map(td).join(''));
-
-            const clean_uitslag_text = x => x ? x.slice(0, 7).replaceAll(' ', '') : 'tbd';
-            const uitslag_link = game => `<a href="match_grafiek.html?game_id=${game.guid}">${clean_uitslag_text(game.uitslag)}</a>`;
-
-            const row_for_game = game => tr([
-                game.datumString.slice(6, 10) + '-' + game.datumString.slice(3, 5) + '-' + game.datumString.slice(0, 2),
-                game.beginTijd.replace('.', ':'),
-                is_home_game_for_team(game, data.team_id_plus) ? 'vs' : '@',
-                shorten_teamname(get_opponent_from_game(game, data.team_id_plus).naam),
-                game.uitslag === '' ? '' : (is_home_game_for_team(game, data.team_id_plus) === eval(game.uitslag.slice(0, 7)) > 0) ? 'W' : 'L',
-                uitslag_link(game),
-            ].map(td).join(''));
-
-            const tablerows = data.games.sort((a, b) => a.jsDTCode - b.jsDTCode).map(row_for_game).join('');
-
-            return `<table id="calendar"><thead>${toprow}</thead><tbody>${tablerows}</tbody></table>`
-        }
-
         function make_div_with_tables(data) {
-            const tables = [
-                make_data_table(data, 'points'),
-                make_data_table(data, 'three_pt'),
-                make_data_table(data, 'free_throws'),
-                make_data_table(data, 'fouls'),
-                make_data_table(data, 'plus_minus'),
-                make_data_table(data, 'minutes'),
+            const table_keys_and_extended_only = [
+                ['points', 'ALWAYS_FULL'],
+                ['three_pt', 'DATA_ROWS'],
+                ['free_throws', 'ONLY_WHEN_EXTENDED'],
+                ['fouls', 'DATA_ROWS'],
+                ['plus_minus', 'ONLY_WHEN_EXTENDED'],
+                ['minutes', 'ONLY_WHEN_EXTENDED'],
             ];
 
+            const tables = table_keys_and_extended_only.map(t => make_data_table(data, t));
             const div = document.createElement('div');
 
             const extended_data_checkbox = document.createElement('input');
@@ -476,6 +334,7 @@
 
             tables.forEach((table, i) => {
                 table.style.position = 'relative';
+                table.dataset.t = table_keys_and_extended_only[i][0];
                 div.appendChild(table)
             });
 
@@ -510,25 +369,7 @@
             const team_id = await team_id_from_get_params();
             data = await get_all_data_of_team(team_id);
 
-
-            const make_expando = (title, contents) => `
-                <details class="expando">
-                    <summary>${title}</summary>
-                    ${contents}
-                </details>`;
-
-            const subteams = `<p>
-                <a href="subteams.html?team=${data.team_id_plus}">Subteams</a>
-                <a href="rotations.html?team=${data.team_id_plus}">Rotations</a>
-                <a href="match_grafieken.html?team=${data.team_id_plus}">Game progressions</a>
-            </p>`
-
-            to_fill.innerHTML = (
-                make_title(data)
-                + make_expando('Kalender', make_calendar(data))
-                + make_expando('Spelersdata', make_div_with_tables(data))
-                + subteams
-            );
+            to_fill.innerHTML = make_title(data) + make_div_with_tables(data);
         })
     </script>
 
@@ -537,3 +378,14 @@
     Javascript staat uit!
 </body>
 </html>
+
+
+<!--
+TODO:
+- +/- duo's, ...
+- Vrijworpen som, %
+- Wedstrijd / box score
+- laat rijen tussen tegenstander en tabel weg
+- pagina per match
+- link naar basketbal.vlaanderen
+-->
