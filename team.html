@@ -272,7 +272,11 @@
 
             const h = `<h1>${data.team_name}</h1>`;
 
-            const subteams = `<p><a href="subteams.html?team=${data.team_id_plus}">Subteam analysis</a></p>`
+            const subteams = `<p>
+                <a href="subteams.html?team=${data.team_id_plus}">Subteam analysis</a>
+                &horbar;
+                <a href="rotations.html?team=${data.team_id_plus}">Rotaties</a>
+            </p>`;
 
 			let next_game_p = '';
 			if (data.next_game) {
@@ -284,18 +288,34 @@
                 </p>`;
             }
 
-            let competitions_arr = data.games
-                .filter(g => !g.pouleNaam.includes(" OEFEN"))
-                .filter(g => !g.pouleNaam.toLowerCase().includes("beker"))
-                .map(g => [g.pouleGUID, g.pouleNaam]);
+            const competitions_arr = Object.entries(Object.fromEntries(
+                data.games
+                    .filter(g => !g.pouleNaam.includes(" OEFEN"))
+                    .sort((a, b) => a.pouleNaam.toLowerCase().includes("beker") - b.pouleNaam.toLowerCase().includes("beker"))
+                    .map(g => [g.pouleGUID, g.pouleNaam])
+            ));
 
-            // remove duplicates
-            competitions_arr = Object.fromEntries(competitions_arr);
-            competitions_arr = Object.entries(competitions_arr);
+            const competition_record = pouleGUID => {
+                const games = data.previous_games.filter(game => game.pouleGUID === pouleGUID);
+                const wins = games.filter(game => {
+                    const home_won = Number(game.uitslag.slice(0, 3)) > Number(game.uitslag.slice(4, 7));
+                    return home_won === is_home_game_for_team(game, data.team_id_plus);
+                }).length;
+                return `${wins}-${games.length - wins}`;
+            };
 
             const competitions_p = competitions_arr
-                .map(([pouleGUID, pouleNaam]) => `<p><a href="poule.html?pouleGUID=${pouleGUID}">${pouleNaam}</a></p>`)
-                .join('<br>');
+                .map(([pouleGUID, pouleNaam]) => `
+                    <p>
+                        ${pouleNaam}: ${competition_record(pouleGUID)}
+                        <br>
+                        (<a href="poule.html?pouleGUID=${pouleGUID}">Reeks</a>
+                        &horbar;
+                        <a href="players.html?pouleGUID=${pouleGUID}&search=${data.team_id_plus}">Spelers van ${shorten_teamname(data.team_name)}</a>
+                        &horbar;
+                        <a href="players.html?pouleGUID=${pouleGUID}">Alle spelers</a>)
+                    </p>`)
+                .join('');
 
             document.title = data.team_name;
 
