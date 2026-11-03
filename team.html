@@ -311,6 +311,39 @@
             return innerHTML;
         }
 
+        function make_calendar(data) {
+            const tr = cells => `<tr>${cells.map(cell => `<td>${cell}</td>`).join('')}</tr>`;
+            const header = tr(['Datum', 'Uur', '', 'Tegenstander', '', 'Uitslag']);
+            const row_for_game = game => {
+                const is_home = is_home_game_for_team(game, data.team_id_plus);
+                const opponent = shorten_teamname(get_opponent_from_game(game, data.team_id_plus).naam);
+                const score = game.uitslag ? game.uitslag.slice(0, 7).replaceAll(' ', '') : 'tbd';
+                let result = '';
+
+                if (game.uitslag) {
+                    const home_score = Number(game.uitslag.slice(0, 3));
+                    const away_score = Number(game.uitslag.slice(4, 7));
+                    result = (is_home ? home_score > away_score : away_score > home_score) ? 'W' : 'L';
+                }
+
+                return tr([
+                    `${game.datumString.slice(6, 10)}-${game.datumString.slice(3, 5)}-${game.datumString.slice(0, 2)}`,
+                    game.beginTijd.replace('.', ':'),
+                    is_home ? 'vs' : '@',
+                    opponent,
+                    result,
+                    `<a href="match_grafiek.html?game_id=${game.guid}">${score}</a>`,
+                ]);
+            };
+
+            const rows = [...data.games]
+                .sort((a, b) => a.jsDTCode - b.jsDTCode)
+                .map(row_for_game)
+                .join('');
+
+            return `<table id="calendar"><thead>${header}</thead><tbody>${rows}</tbody></table>`;
+        }
+
         function make_div_with_tables(data) {
             const table_keys_and_extended_only = [
                 ['points', 'ALWAYS_FULL'],
@@ -369,7 +402,17 @@
             const team_id = await team_id_from_get_params();
             data = await get_all_data_of_team(team_id);
 
-            to_fill.innerHTML = make_title(data) + make_div_with_tables(data);
+            const make_expando = (title, contents) => `
+                <details class="expando">
+                    <summary>${title}</summary>
+                    ${contents}
+                </details>`;
+
+            to_fill.innerHTML = (
+                make_title(data)
+                + make_expando('Kalender', make_calendar(data))
+                + make_expando('Spelersdata', make_div_with_tables(data))
+            );
         })
     </script>
 

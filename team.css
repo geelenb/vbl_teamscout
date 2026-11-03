@@ -76,6 +76,28 @@ body input {
     margin: 12px;
 }
 
+table#calendar {
+    border-top: solid 3px black;
+    border-bottom: solid 3px black;
+}
+
+table#calendar td {
+    padding: 4px 8px;
+}
+
+table#calendar td:nth-child(5) {
+    text-align: center;
+}
+
+table#calendar thead td {
+    border-bottom: solid 1px black;
+    font-weight: bold;
+}
+
+details summary {
+    padding: 8px;
+}
+
 body {
 }
 
