@@ -392,9 +392,13 @@
             return [
                 `${player.Nr} ${player.player}`, 
                 shorten_teamname_more(player.teamnaam),
-                `${player.minutes_per_game.toFixed(1)}mpg in ${player.n_games} games`,
+                `${player.minutes.toFixed(1)}' in ${player.n_games} games (${player.minutes_per_game.toFixed(1)}mpg)`,
                 ...more_lines ? more_lines : [],
             ].join('<br>');
+        }
+
+        function player_first_name(player) {
+            return player.player.trim().split(/\s+/)[0];
         }
 
         function marker_size_for_player(player) {
@@ -409,10 +413,10 @@
                 x: player.minutes ? [player.benched_plus_per_minute, player.plus_per_minute] : [],
                 y: player.minutes ? [player.benched_minus_per_minute, player.minus_per_minute] : [],
                 type: 'scatter',
-                text: [
-                    `${shorten_teamname_more(player.teamnaam)} when ${player.player} is benched`,
-                    `${shorten_teamname_more(player.teamnaam)} when ${player.player} is on court`,
-                ],
+                text: hover_text_for_player(player, [
+                    `${shorten_teamname_more(player.teamnaam)} scored ${player.plus_per_minute.toFixed(2)} points per minute when ${player_first_name(player)} was playing`,
+                    `${shorten_teamname_more(player.teamnaam)} conceded ${player.minus_per_minute.toFixed(2)} points per minute when ${player_first_name(player)} was playing`,
+                ]),
                 marker: {
                     symbol: ["none", 'circle'],
                     size: [0, marker_size_for_player(player)],
@@ -453,7 +457,10 @@
                 x: player.minutes ? [player.plus_minus_per_minute] : [],
                 y: player.minutes ? [player.benched_plus_minus_per_minute] : [],
                 type: 'scatter',
-                text: hover_text_for_player(player),
+                text: hover_text_for_player(player, [
+                    `${shorten_teamname_more(player.teamnaam)} was ${player.plus_minus >= 0 ? '+' : ''}${player.plus_minus} points in ${player.minutes.toFixed(1)}' with ${player_first_name(player)} playing`,
+                    `${shorten_teamname_more(player.teamnaam)} was ${player.benched_plus_minus >= 0 ? '+' : ''}${player.benched_plus_minus} points in ${player.benched_minutes.toFixed(1)}' with ${player_first_name(player)} benched`,
+                ]),
                 marker: {
                     symbol: ["none", 'circle'],
                     size: marker_size_for_player(player),
@@ -469,7 +476,7 @@
             const traces = player_datas.map(trace_for_player);
 
             if (filtered_data_is_of_one_team(selected_player_datas)){
-                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
+                traces.push(...initials_traces_on_data(selected_player_datas, trace_for_player));
             }
 
             const annotations = [
@@ -534,7 +541,11 @@
                 x: [player.plus_per_minute],
                 y: [player.points_per_40 / 40],
                 type: 'scatter',
-                text: hover_text_for_player(player, [(player.points_per_40 / 40 / player.plus_per_minute * 100).toFixed(1) + '%']),
+                text: hover_text_for_player(player, [
+                    `${player_first_name(player)} scored ${player.points} points in ${player.minutes.toFixed(1)}' (${(player.points_per_40 / 40).toFixed(2)} per minute)`,
+                    `${shorten_teamname_more(player.teamnaam)} scored ${player.plus} points when ${player_first_name(player)} was playing`,
+                    `${player.plus_per_minute ? ((player.points_per_40 / 40 / player.plus_per_minute) * 100).toFixed(1) : 'n/a'}% of the team's points were scored by ${player_first_name(player)} when playing`,
+                ]),
                 marker: {
                     symbol: ["none", 'circle'],
                     size: marker_size_for_player(player),
@@ -577,7 +588,7 @@
             const traces = [...diagonals, ...player_dots,];
 
             if (filtered_data_is_of_one_team(selected_player_datas)){
-                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
+                traces.push(...initials_traces_on_data(selected_player_datas, trace_for_player));
             }
 
             const layout = {
@@ -619,17 +630,16 @@
             return true;
         }
 
-        function numbers_traces_on_data(selected_player_datas, trace_function) {
+        function initials_traces_on_data(selected_player_datas, trace_function) {
             const selected_player_traces = selected_player_datas.map(trace_function);
             return selected_player_datas.map((player, i) => ({
                 x: selected_player_traces[i].x,
                 y: selected_player_traces[i].y,
                 mode: 'text',
-                text: player.Nr,
+                text: player.player.trim().split(/\s+/).map(part => part[0]).join('').toUpperCase(),
                 hoverinfo: 'none',
-
                 textfont: {
-                    color: 'white',
+                    color: 'black',
                 },
             }));
         }
@@ -640,7 +650,14 @@
                 x: [player.offensive_improvement],
                 y: [player.defensive_improvement],
                 type: 'scatter',
-                text: hover_text_for_player(player),
+                text: hover_text_for_player(player, [
+                    `${shorten_teamname_more(player.teamnaam)} scored ${player.plus_per_minute.toFixed(2)} points per minute when ${player_first_name(player)} was playing (${player.plus} points in ${player.minutes.toFixed(1)}')`,
+                    `${shorten_teamname_more(player.teamnaam)} scored ${player.benched_plus_per_minute.toFixed(2)} points per minute when ${player_first_name(player)} was benched (${player.benched_plus} points in ${player.benched_minutes.toFixed(1)}')`,
+                    `${shorten_teamname_more(player.teamnaam)} conceded ${player.minus_per_minute.toFixed(2)} points per minute when ${player_first_name(player)} was playing (${player.minus} points in ${player.minutes.toFixed(1)}')`,
+                    `${shorten_teamname_more(player.teamnaam)} conceded ${player.benched_minus_per_minute.toFixed(2)} points per minute when ${player_first_name(player)} was benched (${player.benched_minus} points in ${player.benched_minutes.toFixed(1)}')`,
+                    `${player_first_name(player)} changed the team's offensive rate by ${player.offensive_improvement.toFixed(2)} points per minute`,
+                    `${player_first_name(player)} changed the team's defensive rate by ${player.defensive_improvement.toFixed(2)} points per minute`,
+                ]),
                 marker: {
                     symbol: ["none", 'circle'],
                     size: marker_size_for_player(player),
@@ -655,7 +672,7 @@
             const traces = player_datas.map(trace_for_player);
 
             if (filtered_data_is_of_one_team(selected_player_datas)){
-                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
+                traces.push(...initials_traces_on_data(selected_player_datas, trace_for_player));
             }
             
             const annotations = [
@@ -721,7 +738,12 @@
                 x: player.minutes ? [(player.points_per_game - (player.n_threes_per_game * 3) - player.n_fts_per_game) / 2] : [],
                 y: player.minutes ? [player.n_threes_per_game] : [],
                 type: 'scatter',
-                text: hover_text_for_player(player),
+                text: hover_text_for_player(player, [
+                    `${player.n_fts_per_game.toFixed(1)} free throws per game`,
+                    `${((player.points_per_game - player.n_threes_per_game * 3 - player.n_fts_per_game) / 2).toFixed(1)} two-pointers per game`,
+                    `${player.n_threes_per_game.toFixed(1)} three-pointers per game`,
+                    `${player.points_per_game.toFixed(1)} points per game`,
+                ]),
                 marker: {
                     symbol: ["none", 'circle'],
                     size: marker_size_for_player(player),
@@ -737,7 +759,7 @@
             const traces = player_datas.map(trace_for_player);
 
             if (filtered_data_is_of_one_team(selected_player_datas)){
-                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
+                traces.push(...initials_traces_on_data(selected_player_datas, trace_for_player));
             }
 
             const annotations = [

@@ -35,6 +35,27 @@ div#box_scores, div#general_stats {
     text-align: center;
 }
 
+div#box_scores {
+    cursor: pointer;
+}
+
+body #box_scores table {
+    display: inline;
+    margin: 0 4px;
+}
+
+body.pm #box_scores table.stats {
+    display: none;
+}
+
+body #box_scores table.pmstats {
+    display: none;
+}
+
+body.pm #box_scores table.pmstats {
+    display: inline;
+}
+
 table.stats td:nth-child(2) {
     text-align: left;
 }

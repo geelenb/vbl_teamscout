@@ -37,9 +37,11 @@
     <table></table>
 </div>
 
-<div id='box_scores'>
+<div id='box_scores' onclick='document.body.classList.toggle("pm")' title="Click to toggle plus/minus stats">
     <table class='stats home booktabs w_totals'></table>
     <table class='stats away booktabs w_totals'></table>
+    <table class='pmstats home booktabs w_totals'></table>
+    <table class='pmstats away booktabs w_totals'></table>
 </div>
 
 <div>
@@ -434,6 +436,18 @@
 
 	async function make_team_tables() {
 		const pm = gebeurtenis_data_to_plus_minus(gebeurtenis_data);
+		const starting_five_for_team = team => [...new Set(
+			gebeurtenis_data
+				.filter(g => g.GebStatus === 10 && g.GebType === 50 && g.Text === 'in' && g.TofU === team)
+				.map(g => g.RelGUID)
+		)].slice(0, 5);
+		const home_starting_five = new Set(starting_five_for_team('T'));
+		const away_starting_five = new Set(starting_five_for_team('U'));
+		const roster_sort = (team, a, b) => {
+			const starting_five = team === 'T' ? home_starting_five : away_starting_five;
+			return Number(starting_five.has(b.RelGUID)) - Number(starting_five.has(a.RelGUID))
+				|| (Number(a.RugNr) || 0) - (Number(b.RugNr) || 0);
+		};
 		let relguid_to_in_uit = (
 			gebeurtenis_data
 			.filter(g => g.GebStatus == 10 && g.GebType === 50)
@@ -472,7 +486,7 @@
 
 			// sort by number?
 			// console.log(teamroster.map(p => p.RugNr));
-			teamroster.sort((a, b) => a.RugNr - b.RugNr).forEach(player => {
+			[...teamroster].sort((a, b) => roster_sort(c === 'home' ? 'T' : 'U', a, b)).forEach(player => {
 				if (!player.Naam) {
 					return
 				}
@@ -540,6 +554,73 @@
 
 			table.innerHTML = new_innerhtml;
 			table.style.display = 'inline';
+		});
+
+		const on_court_plus = Object.fromEntries([...roster.TtDeel, ...roster.TuDeel].map(p => [p.RelGUID, 0]));
+		const on_court_minus = Object.fromEntries([...roster.TtDeel, ...roster.TuDeel].map(p => [p.RelGUID, 0]));
+		const players_on_court = {T: [], U: []};
+		gebeurtenis_data.forEach(geb => {
+			if (geb.GebStatus !== 10) return;
+			const team = geb.TofU;
+			const opponent = team === 'T' ? 'U' : 'T';
+			if (geb.GebType === 50) {
+				if (geb.Text === 'in' && !players_on_court[team].includes(geb.RelGUID)) {
+					players_on_court[team].push(geb.RelGUID);
+				} else if (geb.Text === 'uit') {
+					players_on_court[team] = players_on_court[team].filter(id => id !== geb.RelGUID);
+				}
+			} else if (geb.GebType === 10) {
+				const points = Number(geb.Text.split(' ')[0]);
+				players_on_court[team].forEach(id => on_court_plus[id] += points);
+				players_on_court[opponent].forEach(id => on_court_minus[id] += points);
+			}
+		});
+
+		[['home', 'T', roster.TtDeel], ['away', 'U', roster.TuDeel]].forEach(([side, team, teamroster]) => {
+			const table = document.querySelector(`table.pmstats.${side}`);
+			let total_plus = 0;
+			let total_minus = 0;
+			let total_plus_minus = 0;
+			let total_minutes = 0;
+			let total_plus_per_minute = 0;
+			let total_minus_per_minute = 0;
+			let total_plus_minus_per_minute = 0;
+			const players = [...teamroster]
+				.filter(player => player.Naam && player.Functie === 'S')
+				.sort((a, b) => roster_sort(team, a, b));
+			let rows = tr(['', '+', '-', '+-', 'min', '+/min', '-/min', '+-/min'].map(td).join(''));
+
+			players.forEach(player => {
+				const plus = on_court_plus[player.RelGUID] || 0;
+				const minus = on_court_minus[player.RelGUID] || 0;
+				const plus_minus = plus - minus;
+				const minutes = minutes_for_player(gebeurtenis_data, player.RelGUID);
+				const plus_per_minute = minutes ? plus / minutes : 0;
+				const minus_per_minute = minutes ? minus / minutes : 0;
+				const plus_minus_per_minute = minutes ? plus_minus / minutes : 0;
+
+				total_plus += plus;
+				total_minus += minus;
+				total_plus_minus += plus_minus;
+				total_minutes += minutes;
+				total_plus_per_minute += plus_per_minute;
+				total_minus_per_minute += minus_per_minute;
+				total_plus_minus_per_minute += plus_minus_per_minute;
+
+				rows += tr([
+					player.RugNr, plus, minus, plus_minus, minutes.toFixed(1),
+					plus_per_minute.toFixed(2), minus_per_minute.toFixed(2), plus_minus_per_minute.toFixed(2),
+				].map(td).join(''));
+			});
+
+			const count = players.length || 1;
+			rows += tr([
+				'Avg', (total_plus / count).toFixed(1), (total_minus / count).toFixed(1),
+				(total_plus_minus / count).toFixed(1), (total_minutes / count).toFixed(1),
+				(total_plus_per_minute / count).toFixed(2), (total_minus_per_minute / count).toFixed(2),
+				(total_plus_minus_per_minute / count).toFixed(2),
+			].map(td).join(''));
+			table.innerHTML = rows;
 		});
 	}
 
