@@ -43,6 +43,26 @@ table#quarters tr td:first-child {
     text-align: left;
 }
 
+#live_events {
+    overflow-y: auto;
+    max-height: 150px;
+    margin: 16px 0;
+    background: #fAf7f7;
+    box-shadow: inset 0 0 10px 0 rgba(0, 0, 0, 0.2);
+}
+
+#live_events > table {
+    margin: 0 auto;
+}
+
+#live_events > table td {
+    text-align: left;
+}
+
+#live_events > table td:first-child {
+    white-space: nowrap;
+}
+
 #other_stats {
     display: inline-grid;
     margin: 0 auto;

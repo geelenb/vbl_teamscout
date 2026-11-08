@@ -33,6 +33,9 @@
     <table id='quarters'></table>
 </div>
 
+<div id="live_events">
+    <table></table>
+</div>
 
 <div id='box_scores'>
     <table class='stats home booktabs w_totals'></table>
@@ -229,8 +232,8 @@
 
 	async function make_stints() {
 		let relguid_to_y = Object.fromEntries([
-			...window.roster.TtDeel.sort(p=>-p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, i + 1]),
-			...window.roster.TuDeel.sort(p=> p.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, -(i + 1)])
+			...[...window.roster.TtDeel].sort((a, b) => a.SortCode - b.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, i + 1]),
+			...[...window.roster.TuDeel].sort((a, b) => b.SortCode - a.SortCode).filter(filter_for_valid_players).map((p, i) => [p.RelGUID, -(i + 1)])
 		]);
 
 		const score_gebs = window.gebeurtenis_data.filter(g=> (g.GebStatus === 10 && g.GebType === 10));
@@ -647,6 +650,38 @@
 			.length > 0;
 	}
 
+	function update_live_events() {
+		const live_events_table = document.querySelector('#live_events > table');
+		const both_rosters = window.roster.TuDeel.concat(window.roster.TtDeel);
+		const player_for_event = geb => both_rosters.find(player => player.RelGUID == geb.RelGUID);
+		const name = geb => player_for_event(geb)?.Naam || 'Onbekende speler';
+		const number = geb => player_for_event(geb)?.RugNr ?? '';
+		const team = geb => shorten_teamname_more(geb.TofU === 'T' ? window.game.tTNaam : window.game.tUNaam);
+		const time = geb => `Q${geb.Periode} ${geb.Minuut}'`;
+		const player_description = geb => `${number(geb)}. ${name(geb)} (${team(geb)})`;
+		const nth_foul = geb => window.gebeurtenis_data.filter(g =>
+			g.GebStatus === 10 && g.GebType === 30 && g.RelGUID === geb.RelGUID && g.Index <= geb.Index
+		).length;
+		const row_for_event = geb => {
+			if (geb.GebStatus !== 10) return '';
+			if (geb.GebType === 10) {
+				return `<tr><td>${time(geb)}</td><td>${player_description(geb)}</td><td>scoort ${geb.Text}</td></tr>`;
+			}
+			if (geb.GebType === 20) {
+				return `<tr><td>${time(geb)}</td><td colspan="2" style="text-align: center">Time-out ${team(geb)}</td></tr>`;
+			}
+			if (geb.GebType === 30) {
+				return `<tr><td>${time(geb)}</td><td>${player_description(geb)}</td><td>${nth_foul(geb)}<sup>e</sup> fout (${geb.Text})</td></tr>`;
+			}
+			return '';
+		};
+
+		live_events_table.innerHTML = '';
+		window.gebeurtenis_data.forEach(geb => {
+			live_events_table.insertAdjacentHTML('afterbegin', row_for_event(geb));
+		});
+	}
+
 	async function main_loop() {
 		await load_data();
 
@@ -662,6 +697,7 @@
 			document.getElementById("tabellink").href = "gebeurtenis_tabel.html?game_id=" + window.game_id;
 
 			make_other_stats();
+			update_live_events();
 
 			await make_graph_promise;
 			await make_stints_promise;

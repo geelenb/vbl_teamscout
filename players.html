@@ -202,6 +202,7 @@
                     "Offensive improvement",
                     "Defensive improvement",
                     "Netto improvement",
+                    "Team ID",
                 ].map(s => `<th>${s}</th>`).join('');
 
                 return `<thead><tr>${cells}</tr></thead>`;
@@ -355,6 +356,7 @@
                     td(data.offensive_improvement.toFixed(2), 'right'),
                     td(data.defensive_improvement.toFixed(2), 'right'),
                     td(data.netto_improvement.toFixed(2), 'right'),
+                    td(encodeURIComponent(data.team_relguid.replace(/\+/g, ' '))),
                ];
 
                 const joined_string = [
@@ -380,6 +382,7 @@
                 fixedHeader: true,
                 scrollX: true,
                 fixedColumns: true,
+                columnDefs: [{targets: -1, visible: false}],
             });
 
             return datas;
@@ -834,7 +837,7 @@
             n_teams = all_team_guids.length;
 
             team_guid_to_colour = Object.fromEntries(all_team_guids.map((g, i) => [g, 
-                `hsl(${i * 360 / n_teams}, ${i % 2 ? 0.4 : 0.8}, .4)`,
+                `hsl(${i * 360 / n_teams}, ${i % 2 ? 0.4 : 0.8}, .5)`,
                 // `${i}`
             ]))
 
@@ -857,6 +860,11 @@
             make_plots(player_datas);
 
             connect_table_search_to_plots();
+
+            const search_param = new URLSearchParams(window.location.search).get('search');
+            if (search_param) {
+                window.player_table.search(encodeURIComponent(search_param.replace(/\+/g, ' '))).draw();
+            }
 
             document.body.classList.remove('loading');
         });
