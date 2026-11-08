@@ -202,7 +202,11 @@
                     "Fouls",
                     "Fouls per game",
                     "Technical fouls",
-                    "Unsportsmanlike fouls",
+                    "Technical Cat. 1",
+                    "Technical Cat. 2",
+                    "Disruptive fouls",
+                    "Flagrant fouls",
+                    "Legacy unsportsmanlike",
                     "Non personal fouls",
                     "Plus",
                     "Minus",
@@ -271,9 +275,10 @@
 
                 const n_fouls = player_fouten.length;
                 const n_fouls_per_game = n_fouls / n_games;
-                const n_technical_fouls = player_fouten.filter(g => g.Text[0] === 'T').length;
-                const n_unsportsmanlike_fouls = player_fouten.filter(g => g.Text[0] === 'U').length;
-                const n_non_personal_fouls = player_fouten.filter(g => g.Text[0] !== 'P').length;
+                const foul_counts = count_fouls_by_type(player_fouten);
+                const n_technical_fouls = foul_counts.technical
+                    + foul_counts['technical-category-1'] + foul_counts['technical-category-2'];
+                const n_non_personal_fouls = n_fouls - foul_counts.personal;
 
                 const plus = on_court_plus[relguid];
                 const minus = on_court_minus[relguid];
@@ -318,7 +323,11 @@
                     "n_fouls": n_fouls,
                     "n_fouls_per_game": n_fouls_per_game,
                     "n_technical_fouls": n_technical_fouls,
-                    "n_unsportsmanlike_fouls": n_unsportsmanlike_fouls,
+                    "n_technical_category_1_fouls": foul_counts['technical-category-1'],
+                    "n_technical_category_2_fouls": foul_counts['technical-category-2'],
+                    "n_disruptive_fouls": foul_counts.disruptive,
+                    "n_flagrant_fouls": foul_counts.flagrant,
+                    "n_legacy_unsportsmanlike_fouls": foul_counts.unsportsmanlike,
                     "n_non_personal_fouls": n_non_personal_fouls,
                     "plus": plus,
                     "minus": minus,
@@ -368,7 +377,11 @@
                     td(data.n_fouls, 'right'),
                     td(data.n_fouls_per_game.toFixed(1), 'right'),
                     td(data.n_technical_fouls, 'right'),
-                    td(data.n_unsportsmanlike_fouls, 'right'),
+                    td(data.n_technical_category_1_fouls, 'right'),
+                    td(data.n_technical_category_2_fouls, 'right'),
+                    td(data.n_disruptive_fouls, 'right'),
+                    td(data.n_flagrant_fouls, 'right'),
+                    td(data.n_legacy_unsportsmanlike_fouls, 'right'),
                     td(data.n_non_personal_fouls, 'right'),
                     td(data.plus, 'right'),
                     td(data.minus, 'right'),

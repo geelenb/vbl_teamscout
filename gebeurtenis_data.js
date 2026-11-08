@@ -61,6 +61,89 @@ function gebeurtenis_data_to_plus_minus(gebeurtenis_data) {
 	return plus_minus
 }
 
+function classify_foul(geb) {
+	const text = String(geb?.Text ?? '').trim().toUpperCase().replace(/[()\s]/g, '');
+	const category = Number(geb?.FoutCategorie);
+
+	if (/^DI(?:[123])?$/.test(text)) return 'disruptive';
+	if (/^FL(?:[123])?$/.test(text)) return 'flagrant';
+	if (/^T1/.test(text) || (text.startsWith('T') && category === 1)) return 'technical-category-1';
+	if (/^T2/.test(text) || (text.startsWith('T') && category === 2)) return 'technical-category-2';
+	if (/^T/.test(text)) return 'technical';
+	if (/^U/.test(text)) return 'unsportsmanlike';
+	if (/^D/.test(text)) return 'disqualifying';
+	if (/^P/.test(text)) return 'personal';
+	return 'other';
+}
+
+function foul_type_label(geb) {
+	return {
+		personal: 'Personal foul',
+		disruptive: 'Disruptive foul',
+		flagrant: 'Flagrant foul',
+		'technical-category-1': 'Technical foul (category 1)',
+		'technical-category-2': 'Technical foul (category 2)',
+		technical: 'Technical foul',
+		unsportsmanlike: 'Unsportsmanlike foul (legacy)',
+		disqualifying: 'Disqualifying foul (legacy)',
+		other: 'Other foul',
+	}[classify_foul(geb)];
+}
+
+function foul_type_marker(geb) {
+	return {
+		personal: 'P',
+		disruptive: 'DI',
+		flagrant: 'FL',
+		'technical-category-1': 'T1',
+		'technical-category-2': 'T2',
+		technical: 'T',
+		unsportsmanlike: 'U',
+		disqualifying: 'D',
+		other: '?',
+	}[classify_foul(geb)];
+}
+
+function count_fouls_by_type(gebeurtenissen) {
+	const counts = {
+		personal: 0,
+		disruptive: 0,
+		flagrant: 0,
+		'technical-category-1': 0,
+		'technical-category-2': 0,
+		technical: 0,
+		unsportsmanlike: 0,
+		disqualifying: 0,
+		other: 0,
+	};
+	gebeurtenissen
+		.filter(geb => geb.GebType === 30 && geb.GebStatus === 10)
+		.forEach(geb => counts[classify_foul(geb)]++);
+	return counts;
+}
+
+function free_throws_awarded_for_foul(geb) {
+	if (geb?.GebType !== 30 || geb?.GebStatus !== 10) return 0;
+	const type = classify_foul(geb);
+	if (type.startsWith('technical')) return 1;
+
+	const text = String(geb.Text ?? '').trim().toUpperCase().replace(/[()\s]/g, '');
+	const prefix = {personal: 'P', disruptive: 'DI', flagrant: 'FL', unsportsmanlike: 'U', disqualifying: 'D'}[type];
+	const match = prefix && text.match(new RegExp(`^${prefix}([123])$`));
+	if (match) return Number(match[1]);
+	if (type === 'unsportsmanlike' || type === 'disqualifying') return 2;
+	return 0;
+}
+
+function foul_summary(gebeurtenissen) {
+	const fouls = gebeurtenissen.filter(geb => geb.GebType === 30 && geb.GebStatus === 10);
+	const special_markers = fouls
+		.filter(geb => classify_foul(geb) !== 'personal')
+		.map(foul_type_marker)
+		.join('');
+	return `${fouls.length}${special_markers ? `<sup>${special_markers}</sup>` : ''}`;
+}
+
 function gebeurtenis_data_to_fouls(gebeurtenis_data) {
 	if (gebeurtenis_data === null) {
 		return {}
@@ -68,16 +151,11 @@ function gebeurtenis_data_to_fouls(gebeurtenis_data) {
 	gebeurtenis_data = gebeurtenis_data['GebNis'] || gebeurtenis_data;
 	let fouls = initialize_per_player(gebeurtenis_data, '');
 
-	for (let geb of gebeurtenis_data) {
-		if (geb['GebType'] === 30 && geb['GebStatus'] === 10) {
-			fouls[geb['RelGUID']] += geb['Text'][0]
-		}
-	}
-	const filter_special_fouls = foul_str => Array.from(foul_str).filter(p => (p !== 'P')).join('');
-	const fouls_html_representation = foul_str => `${foul_str.length}<sup>${filter_special_fouls(foul_str)}</sup>`;
-
 	for (let id in fouls) {
-		fouls[id] = fouls_html_representation(fouls[id])
+		const player_fouls = gebeurtenis_data.filter(geb =>
+			geb.GebType === 30 && geb.GebStatus === 10 && geb.RelGUID === id
+		);
+		fouls[id] = foul_summary(player_fouls);
 	}
 
 	return fouls
@@ -250,12 +328,11 @@ function gebeurtenis_data_to_free_throws_attempted(gebeurtenis_data) {
 	}
 
 	gebeurtenis_data = gebeurtenis_data['GebNis'] || gebeurtenis_data;
-	const n_free_throws_from_geb = x => (Number(x['Text'][1]) || 0);
-	const fouls = gebeurtenis_data.filter(x => x['GebType'] === 30);
+	const fouls = gebeurtenis_data.filter(x => x['GebType'] === 30 && x['GebStatus'] === 10);
 
 	return {
-		T: fouls.filter(x => x['TofU'] === 'U').map(n_free_throws_from_geb).reduce(sum, 0),
-		U: fouls.filter(x => x['TofU'] === 'T').map(n_free_throws_from_geb).reduce(sum, 0)
+		T: fouls.filter(x => x['TofU'] === 'U').map(free_throws_awarded_for_foul).reduce(sum, 0),
+		U: fouls.filter(x => x['TofU'] === 'T').map(free_throws_awarded_for_foul).reduce(sum, 0)
 	};
 }
 

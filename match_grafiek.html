@@ -181,7 +181,7 @@
 				fouls_trace.x.push(x);
 
 				fouls_trace.y.push(last_y + (geb.TofU === 'T' ? .2 : -.2));
-				fouls_trace.text.push(`${team_str} foul "${geb.Text}"<br>${geb.RugNr} ${player.Naam}`);
+				fouls_trace.text.push(`${team_str} ${foul_type_label(geb)} "${geb.Text}" (${free_throws_awarded_for_foul(geb)} FT)<br>${geb.RugNr} ${player.Naam}`);
 			}
 
 			geb_index_x.push({
@@ -255,7 +255,7 @@
 		const fouls_trace = {
 			x: foul_gebs.map(g => g.fake_minute),
 			y: foul_gebs.map(g => relguid_to_y[g.RelGUID] - .2), 
-			text: foul_gebs.map(g => g.Text),
+			text: foul_gebs.map(g => `${foul_type_marker(g)} (${g.Text})`),
 			mode: 'text',
 			hoverinfo: 'none',
 			textfont:{'color': "Red"}
@@ -506,11 +506,7 @@
 				const minutes_str = Math.round(minutes);
 
 				const fouls = this_player_gebs.filter(g => g.GebType == 30);
-				let fouls_str = `${fouls.length}`
-				const otherfouls = fouls.map(g => g.Text[0] === 'P' ? '' : g.Text[0]).join('');
-				if (otherfouls) {
-					fouls_str += `<sup>${otherfouls}</sup>`;
-				}
+				const fouls_str = foul_summary(fouls);
 
 				const on_court_class = relguid_to_in_uit[player.RelGUID] === 'in' ? 'class="on_court"' : '';
 				
@@ -665,10 +661,12 @@
 		document.querySelector('div#other_stats div.largest_run.h').innerHTML = biggest_runs.T;
 		document.querySelector('div#other_stats div.largest_run.a').innerHTML = biggest_runs.U;
 
-		document.querySelector('div#other_stats div.n_fouls.h').innerHTML = gebeurtenis_data
-			.filter((geb) => (geb.GebStatus === 10) && (geb.GebType === 30) && (geb.TofU === 'T')).length;
-		document.querySelector('div#other_stats div.n_fouls.a').innerHTML = gebeurtenis_data
-			.filter((geb) => (geb.GebStatus === 10) && (geb.GebType === 30) && (geb.TofU === 'U')).length;
+		const fouls_by_team = team => gebeurtenis_data.filter(geb =>
+			geb.GebStatus === 10 && geb.GebType === 30 && geb.TofU === team
+		);
+		document.querySelector('div#other_stats div.n_fouls.h').innerHTML = foul_summary(fouls_by_team('T'));
+		document.querySelector('div#other_stats div.n_fouls.a').innerHTML = foul_summary(fouls_by_team('U'));
+		const free_throws_attempted = gebeurtenis_data_to_free_throws_attempted(gebeurtenis_data);
 
 		document.querySelector('div#other_stats div.free_throws.h').innerHTML = (
 			gebeurtenis_data
@@ -679,14 +677,7 @@
                     (geb.Text[0] === "1")
                 ).length
 			+ ' / ' +
-			gebeurtenis_data
-				.filter((geb) =>
-					(geb.GebStatus === 10) &&
-					(geb.GebType === 30) &&
-					(geb.TofU === 'U')
-				)
-                .map((geb) => Number.parseInt(geb.Text[1] || 0))
-                .reduce(sum, 0)
+			free_throws_attempted.T
         );
 		document.querySelector('div#other_stats div.free_throws.a').innerHTML = (
 			gebeurtenis_data
@@ -697,14 +688,7 @@
 					(geb.Text[0] === "1")
 				).length
 			+ ' / ' +
-			gebeurtenis_data
-				.filter((geb) =>
-					(geb.GebStatus === 10) &&
-					(geb.GebType === 30) &&
-					(geb.TofU === 'T')
-				)
-				.map((geb) => Number.parseInt(geb.Text[1] || 0))
-				.reduce(sum, 0)
+			free_throws_attempted.U
 		);
 
 		document.getElementById('other_stats').style.display = '';
@@ -748,7 +732,7 @@
 				return `<tr><td>${time(geb)}</td><td colspan="2" style="text-align: center">Time-out ${team(geb)}</td></tr>`;
 			}
 			if (geb.GebType === 30) {
-				return `<tr><td>${time(geb)}</td><td>${player_description(geb)}</td><td>${nth_foul(geb)}<sup>e</sup> fout (${geb.Text})</td></tr>`;
+				return `<tr><td>${time(geb)}</td><td>${player_description(geb)}</td><td>${nth_foul(geb)}<sup>e</sup> ${foul_type_label(geb).toLowerCase()} (${geb.Text}; ${free_throws_awarded_for_foul(geb)} FT)</td></tr>`;
 			}
 			return '';
 		};

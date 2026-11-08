@@ -55,6 +55,8 @@
             'GebStatus',
             'GebType',
             'Type str',
+            'Foul type',
+            'FT awarded',
             'Periode',
             'Min',
             't',
@@ -62,6 +64,8 @@
             'RelGUID',
             'RugNr',
             'Text',
+            'FoutCategorie',
+            'Omcirkeld',
             "Naam",
         ];
 
@@ -87,6 +91,8 @@
             geb.GebStatus,
             geb.GebType,
             type_text(geb),
+            geb.GebType === 30 ? foul_type_label(geb) : '',
+            geb.GebType === 30 ? free_throws_awarded_for_foul(geb) : '',
             geb.Periode,
             geb.Minuut,
             geb.fake_minute.toFixed(2),
@@ -94,6 +100,8 @@
             geb.RelGUID,
             geb.RugNr,
             geb.Text,
+            geb.FoutCategorie,
+            geb.Omcirkeld,
             player ? player.Naam : "",
         ];
 

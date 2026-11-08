@@ -168,7 +168,8 @@
 
                 const n_fouls = team_fouls.length;
                 const avg_fouls = n_fouls / team_played_games.length;
-                const n_non_personal_fouls = team_fouls.filter(geb => geb.Text[0] !== "P").length;
+                const foul_counts = count_fouls_by_type(team_fouls);
+                const n_non_personal_fouls = n_fouls - foul_counts.personal;
                 const avg_non_personal_fouls = n_non_personal_fouls / team_played_games.length;
 
                 const gebs_by_opponents = gebeurtenis_data.flatMap((d, i) =>
@@ -179,7 +180,7 @@
                 const opponent_fouls = gebs_by_opponents.filter(geb => geb.GebType === 30);
 
                 const free_throws_made = team_scores.filter(geb => geb.Text[0] === '1').length;
-                const free_throws_attempted = opponent_fouls.map(geb => Number.parseInt(geb.Text[1]) || 0).reduce(sum, 0);
+                const free_throws_attempted = opponent_fouls.map(free_throws_awarded_for_foul).reduce(sum, 0);
                 const avg_free_throws_made = free_throws_made / Math.max(team_played_games.length, 1);
                 const avg_free_throws_attempted = free_throws_attempted / Math.max(team_played_games.length, 1);
                 const free_throws_pct = 100 * free_throws_made / Math.max(free_throws_attempted, 1);
@@ -232,6 +233,10 @@
                     avg_fouls: avg_fouls,
                     n_non_personal_fouls: n_non_personal_fouls,
                     avg_non_personal_fouls: avg_non_personal_fouls,
+                    disruptive_fouls: foul_counts.disruptive,
+                    flagrant_fouls: foul_counts.flagrant,
+                    technical_category_1_fouls: foul_counts['technical-category-1'],
+                    technical_category_2_fouls: foul_counts['technical-category-2'],
 
                     free_throws_made: free_throws_made,
                     free_throws_attempted: free_throws_attempted,
@@ -286,6 +291,10 @@
                 "<th>Fouls pg</th>",
                 "<th>Non-personal fouls</th>",
                 "<th>Non-personals pg</th>",
+                "<th>Disruptive</th>",
+                "<th>Flagrant</th>",
+                "<th>Technical Cat. 1</th>",
+                "<th>Technical Cat. 2</th>",
 
                 "<th>FTM</th>",
                 "<th>FTA</th>",
@@ -342,6 +351,10 @@
                     td(team.avg_fouls.toFixed(1), "right"),
                     td(team.n_non_personal_fouls, "right"),
                     td(team.avg_non_personal_fouls.toFixed(2), "right"),
+                    td(team.disruptive_fouls, "right"),
+                    td(team.flagrant_fouls, "right"),
+                    td(team.technical_category_1_fouls, "right"),
+                    td(team.technical_category_2_fouls, "right"),
 
                     td(team.free_throws_made, "right"),
                     td(team.free_throws_attempted, "right"),

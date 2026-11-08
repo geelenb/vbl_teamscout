@@ -50,7 +50,7 @@ min
                 <td>Datum</td>
                 <td>P</td>
                 <td>1</td><td>2</td><td>3</td>
-                <td>F</td>
+                <td>F</td><td>Foul types</td>
                 <td>+</td><td>-</td><td>+/-</td>
                 <td>min</td>
             </tr>
@@ -214,7 +214,7 @@ addEventListener('load', async () => {
     window.player = data.rosters.flatMap(roster=>roster).filter(p => p.RelGUID === window.player_relguid)[0];
     if (!window.player) {
         document.getElementById('player_name_title').textContent = 'Speler niet gevonden';
-        document.querySelector('table tbody').innerHTML = '<tr><td colspan="11">Geen gegevens gevonden voor deze speler en dit team.</td></tr>';
+        document.querySelector('table tbody').innerHTML = '<tr><td colspan="12">Geen gegevens gevonden voor deze speler en dit team.</td></tr>';
         return;
     }
 
@@ -229,7 +229,8 @@ addEventListener('load', async () => {
         );
         const scores = events.filter(geb => geb.GebType === 10);
         const points = scores.reduce((total, geb) => total + Number(geb.Text.split(' ')[0]), 0);
-        const fouls = events.filter(geb => geb.GebType === 30).length;
+        const player_fouls = events.filter(geb => geb.GebType === 30);
+        const fouls = player_fouls.filter(geb => geb.GebStatus === 10).length;
         const signed_plus_minus = data.plus_minus[i][window.player_relguid] || 0;
         const sign = is_home_game_for_team(game, team_id) ? 1 : -1;
         const opponent = get_opponent_from_game(game, team_id);
@@ -256,6 +257,7 @@ addEventListener('load', async () => {
             scores.filter(geb => geb.Text.startsWith('2 ')).length,
             scores.filter(geb => geb.Text.startsWith('3 ')).length,
             fouls,
+            foul_summary(player_fouls),
             plus,
             minus,
             signed_plus_minus * sign,
