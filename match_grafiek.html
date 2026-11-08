@@ -403,35 +403,31 @@
 
 	function make_quarters_table() {
 		let quarters = document.querySelector('table#quarters');
+		const events = Array.isArray(window.gebeurtenis_data) ? window.gebeurtenis_data : [];
+		const periodenames = events
+			.filter(geb => geb.GebStatus === 10 && geb.GebType === 40 && !geb.Text.includes('Balbezit'))
+			.map(geb => geb.Text.split(' ').pop());
+		const score_in_period = (period, team) => events
+			.filter(geb => geb.GebStatus === 10 && geb.GebType === 10 && geb.Periode == period && geb.TofU === team)
+			.reduce((total, geb) => total + Number(geb.Text.split(' ')[0]), 0);
+		const finished = game_is_finished();
+		const last_event = [...events].reverse().find(geb => geb.GebStatus === 10 && geb.Periode < 99);
+		const score_events = events.filter(geb => geb.GebStatus === 10 && geb.GebType === 10);
+		const live_score = team => score_events
+			.filter(geb => geb.TofU === team)
+			.reduce((total, geb) => total + Number(geb.Text.split(' ')[0]), 0);
+		const final_score = game.uitslag ? game.uitslag.split('-').map(score => score.trim()) : [];
+		const score_for_team = (team, index) => {
+			if (!events.length) return '';
+			return finished ? final_score[index] ?? live_score(team) : live_score(team);
+		};
+		const time_label = finished ? 'FT' : last_event ? `Q${last_event.Periode} ${last_event.Minuut}'` : '';
 
-		let periodenames = [];
-		let td_points_in_periode = {}
-
-		if (gebeurtenis_data) {
-			periodenames = (
-				gebeurtenis_data
-					.filter(geb => geb.GebStatus === 10)
-					.filter(geb => geb.GebType === 40)
-					.filter(geb => !geb.Text.includes('Balbezit'))
-					.map(geb => geb.Text.split(' ').pop())
-			);
-
-			td_points_in_periode = (periode, T_OR_U) => td(
-				gebeurtenis_data
-					.filter(geb => geb.GebStatus === 10)
-					.filter(geb => geb.Periode == periode)
-					.filter(geb => geb.TofU === T_OR_U)
-					.filter(geb => geb.GebType === 10)
-					.map(geb => Number(geb.Text.split(' ')[0]))
-					.reduce(((x, acc) => acc + Number(x)), 0)
-			)
-		}
-
-		quarters.innerHTML = (
-			`<tr><td></td>${periodenames.map(td).join('')}<td>FT</td></tr>` +
-			`<tr><td><a href='team.html?team=${game.tTGUID}'>${game.tTNaam}</a></td>` + periodenames.map(p => td_points_in_periode(p, 'T')).join('') + td(game.uitslag.split('-')[0]) + `</tr>` +
-			`<tr><td><a href='team.html?team=${game.tUGUID}'>${game.tUNaam}</a></td>` + periodenames.map(p => td_points_in_periode(p, 'U')).join('') + td(game.uitslag.split('-')[1]) + `</tr>`
-		);
+		quarters.innerHTML = [
+			`<tr><td></td>${periodenames.map(td).join('')}<td>${time_label}</td></tr>`,
+			`<tr><td><a href='team.html?team=${game.tTGUID}'>${game.tTNaam}</a></td>${periodenames.map(period => td(score_in_period(period, 'T'))).join('')}${td(score_for_team('T', 0))}</tr>`,
+			`<tr><td><a href='team.html?team=${game.tUGUID}'>${game.tUNaam}</a></td>${periodenames.map(period => td(score_in_period(period, 'U'))).join('')}${td(score_for_team('U', 1))}</tr>`,
+		].join('');
 	}
 
 	async function make_team_tables() {
@@ -472,6 +468,7 @@
 
 			// const row = document.createElement('tr');
 			
+			const add_plus = value => value > 0 ? `+${value}` : value;
 			new_innerhtml += tr([
 							'', 
 							'', 
@@ -527,7 +524,7 @@
 					fouls_str,
 					// pm[player.RelGUID] || '0',
 					// pm[player.RelGUID] || '0',
-					pm[player.RelGUID] || '0',
+					add_plus(pm[player.RelGUID] || 0),
 					minutes_str
 				].map(td).join(''));
 
@@ -768,7 +765,7 @@
 		make_title();
 		make_quarters_table();
 
-		if (window.gebeurtenis_data) {
+		if (window.gebeurtenis_data?.length > 0) {
 			make_graph_promise = make_graph();
 			make_sheets_promise = make_team_tables();
 			make_stints_promise = make_stints();

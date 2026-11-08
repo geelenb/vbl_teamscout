@@ -235,7 +235,7 @@
                     }
                 });
 
-                if (currently_in){
+                if (currently_in.length > 0){
                     const last_geb = [...gebdata.GebNis].reverse().find(geb => geb.Periode < 99);
                     all_subsets(currently_in)
                         .map(relguids_to_key)
