@@ -135,16 +135,23 @@ function free_throws_awarded_for_foul(geb) {
 	return 0;
 }
 
-function foul_summary(gebeurtenissen) {
+function foul_summary(gebeurtenissen, box_score_markers = false, single_letter_markers = false) {
 	const fouls = gebeurtenissen.filter(geb => geb.GebType === 30 && geb.GebStatus === 10);
 	const special_markers = fouls
 		.filter(geb => classify_foul(geb) !== 'personal')
-		.map(foul_type_marker)
+		.map(geb => {
+			const type = classify_foul(geb);
+			if (box_score_markers && type.startsWith('technical')) return 'T';
+			if (box_score_markers && type === 'disruptive') return 'D';
+			if (box_score_markers && type === 'flagrant') return 'F';
+			const marker = foul_type_marker(geb);
+			return single_letter_markers ? marker[0] : marker;
+		})
 		.join('');
 	return `${fouls.length}${special_markers ? `<sup>${special_markers}</sup>` : ''}`;
 }
 
-function gebeurtenis_data_to_fouls(gebeurtenis_data) {
+function gebeurtenis_data_to_fouls(gebeurtenis_data, single_letter_markers = false) {
 	if (gebeurtenis_data === null) {
 		return {}
 	}
@@ -155,7 +162,7 @@ function gebeurtenis_data_to_fouls(gebeurtenis_data) {
 		const player_fouls = gebeurtenis_data.filter(geb =>
 			geb.GebType === 30 && geb.GebStatus === 10 && geb.RelGUID === id
 		);
-		fouls[id] = foul_summary(player_fouls);
+		fouls[id] = foul_summary(player_fouls, false, single_letter_markers);
 	}
 
 	return fouls

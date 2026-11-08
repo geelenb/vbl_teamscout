@@ -69,7 +69,7 @@
                 relguid_to_most_common_number: get_most_common_number_per_player(rosters),
                 points: gebeurtenis_data.map(gebeurtenis_data_to_points),
                 plus_minus: gebeurtenis_data.map(gebeurtenis_data_to_plus_minus),
-                fouls: gebeurtenis_data.map(gebeurtenis_data_to_fouls),
+                fouls: gebeurtenis_data.map(g => gebeurtenis_data_to_fouls(g, true)),
                 minutes: gebeurtenis_data.map(gebeurtenis_data_to_minutes),
                 free_throws: gebeurtenis_data.map(gebeurtenis_data_to_free_throws),
                 free_throws_attempted: gebeurtenis_data.map(gebeurtenis_data_to_free_throws_attempted),
