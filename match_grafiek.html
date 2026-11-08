@@ -33,11 +33,11 @@
     <table id='quarters'></table>
 </div>
 
-<div id="live_events" class="fadein">
+<div id="live_events">
     <table></table>
 </div>
 
-<div id='box_scores' onclick='document.body.classList.toggle("pm")' title="Click to toggle plus/minus stats" class="fadein">
+<div id='box_scores' onclick='document.body.classList.toggle("pm")' title="Click to toggle plus/minus stats">
     <table class='stats home booktabs w_totals'></table>
     <table class='stats away booktabs w_totals'></table>
     <table class='pmstats home booktabs w_totals'></table>
@@ -45,7 +45,7 @@
 </div>
 
 <div>
-    <div id="other_stats" style="display: none;" class="fadein">
+    <div id="other_stats" style="display: none;">
         <img class="h" src="">
         <img class="a" src="">
         <div class="largest_lead h"></div>
@@ -69,7 +69,7 @@
     </div>
 </div>
 
-<div id=figures_container class="fadein">
+<div id=figures_container>
 	<div id='home_advantage_fig'></div>
 	<div id='stints_fig' style="height: 80vh"></div>
 </div>
@@ -757,6 +757,7 @@
 		window.gebeurtenis_data.forEach(geb => {
 			live_events_table.insertAdjacentHTML('afterbegin', row_for_event(geb));
 		});
+		document.getElementById('live_events').classList.add('expanded');
 	}
 
 	async function main_loop() {
@@ -777,9 +778,6 @@
 			update_live_events();
 
 			await Promise.all([make_graph_promise, make_sheets_promise, make_stints_promise]);
-			['box_scores', 'other_stats', 'figures_container', 'live_events'].forEach(id => {
-				document.getElementById(id).style.opacity = '1';
-			});
 		} else {
 			document.querySelectorAll('#home_advantage_fig, #box_scores, #other_stats').forEach(e => e.remove());
 			document.getElementById("tabellink").style.display = 'none'

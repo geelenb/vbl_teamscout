@@ -8,17 +8,6 @@ body > * {
     text-align: center;
 }
 
-@keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-.fadein {
-    opacity: 0;
-    transition: opacity ease 1s;
-    animation: fade-in 1s ease-in forwards;
-}
-
 a {
     text-decoration: none;
     color: midnightblue;
@@ -81,10 +70,15 @@ table#quarters tr td:first-child {
 
 #live_events {
     overflow-y: auto;
-    max-height: 150px;
+    max-height: 0;
     margin: 16px 0;
     background: #fAf7f7;
     box-shadow: inset 0 0 10px 0 rgba(0, 0, 0, 0.2);
+    transition: max-height 1s ease;
+}
+
+#live_events.expanded {
+    max-height: 150px;
 }
 
 #live_events > table {
