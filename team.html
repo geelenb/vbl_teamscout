@@ -276,6 +276,8 @@
                 <a href="subteams.html?team=${data.team_id_plus}">Subteam analysis</a>
                 &horbar;
                 <a href="rotations.html?team=${data.team_id_plus}">Rotaties</a>
+                &horbar;
+                <a href="match_grafieken.html?team=${encodeURIComponent(data.team_id_plus)}">Wedstrijdgrafieken</a>
             </p>`;
 
 			let next_game_p = '';
@@ -310,6 +312,8 @@
                         ${pouleNaam}: ${competition_record(pouleGUID)}
                         <br>
                         (<a href="poule.html?pouleGUID=${pouleGUID}">Reeks</a>
+                        &horbar;
+                        <a href="poule_teams.html?pouleGUID=${encodeURIComponent(pouleGUID)}">Standen en teams</a>
                         &horbar;
                         <a href="players.html?pouleGUID=${pouleGUID}&search=${data.team_id_plus}">Spelers van ${shorten_teamname(data.team_name)}</a>
                         &horbar;

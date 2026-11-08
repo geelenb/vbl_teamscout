@@ -79,11 +79,19 @@
         .recent_or_soon {
             text-decoration: underline;
         }
+        #stand {
+            margin: 12px auto;
+        }
     </style>
 </head>
 <body>
     <h1 id="js">Javascript staat uit!</h1>
     <h1 id="loading_msg">Laden...</h1>
+    <p>
+        <a id="poule_teams_link">Teams in deze reeks</a>
+        &horbar;
+        <a id="poule_players_link">Spelers in deze reeks</a>
+    </p>
     <table id="stand"></table>
 
     <!-- 
@@ -114,6 +122,12 @@
     -->
 
     <table id="crosstable"></table>
+
+    <h2>Stand over tijd</h2>
+    <div class="figure" id="wl_plot"></div>
+    <div class="figure" id="percentage_plot" style="display: none"></div>
+    <div class="figure" id="games_above_500_plot"></div>
+    <div class="figure" id="all_games_plot"></div>
 
     <table id="players_table"></table>
 
@@ -244,6 +258,130 @@
             document.getElementById('crosstable').innerHTML = table_innerhtml.join('');
         }
 
+        function make_standings_plots(games) {
+            const teams = new Map();
+            games.forEach(game => {
+                teams.set(game.tTGUID, game.tTNaam);
+                teams.set(game.tUGUID, game.tUNaam);
+            });
+
+            const team_data = [...teams].map(([guid, name]) => {
+                const played_games = games
+                    .filter(game => game.uitslag && (game.tTGUID === guid || game.tUGUID === guid))
+                    .sort((a, b) => a.jsDTCode - b.jsDTCode);
+                const wins = played_games.map(game => {
+                    const home_won = Number(game.uitslag.slice(0, 3)) > Number(game.uitslag.slice(4, 7));
+                    return home_won === (game.tTGUID === guid);
+                });
+                return {guid, name, played_games, wins};
+            });
+            const standings = team_data.map(team => ({
+                team,
+                wins: team.wins.filter(Boolean).length,
+                losses: team.wins.filter(won => !won).length,
+            })).sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+            document.getElementById('stand').innerHTML = [
+                '<thead><tr><th>Team</th><th>W</th><th>L</th><th>%</th><th>+/-</th></tr></thead><tbody>',
+                ...standings.map(({team, wins, losses}) => {
+                    return `<tr><td><a href="team.html?team=${encodeURIComponent(team.guid)}">${shorten_teamname(team.name)}</a></td><td>${wins}</td><td>${losses}</td><td>${wins + losses ? (wins / (wins + losses)).toFixed(3) : '-'}</td><td>${wins - losses}</td></tr>`;
+                }),
+                '</tbody>',
+            ].join('');
+
+            const team_trace = (team, values) => ({
+                x: values.x,
+                y: values.y,
+                type: 'scatter',
+                mode: 'lines+markers',
+                marker: {symbol: 'circle', color: window.team_guid_to_colour[team.guid]},
+                line: {shape: 'spline', color: window.team_guid_to_colour[team.guid]},
+                name: shorten_teamname(team.name),
+                text: values.text,
+                hoverinfo: 'text',
+            });
+            const date_trace = (team, selector) => {
+                let wins = 0;
+                let losses = 0;
+                const points = team.played_games.map((game, i) => {
+                    if (team.wins[i]) wins += 1;
+                    else losses += 1;
+                    return {
+                        x: new Date(game.jsDTCode).toISOString(),
+                        y: selector(wins, losses),
+                        text: `${shorten_teamname(team.name)} ${wins}-${losses} after ${game.datumString}`,
+                    };
+                });
+                return team_trace(team, {
+                    x: points.map(point => point.x),
+                    y: points.map(point => point.y),
+                    text: points.map(point => point.text),
+                });
+            };
+
+            const wins_losses = team_data.map(team => {
+                let wins = 0;
+                let losses = 0;
+                const x = [0];
+                const y = [0];
+                team.wins.forEach(won => {
+                    if (won) wins += 1;
+                    else losses += 1;
+                    x.push(losses);
+                    y.push(wins);
+                });
+                return team_trace(team, {
+                    x, y,
+                    text: x.map((_, i) => `${shorten_teamname(team.name)} ${y[i]}-${x[i]}`),
+                });
+            });
+            Plotly.newPlot('wl_plot', wins_losses, {
+                title: 'Wins and losses',
+                xaxis: {title: 'Losses'},
+                yaxis: {title: 'Wins'},
+                showlegend: true,
+            }, {scrollZoom: true});
+
+            const percentage_traces = team_data.map(team => date_trace(
+                team, (wins, losses) => wins / (wins + losses)
+            ));
+            Plotly.newPlot('percentage_plot', percentage_traces, {
+                title: 'Winning percentage through time',
+                xaxis: {title: 'Time'},
+                yaxis: {title: 'Winning percentage', range: [0, 1]},
+                showlegend: true,
+            }, {scrollZoom: true});
+
+            const games_above_500 = team_data.map(team => date_trace(
+                team, (wins, losses) => wins - losses
+            ));
+            Plotly.newPlot('games_above_500_plot', games_above_500, {
+                title: 'Games above .500 through time',
+                xaxis: {title: 'Time'},
+                yaxis: {title: 'Games above .500'},
+                showlegend: true,
+            }, {scrollZoom: true});
+
+            const game_scores = games.filter(game => game.uitslag).map(game => ({
+                x: Number(game.uitslag.slice(0, 3)),
+                y: Number(game.uitslag.slice(4, 7)),
+                text: `${shorten_teamname(game.tTNaam)} ${game.uitslag.slice(0, 3)}-${game.uitslag.slice(4, 7)} ${shorten_teamname(game.tUNaam)}`,
+            }));
+            Plotly.newPlot('all_games_plot', [{
+                x: game_scores.map(game => game.x),
+                y: game_scores.map(game => game.y),
+                text: game_scores.map(game => game.text),
+                type: 'scatter',
+                mode: 'markers',
+                marker: {color: 'black', symbol: 'circle'},
+                hoverinfo: 'text',
+            }], {
+                title: 'All games',
+                xaxis: {title: 'Home score'},
+                yaxis: {title: 'Away score'},
+                showlegend: false,
+            }, {scrollZoom: true});
+        }
+
         function make_players_table(previous_games, rosters, gebeurtenis_data) {
             const all_players_with_duplicates = rosters
                 .flatMap(r => [...r['TuDeel'], ...r['TtDeel']])
@@ -272,10 +410,25 @@
                 Object.entries(relguid_to_roster_entries).map(
                     ([relguid, entries]) => [relguid, most_common_value(entries.map(p => p.RugNr))])
                 );
+            const relguid_to_n_starts = Object.fromEntries(
+                Object.keys(relguid_to_roster_entries).map(relguid => [relguid, 0])
+            );
 
             previous_games.forEach((game, i) => {
                 const roster = rosters[i];
                 const game_gebeurtenissen = gebeurtenis_data[i];
+                const incoming_substitutions = game_gebeurtenissen.GebNis.filter(geb =>
+                    geb.GebStatus === 10 && geb.GebType === 50 && geb.Text === 'in'
+                );
+                ['T', 'U'].forEach(team => {
+                    [...new Set(incoming_substitutions
+                        .filter(geb => geb.TofU === team)
+                        .map(geb => geb.RelGUID))]
+                        .slice(0, 5)
+                        .forEach(relguid => {
+                            relguid_to_n_starts[relguid] = (relguid_to_n_starts[relguid] || 0) + 1;
+                        });
+                });
 
                 const players_on_field = {T: [], U: []};
                 const players_on_bench = {
@@ -319,6 +472,7 @@
                     "Birthdate",
                     "Team",
                     "Games",
+                    "Starts",
                     "Minutes",
                     "Minutes per game",
                     "Points",
@@ -331,6 +485,8 @@
                     "FTs per game",
                     "Fouls",
                     "Fouls per game",
+                    "Technical fouls",
+                    "Unsportsmanlike fouls",
                     "Non personal fouls",
                     "Plus",
                     "Minus",
@@ -398,6 +554,8 @@
 
                 const n_fouls = player_fouten.length;
                 const n_fouls_per_game = n_fouls / n_games;
+                const n_technical_fouls = player_fouten.filter(g => g.Text[0] === 'T').length;
+                const n_unsportsmanlike_fouls = player_fouten.filter(g => g.Text[0] === 'U').length;
                 const n_non_personal_fouls = player_fouten.filter(g => g.Text[0] !== 'P').length;
 
                 const plus = on_court_plus[relguid];
@@ -429,6 +587,7 @@
                     "team_relguid": relguid_to_teamid[relguid],
                     "teamnaam": relguid_to_teamnaam[relguid],
                     "n_games": n_games,
+                    "n_starts": relguid_to_n_starts[relguid] || 0,
                     "minutes": minutes,
                     "minutes_per_game": minutes_per_game,
                     "points": points,
@@ -441,6 +600,8 @@
                     "n_fts_per_game": n_fts_per_game,
                     "n_fouls": n_fouls,
                     "n_fouls_per_game": n_fouls_per_game,
+                    "n_technical_fouls": n_technical_fouls,
+                    "n_unsportsmanlike_fouls": n_unsportsmanlike_fouls,
                     "n_non_personal_fouls": n_non_personal_fouls,
                     "plus": plus,
                     "minus": minus,
@@ -465,12 +626,17 @@
 
             const row_from_data = (data) => {
                 const cells = [
-                    data.player.replaceAll(' ', '&nbsp;'),
+                    a(`speler.html?${new URLSearchParams({
+                        team: data.team_relguid,
+                        RelGUID: data.relguid,
+                        pouleGUID: new URLSearchParams(window.location.search).get('pouleGUID') || '',
+                    })}`, data.player.replaceAll(' ', '&nbsp;')),
                     data.Nr,
                     // data.relguid,
                     data.birthdate,
                     a('team.html?team=' + data.team_relguid, shorten_teamname(data.teamnaam).replaceAll(' ', '&nbsp;')),
                     data.n_games,
+                    data.n_starts,
                     data.minutes.toFixed(1),
                     data.minutes_per_game.toFixed(1),
                     data.points,
@@ -483,6 +649,8 @@
                     data.n_fts_per_game.toFixed(1),
                     data.n_fouls,
                     data.n_fouls_per_game.toFixed(1),
+                    data.n_technical_fouls,
+                    data.n_unsportsmanlike_fouls,
                     data.n_non_personal_fouls,
                     data.plus,
                     data.minus,
@@ -534,14 +702,32 @@
             return [
                 `${player.Nr} ${player.player}`, 
                 shorten_teamname_more(player.teamnaam),
-                `${player.minutes_per_game.toFixed(1)}mpg in ${player.n_games} games`,
+                `${player.minutes.toFixed(1)}' in ${player.n_games} games (${player.minutes_per_game.toFixed(1)}mpg)`,
                 ...more_lines ? more_lines : [],
             ].join('<br>');
         }
 
+        function player_first_name(player) {
+            return player.player.trim().split(/\s+/)[0];
+        }
+
         function marker_size_for_player(player) {
-            // 5 * Math.sqrt(player.minutes_per_game)
-            return player.minutes_per_game
+            return 5 * Math.sqrt(player.minutes);
+        }
+
+        function fix_marker_sizes(traces) {
+            const total = traces
+                .flatMap(trace => Array.isArray(trace.marker?.size) ? trace.marker.size : [trace.marker?.size])
+                .filter(Number.isFinite)
+                .reduce((a, b) => a + b, 0);
+            if (!total) return;
+            traces.forEach(trace => {
+                if (Array.isArray(trace.marker?.size)) {
+                    trace.marker.size = trace.marker.size.map(size => size * 5000 / total);
+                } else if (Number.isFinite(trace.marker?.size)) {
+                    trace.marker.size = trace.marker.size * 5000 / total;
+                }
+            });
         }
 
         function make_offense_defense_plot(selected_player_datas) {
@@ -551,10 +737,10 @@
                 x: player.minutes ? [player.benched_plus_per_minute, player.plus_per_minute] : [],
                 y: player.minutes ? [player.benched_minus_per_minute, player.minus_per_minute] : [],
                 type: 'scatter',
-                text: [
-                    `${shorten_teamname_more(player.teamnaam)} when ${player.player} is benched`,
-                    `${shorten_teamname_more(player.teamnaam)} when ${player.player} is on court`,
-                ],
+                text: hover_text_for_player(player, [
+                    `${shorten_teamname_more(player.teamnaam)} scored ${player.plus_per_minute.toFixed(2)} points per minute when ${player_first_name(player)} was playing`,
+                    `${shorten_teamname_more(player.teamnaam)} conceded ${player.minus_per_minute.toFixed(2)} points per minute when ${player_first_name(player)} was playing`,
+                ]),
                 marker: {
                     symbol: ["none", 'circle'],
                     size: [0, marker_size_for_player(player)],
@@ -570,7 +756,8 @@
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
 
-            const traces = player_datas.map(trace_for_player);
+            const traces = player_datas.filter(p => Number.isFinite(p.minutes)).map(trace_for_player);
+            fix_marker_sizes(traces);
             const layout = {
                 title: "Plus &amp; minus per minute of teams when players are on and off court",
                 xaxis: {
@@ -595,7 +782,10 @@
                 x: player.minutes ? [player.plus_minus_per_minute] : [],
                 y: player.minutes ? [player.benched_plus_minus_per_minute] : [],
                 type: 'scatter',
-                text: hover_text_for_player(player),
+                text: hover_text_for_player(player, [
+                    `${shorten_teamname_more(player.teamnaam)} was ${player.plus_minus >= 0 ? '+' : ''}${player.plus_minus} points in ${player.minutes.toFixed(1)}' with ${player_first_name(player)} playing`,
+                    `${shorten_teamname_more(player.teamnaam)} was ${player.benched_plus_minus >= 0 ? '+' : ''}${player.benched_plus_minus} points in ${player.benched_minutes.toFixed(1)}' with ${player_first_name(player)} benched`,
+                ]),
                 marker: {
                     symbol: ["none", 'circle'],
                     size: marker_size_for_player(player),
@@ -608,10 +798,11 @@
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
             
-            const traces = player_datas.map(trace_for_player);
+            const traces = player_datas.filter(p => Number.isFinite(p.minutes)).map(trace_for_player);
+            fix_marker_sizes(traces);
 
             if (data_is_of_one_team(selected_player_datas)){
-                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
+                traces.push(...initials_traces_on_data(selected_player_datas, trace_for_player));
             }
 
             const annotations = [
@@ -676,7 +867,11 @@
                 x: [player.plus_per_minute],
                 y: [player.points_per_40 / 40],
                 type: 'scatter',
-                text: hover_text_for_player(player, [(player.points_per_40 / 40 / player.plus_per_minute * 100).toFixed(1) + '%']),
+                text: hover_text_for_player(player, [
+                    `${player_first_name(player)} scored ${player.points} points in ${player.minutes.toFixed(1)}' (${(player.points_per_40 / 40).toFixed(2)} per minute)`,
+                    `${shorten_teamname_more(player.teamnaam)} scored ${player.plus} points when ${player_first_name(player)} was playing`,
+                    `${player.plus_per_minute ? ((player.points_per_40 / 40 / player.plus_per_minute) * 100).toFixed(1) : 'n/a'}% of the team's points were scored by ${player_first_name(player)} when playing`,
+                ]),
                 marker: {
                     symbol: ["none", 'circle'],
                     size: marker_size_for_player(player),
@@ -688,7 +883,8 @@
                 },
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
-            const player_dots = player_datas.map(trace_for_player);
+            const player_dots = player_datas.filter(p => Number.isFinite(p.minutes)).map(trace_for_player);
+            fix_marker_sizes(player_dots);
 
             const max_x = Math.max(...player_dots.map(t => t.x[0])) * 1.1;
             const max_y = Math.max(...player_dots.map(t => t.y[0])) * 1.1;
@@ -719,7 +915,7 @@
             const traces = [...diagonals, ...player_dots,];
 
             if (data_is_of_one_team(selected_player_datas)){
-                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
+                traces.push(...initials_traces_on_data(selected_player_datas, trace_for_player));
             }
 
             const layout = {
@@ -761,17 +957,17 @@
             return true;
         }
 
-        function numbers_traces_on_data(selected_player_datas, trace_function) {
+        function initials_traces_on_data(selected_player_datas, trace_function) {
             const selected_player_traces = selected_player_datas.map(trace_function);
             return selected_player_datas.map((player, i) => ({
                 x: selected_player_traces[i].x,
                 y: selected_player_traces[i].y,
                 mode: 'text',
-                text: player.Nr,
+                text: player.player.trim().split(/\s+/).map(part => part[0]).join('').toUpperCase(),
                 hoverinfo: 'none',
 
                 textfont: {
-                    color: 'white',
+                    color: 'black',
                 },
             }));
         }
@@ -782,7 +978,14 @@
                 x: [player.offensive_improvement],
                 y: [player.defensive_improvement],
                 type: 'scatter',
-                text: hover_text_for_player(player),
+                text: hover_text_for_player(player, [
+                    `${shorten_teamname_more(player.teamnaam)} scored ${player.plus_per_minute.toFixed(2)} points per minute when ${player_first_name(player)} was playing (${player.plus} points in ${player.minutes.toFixed(1)}')`,
+                    `${shorten_teamname_more(player.teamnaam)} scored ${player.benched_plus_per_minute.toFixed(2)} points per minute when ${player_first_name(player)} was benched (${player.benched_plus} points in ${player.benched_minutes.toFixed(1)}')`,
+                    `${shorten_teamname_more(player.teamnaam)} conceded ${player.minus_per_minute.toFixed(2)} points per minute when ${player_first_name(player)} was playing (${player.minus} points in ${player.minutes.toFixed(1)}')`,
+                    `${shorten_teamname_more(player.teamnaam)} conceded ${player.benched_minus_per_minute.toFixed(2)} points per minute when ${player_first_name(player)} was benched (${player.benched_minus} points in ${player.benched_minutes.toFixed(1)}')`,
+                    `${player_first_name(player)} changed the team's offensive rate by ${player.offensive_improvement.toFixed(2)} points per minute`,
+                    `${player_first_name(player)} changed the team's defensive rate by ${player.defensive_improvement.toFixed(2)} points per minute`,
+                ]),
                 marker: {
                     symbol: ["none", 'circle'],
                     size: marker_size_for_player(player),
@@ -794,10 +997,11 @@
                 },
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
-            const traces = player_datas.map(trace_for_player);
+            const traces = player_datas.filter(p => Number.isFinite(p.minutes)).map(trace_for_player);
+            fix_marker_sizes(traces);
 
             if (data_is_of_one_team(selected_player_datas)){
-                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
+                traces.push(...initials_traces_on_data(selected_player_datas, trace_for_player));
             }
             
             const annotations = [
@@ -863,7 +1067,12 @@
                 x: player.minutes ? [(player.points_per_game - (player.n_threes_per_game * 3) - player.n_fts_per_game) / 2] : [],
                 y: player.minutes ? [player.n_threes_per_game] : [],
                 type: 'scatter',
-                text: hover_text_for_player(player),
+                text: hover_text_for_player(player, [
+                    `${player.n_fts_per_game.toFixed(1)} free throws per game`,
+                    `${((player.points_per_game - player.n_threes_per_game * 3 - player.n_fts_per_game) / 2).toFixed(1)} two-pointers per game`,
+                    `${player.n_threes_per_game.toFixed(1)} three-pointers per game`,
+                    `${player.points_per_game.toFixed(1)} points per game`,
+                ]),
                 marker: {
                     symbol: ["none", 'circle'],
                     size: marker_size_for_player(player),
@@ -876,10 +1085,11 @@
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
             
-            const traces = player_datas.map(trace_for_player);
+            const traces = player_datas.filter(p => Number.isFinite(p.minutes)).map(trace_for_player);
+            fix_marker_sizes(traces);
 
             if (data_is_of_one_team(selected_player_datas)){
-                traces.push(...numbers_traces_on_data(selected_player_datas, trace_for_player));
+                traces.push(...initials_traces_on_data(selected_player_datas, trace_for_player));
             }
 
             const annotations = [
@@ -964,6 +1174,8 @@
         addEventListener('load', async () => {
             const poule_guid = (new URLSearchParams(window.location.search)).get('pouleGUID');
             document.body.classList.add('loading');
+            document.getElementById('poule_teams_link').href = `poule_teams.html?pouleGUID=${encodeURIComponent(poule_guid)}`;
+            document.getElementById('poule_players_link').href = `players.html?pouleGUID=${encodeURIComponent(poule_guid)}`;
 
             all_games = fetch_poule_games(poule_guid);
 
@@ -975,7 +1187,7 @@
             played_guids = played_games.map(g=> g.guid);
 
             // team_guid_to_colours = fetch_team_colours_from_games(all_games);
-            const all_team_guids = [...new Set(all_games.map(g => g.tTGUID))];
+            const all_team_guids = [...new Set(all_games.flatMap(g => [g.tTGUID, g.tUGUID]))];
             n_teams = all_team_guids.length;
 
             team_guid_to_colour = Object.fromEntries(all_team_guids.map((g, i) => [g, 
@@ -998,6 +1210,7 @@
             document.querySelector('h1').innerText = all_games[0]['pouleNaam'];
 
             make_cross_table(all_games);
+            make_standings_plots(all_games);
 
             window.player_datas = make_players_table(played_games, rosters, gebeurtenis_data);
 

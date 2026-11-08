@@ -126,10 +126,25 @@
                 Object.entries(relguid_to_roster_entries).map(
                     ([relguid, entries]) => [relguid, most_common_value(entries.map(p => p.RugNr))])
                 );
+            const relguid_to_n_starts = Object.fromEntries(
+                Object.keys(relguid_to_roster_entries).map(relguid => [relguid, 0])
+            );
 
             previous_games.forEach((game, i) => {
                 const roster = rosters[i];
                 const game_gebeurtenissen = gebeurtenis_data[i];
+                const incoming_substitutions = game_gebeurtenissen.GebNis.filter(geb =>
+                    geb.GebStatus === 10 && geb.GebType === 50 && geb.Text === 'in'
+                );
+                ['T', 'U'].forEach(team => {
+                    [...new Set(incoming_substitutions
+                        .filter(geb => geb.TofU === team)
+                        .map(geb => geb.RelGUID))]
+                        .slice(0, 5)
+                        .forEach(relguid => {
+                            relguid_to_n_starts[relguid] = (relguid_to_n_starts[relguid] || 0) + 1;
+                        });
+                });
 
                 const players_on_field = {T: [], U: []};
                 const players_on_bench = {
@@ -173,6 +188,7 @@
                     "Birthdate",
                     "Team",
                     "Games",
+                    "Starts",
                     "Minutes",
                     "Minutes per game",
                     "Points",
@@ -185,6 +201,8 @@
                     "FTs per game",
                     "Fouls",
                     "Fouls per game",
+                    "Technical fouls",
+                    "Unsportsmanlike fouls",
                     "Non personal fouls",
                     "Plus",
                     "Minus",
@@ -253,6 +271,8 @@
 
                 const n_fouls = player_fouten.length;
                 const n_fouls_per_game = n_fouls / n_games;
+                const n_technical_fouls = player_fouten.filter(g => g.Text[0] === 'T').length;
+                const n_unsportsmanlike_fouls = player_fouten.filter(g => g.Text[0] === 'U').length;
                 const n_non_personal_fouls = player_fouten.filter(g => g.Text[0] !== 'P').length;
 
                 const plus = on_court_plus[relguid];
@@ -284,6 +304,7 @@
                     "team_relguid": relguid_to_teamid[relguid],
                     "teamnaam": relguid_to_teamnaam[relguid],
                     "n_games": n_games,
+                    "n_starts": relguid_to_n_starts[relguid] || 0,
                     "minutes": minutes,
                     "minutes_per_game": minutes_per_game,
                     "points": points,
@@ -296,6 +317,8 @@
                     "n_fts_per_game": n_fts_per_game,
                     "n_fouls": n_fouls,
                     "n_fouls_per_game": n_fouls_per_game,
+                    "n_technical_fouls": n_technical_fouls,
+                    "n_unsportsmanlike_fouls": n_unsportsmanlike_fouls,
                     "n_non_personal_fouls": n_non_personal_fouls,
                     "plus": plus,
                     "minus": minus,
@@ -321,12 +344,17 @@
             const row_from_data = (data) => {
                 const teamname = shorten_teamname(data.teamnaam).replaceAll(' ', '&nbsp;')
                 const cells = [
-                    td(data.player.replaceAll(' ', '&nbsp;')),
+                    td(a(`speler.html?${new URLSearchParams({
+                        team: data.team_relguid,
+                        RelGUID: data.relguid,
+                        pouleGUID: new URLSearchParams(window.location.search).get('pouleGUID') || '',
+                    })}`, data.player.replaceAll(' ', '&nbsp;'))),
                     td(data.Nr, 'right'),
                     // data.relguid,
                     td(data.birthdate),
                     td(a(`team.html?team=${data.team_relguid}`, teamname)),
                     td(data.n_games, 'right'),
+                    td(data.n_starts, 'right'),
                     td(data.minutes.toFixed(1), 'right'),
                     td(data.minutes_per_game.toFixed(1), 'right'),
                     td(data.points, 'right'),
@@ -339,6 +367,8 @@
                     td(data.n_fts_per_game.toFixed(1), 'right'),
                     td(data.n_fouls, 'right'),
                     td(data.n_fouls_per_game.toFixed(1), 'right'),
+                    td(data.n_technical_fouls, 'right'),
+                    td(data.n_unsportsmanlike_fouls, 'right'),
                     td(data.n_non_personal_fouls, 'right'),
                     td(data.plus, 'right'),
                     td(data.minus, 'right'),
@@ -402,8 +432,22 @@
         }
 
         function marker_size_for_player(player) {
-            // 5 * Math.sqrt(player.minutes_per_game)
-            return player.minutes_per_game
+            return 5 * Math.sqrt(player.minutes);
+        }
+
+        function fix_marker_sizes(traces) {
+            const total = traces
+                .flatMap(trace => Array.isArray(trace.marker?.size) ? trace.marker.size : [trace.marker?.size])
+                .filter(Number.isFinite)
+                .reduce((a, b) => a + b, 0);
+            if (!total) return;
+            traces.forEach(trace => {
+                if (Array.isArray(trace.marker?.size)) {
+                    trace.marker.size = trace.marker.size.map(size => size * 5000 / total);
+                } else if (Number.isFinite(trace.marker?.size)) {
+                    trace.marker.size = trace.marker.size * 5000 / total;
+                }
+            });
         }
 
         function make_offense_defense_plot(selected_player_datas) {
@@ -432,7 +476,8 @@
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
 
-            const traces = player_datas.map(trace_for_player);
+            const traces = player_datas.filter(p => Number.isFinite(p.minutes)).map(trace_for_player);
+            fix_marker_sizes(traces);
             const layout = {
                 title: "Plus &amp; minus per minute of teams when players are on and off court",
                 xaxis: {
@@ -473,7 +518,8 @@
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
             
-            const traces = player_datas.map(trace_for_player);
+            const traces = player_datas.filter(p => Number.isFinite(p.minutes)).map(trace_for_player);
+            fix_marker_sizes(traces);
 
             if (filtered_data_is_of_one_team(selected_player_datas)){
                 traces.push(...initials_traces_on_data(selected_player_datas, trace_for_player));
@@ -557,7 +603,8 @@
                 },
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
-            const player_dots = player_datas.map(trace_for_player);
+            const player_dots = player_datas.filter(p => Number.isFinite(p.minutes)).map(trace_for_player);
+            fix_marker_sizes(player_dots);
 
             const max_x = Math.max(...player_dots.map(t => t.x[0])) * 1.1;
             const max_y = Math.max(...player_dots.map(t => t.y[0])) * 1.1;
@@ -669,7 +716,8 @@
                 },
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
-            const traces = player_datas.map(trace_for_player);
+            const traces = player_datas.filter(p => Number.isFinite(p.minutes)).map(trace_for_player);
+            fix_marker_sizes(traces);
 
             if (filtered_data_is_of_one_team(selected_player_datas)){
                 traces.push(...initials_traces_on_data(selected_player_datas, trace_for_player));
@@ -756,7 +804,8 @@
                 hoverinfo: selected_relguids.has(player.relguid) ? 'text' : 'none',
             });
             
-            const traces = player_datas.map(trace_for_player);
+            const traces = player_datas.filter(p => Number.isFinite(p.minutes)).map(trace_for_player);
+            fix_marker_sizes(traces);
 
             if (filtered_data_is_of_one_team(selected_player_datas)){
                 traces.push(...initials_traces_on_data(selected_player_datas, trace_for_player));

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Speler</title>
+
+    <!--
+        Needs get parameters:
+        player
+        team
+        pouleGUID
+    -->
+    <script src="libs/dexie.js"></script>
+
+    <script src="libs/plotly-2.9.0.min.js"></script>
+
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.css">
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"></script>
+
+    <script src="itertools.js?v=3"></script>
+    <script src="gebeurtenis_data.js?v=3"></script>
+    <script src="fetching.js?v=4"></script>
+    <script src="vis.js?v=3"></script>
+    <script src="common.js?v=3"></script>
+
+</head>
+<body>
+    <h1 id="player_name_title">Bram Geelen</h1>
+    <p>#<span id="player_number">14</span></p>
+    <p id="team_name">Dynamo Bertem HSE A</p>
+
+    <h2>Stats</h2>
+<!--    stats:
+punten
+1
+2
+3
+F
++
+-
++/-
+min
+
+-->
+    <table>
+        <thead>
+            <tr>
+                <td>Tegenstander</td>
+                <td>Datum</td>
+                <td>P</td>
+                <td>1</td><td>2</td><td>3</td>
+                <td>F</td>
+                <td>+</td><td>-</td><td>+/-</td>
+                <td>min</td>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h2>Rotaties</h2>
+    <div id="stints_figure"></div>
+    <script>
+        function trace_for_player(data, relguid) {
+            const changes = [];
+            data.gebeurtenis_data.forEach((game_data, game_index) => {
+                let on_court = false;
+                const substitutions = game_data.GebNis
+                    .filter(geb => geb.GebStatus === 10 && geb.GebType === 50 && geb.RelGUID === relguid);
+                substitutions.forEach(geb => {
+                    const next_state = geb.Text === 'in';
+                    if (next_state === on_court) return;
+                    changes.push({minute: geb.fake_minute, delta: next_state ? 1 : -1, game_index});
+                    on_court = next_state;
+                });
+                if (on_court) {
+                    const game_end = Math.max(40, ...game_data.GebNis
+                        .filter(geb => geb.GebStatus === 10 && geb.Periode < 99)
+                        .map(geb => geb.fake_minute));
+                    changes.push({minute: game_end, delta: -1, game_index});
+                }
+            });
+
+            changes.sort((a, b) => a.minute - b.minute || a.game_index - b.game_index);
+            let count = 0;
+            const x = [0];
+            const y = [0];
+            for (let i = 0; i < changes.length;) {
+                const minute = changes[i].minute;
+                let delta = 0;
+                while (i < changes.length && changes[i].minute === minute) {
+                    delta += changes[i].delta;
+                    i += 1;
+                }
+                x.push(minute, minute);
+                y.push(count, count + delta);
+                count += delta;
+            }
+
+            const final_minutes = Math.max(40, ...data.gebeurtenis_data.flatMap(game_data =>
+                game_data.GebNis
+                    .filter(geb => geb.GebStatus === 10 && geb.Periode < 99)
+                    .map(geb => geb.fake_minute)
+            ));
+            x.push(final_minutes);
+            y.push(count);
+
+            return {
+                x,
+                y,
+                type: 'scatter',
+                mode: 'lines',
+                line: {shape: 'hv'},
+                name: window.player?.Naam || 'Player',
+                hoverinfo: 'x+y',
+            };
+        }
+
+        function make_stints_figure(data) {
+
+            const games_have_player = data.gebeurtenis_data.map(
+                geb_data => geb_data.GebNis.some(geb =>  // array of geb
+                    geb.RelGUID == window.player_relguid
+                    &&
+                    geb.Text == 'in'
+                    &&
+                    geb.GebType == 50  // Wissel
+                    &&
+                    geb.GebStatus == 10  // valid
+                )
+            );
+            const n_games = games_have_player.filter(x => x).length;
+            const trace = trace_for_player(data, window.player_relguid);
+
+            const layout = {
+                title: `Player Stints<br>When did ${window.player.Naam} play?`,
+                xaxis: {title: 'Minute'},
+                yaxis: {title: `On Field Count<br>(out of ${n_games} games)`},
+                showlegend: false
+            };
+
+            Plotly.newPlot(
+                'stints_figure',
+                [trace], layout, {
+                    displayModeBar: true, // Enable the mode bar
+                }
+            );
+        }
+    </script>
+
+</body>
+<script>
+async function get_all_data_of_team(team_id) {
+    const games = await fetch_games(team_id);
+
+    let team_name = is_home_game_for_team(games[0], team_id) ? games[0]['tTNaam'] : games[0]['tUNaam'];
+
+    const previous_games = games
+            .filter(game => (game['uitslag'] !== ""))
+            .filter(game => game.pouleNaam.indexOf('OEFEN') === -1) // geen oefenmatchen
+            .sort((a, b) => a['jsDTCode'] - b['jsDTCode']);
+
+    let rosters = fetch_relevant_team_rosters_for_games(previous_games, team_id);
+    let gebeurtenis_data = fetch_gebeurtenis_data_for_games(previous_games);
+
+    rosters = await rosters;
+    gebeurtenis_data = await gebeurtenis_data;
+
+    gebeurtenis_data.forEach(gdi => {
+        gdi.GebNis = add_fake_minute_to_gebnis(gdi.GebNis);
+        gdi.GebNis = add_detailed_minute_to_gebnis(gdi.GebNis);
+    });
+
+    return {
+        team_id_plus: team_id,
+        team_name: team_name,
+        previous_games: previous_games,
+        games: games,
+        relguid_to_most_common_number: get_most_common_number_per_player(rosters),
+        points: gebeurtenis_data.map(gebeurtenis_data_to_points),
+        plus_minus: gebeurtenis_data.map(gebeurtenis_data_to_plus_minus),
+        fouls: gebeurtenis_data.map(gebeurtenis_data_to_fouls),
+        minutes: gebeurtenis_data.map(gebeurtenis_data_to_minutes),
+        free_throws: gebeurtenis_data.map(gebeurtenis_data_to_free_throws),
+        free_throws_attempted: gebeurtenis_data.map(gebeurtenis_data_to_free_throws_attempted),
+        three_pt: gebeurtenis_data.map(gebeurtenis_data_to_three_pt),
+
+        rosters: rosters,
+        gebeurtenis_data: gebeurtenis_data,
+    };
+}
+
+function player_relguid_from_get_params() {
+    const params = new URLSearchParams(window.location.search.substring(1));
+    return params.get('RelGUID');
+}
+
+function team_id_from_get_params() {
+    const params = new URLSearchParams(window.location.search.substring(1));
+    return params.get('team');
+}
+
+
+addEventListener('load', async () => {
+    window.team_id = team_id_from_get_params();
+    window.player_relguid = player_relguid_from_get_params();
+    if (!window.team_id || !window.player_relguid) {
+        document.getElementById('player_name_title').textContent = 'Spelerlink onvolledig';
+        return;
+    }
+
+    data = await get_all_data_of_team(team_id);
+
+    window.player = data.rosters.flatMap(roster=>roster).filter(p => p.RelGUID === window.player_relguid)[0];
+    if (!window.player) {
+        document.getElementById('player_name_title').textContent = 'Speler niet gevonden';
+        document.querySelector('table tbody').innerHTML = '<tr><td colspan="11">Geen gegevens gevonden voor deze speler en dit team.</td></tr>';
+        return;
+    }
+
+    document.getElementById('player_name_title').textContent = window.player.Naam;
+    document.getElementById('player_number').textContent = data.relguid_to_most_common_number[window.player_relguid] || '';
+    document.getElementById('team_name').textContent = data.team_name;
+    document.title = `Speler ${window.player.Naam}`;
+
+    document.querySelector('table tbody').innerHTML = data.previous_games.map((game, i) => {
+        const events = data.gebeurtenis_data[i].GebNis.filter(geb =>
+            geb.GebStatus === 10 && geb.RelGUID === window.player_relguid
+        );
+        const scores = events.filter(geb => geb.GebType === 10);
+        const points = scores.reduce((total, geb) => total + Number(geb.Text.split(' ')[0]), 0);
+        const fouls = events.filter(geb => geb.GebType === 30).length;
+        const signed_plus_minus = data.plus_minus[i][window.player_relguid] || 0;
+        const sign = is_home_game_for_team(game, team_id) ? 1 : -1;
+        const opponent = get_opponent_from_game(game, team_id);
+        const team_side = is_home_game_for_team(game, team_id) ? 'T' : 'U';
+        let plus = 0;
+        let minus = 0;
+        const on_court = new Set();
+        data.gebeurtenis_data[i].GebNis.forEach(geb => {
+            if (geb.GebStatus !== 10) return;
+            if (geb.GebType === 50 && geb.RelGUID === window.player_relguid) {
+                if (geb.Text === 'in') on_court.add(geb.RelGUID);
+                else if (geb.Text === 'uit') on_court.delete(geb.RelGUID);
+            } else if (geb.GebType === 10 && on_court.has(window.player_relguid)) {
+                const points = Number(geb.Text.split(' ')[0]);
+                if (geb.TofU === team_side) plus += points;
+                else minus += points;
+            }
+        });
+        const cells = [
+            `<a href="match_grafiek.html?game_id=${encodeURIComponent(game.guid)}">${shorten_teamname(opponent.naam)}</a>`,
+            game.datumString,
+            points,
+            scores.filter(geb => geb.Text.startsWith('1 ')).length,
+            scores.filter(geb => geb.Text.startsWith('2 ')).length,
+            scores.filter(geb => geb.Text.startsWith('3 ')).length,
+            fouls,
+            plus,
+            minus,
+            signed_plus_minus * sign,
+            minutes_for_player(data.gebeurtenis_data[i], window.player_relguid).toFixed(1),
+        ];
+        return `<tr>${cells.map(value => `<td>${value}</td>`).join('')}</tr>`;
+    }).join('');
+
+    make_stints_figure(data);
+
+});
+
+</script>
+</html>
